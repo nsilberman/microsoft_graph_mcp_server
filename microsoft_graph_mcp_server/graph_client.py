@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Union
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -16,6 +18,7 @@ class GraphClient:
     def __init__(self):
         self.base_url = settings.graph_api_base_url
         self.timeout = 30.0
+        self._semaphore = asyncio.Semaphore(10)
     
     async def _make_request(
         self, 
@@ -25,36 +28,37 @@ class GraphClient:
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
-        """Make authenticated request to Microsoft Graph API."""
+        """Make authenticated request to Microsoft Graph API with concurrency control."""
         
-        access_token = await auth_manager.get_access_token()
-        
-        default_headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-        
-        if headers:
-            default_headers.update(headers)
-        
-        url = f"{self.base_url}{endpoint}"
-        
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                params=params,
-                json=data,
-                headers=default_headers
-            )
+        async with self._semaphore:
+            access_token = await auth_manager.get_access_token()
             
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 204:
-                return {"status": "success"}
-            else:
-                raise Exception(f"Graph API request failed: {response.status_code} - {response.text}")
+            default_headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            
+            if headers:
+                default_headers.update(headers)
+            
+            url = f"{self.base_url}{endpoint}"
+            
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=data,
+                    headers=default_headers
+                )
+                
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 204:
+                    return {"status": "success"}
+                else:
+                    raise Exception(f"Graph API request failed: {response.status_code} - {response.text}")
     
     async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make GET request to Graph API."""
@@ -80,6 +84,20 @@ class GraphClient:
     async def get_me(self) -> Dict[str, Any]:
         """Get current user information."""
         return await self.get("/me")
+    
+    async def get_mailbox_settings(self) -> Dict[str, Any]:
+        """Get user's mailbox settings including timezone."""
+        try:
+            params = {"$select": "mailboxSettings"}
+            result = await self.get("/me", params=params)
+            return result.get("mailboxSettings", {})
+        except Exception:
+            return {}
+    
+    async def get_user_timezone(self) -> str:
+        """Get user's timezone identifier (e.g., 'Asia/Shanghai')."""
+        mailbox_settings = await self.get_mailbox_settings()
+        return mailbox_settings.get("timeZone", settings.user_timezone)
     
     async def get_users(self, filter_query: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get list of users in organization."""
@@ -119,6 +137,188 @@ class GraphClient:
         result = await self.get(f"/me/mailFolders/{folder}/messages", params=params)
         return result.get("value", [])
     
+    async def list_mail_folders(self) -> List[Dict[str, Any]]:
+        """List all mail folders with their paths (including all levels)."""
+        async def fetch_all_folders(folders_list: List[Dict[str, Any]], parent_path: str = "") -> List[Dict[str, Any]]:
+            """Recursively fetch all folders and their children."""
+            all_folders = []
+            
+            for folder in folders_list:
+                folder_name = folder.get("displayName", "")
+                current_path = f"{parent_path}/{folder_name}" if parent_path else folder_name
+                
+                all_folders.append({
+                    "path": current_path,
+                    "emailCount": folder.get("totalItemCount", 0)
+                })
+                
+                if folder.get("childFolderCount", 0) > 0:
+                    child_folders_result = await self.get(f"/me/mailFolders/{folder.get('id')}/childFolders")
+                    child_folders = child_folders_result.get("value", [])
+                    if child_folders:
+                        all_folders.extend(await fetch_all_folders(child_folders, current_path))
+            
+            return all_folders
+        
+        result = await self.get("/me/mailFolders")
+        folders = result.get("value", [])
+        
+        if not folders:
+            return []
+        
+        all_folders = await fetch_all_folders(folders)
+        return sorted(all_folders, key=lambda x: x["path"])
+    
+    async def load_emails_by_folder(
+        self,
+        folder: str = "Inbox",
+        days: Optional[int] = None,
+        top: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Load emails from a folder with optional days or top parameter (mutually exclusive)."""
+        if days is not None and top is not None:
+            raise ValueError("Cannot specify both 'days' and 'top' parameters simultaneously")
+        
+        if days is not None and days >= 30:
+            raise ValueError("Days parameter must be less than 30")
+        
+        if top is not None and top >= 100:
+            raise ValueError("Top parameter must be less than 100")
+        
+        folder_id = await self._get_folder_id_by_path(folder)
+        user_timezone_str = await self.get_user_timezone()
+        
+        params = {}
+        filter_parts = []
+        
+        if days is not None:
+            user_tz = ZoneInfo(user_timezone_str)
+            now_local = datetime.now(user_tz)
+            cutoff_local = now_local - timedelta(days=days)
+            cutoff_utc = cutoff_local.astimezone(timezone.utc)
+            filter_parts.append(f"receivedDateTime ge {cutoff_utc.isoformat().replace('+00:00', 'Z')}")
+        
+        if filter_parts:
+            params["$filter"] = " and ".join(filter_parts)
+        
+        if top is not None:
+            params["$top"] = top
+        else:
+            params["$top"] = 100
+        
+        params["$select"] = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        
+        result = await self.get(f"/me/mailFolders/{folder_id}/messages", params=params)
+        emails = result.get("value", [])
+        
+        summaries = await asyncio.gather(*[
+            asyncio.to_thread(self._create_email_summary, email, idx + 1, user_timezone_str)
+            for idx, email in enumerate(emails)
+        ])
+        
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTimeOriginal", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        return {
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries),
+            "folder": folder,
+            "folder_id": folder_id,
+            "filter_days": days,
+            "limit_top": top,
+            "timezone": user_timezone_str
+        }
+    
+    async def _get_folder_id_by_path(self, folder_path: str) -> str:
+        """Get folder ID by folder path (e.g., 'Inbox/Projects/2024')."""
+        path_parts = [p.strip() for p in folder_path.split('/') if p.strip()]
+        
+        if not path_parts:
+            raise ValueError("Invalid folder path")
+        
+        current_folders = await self.get("/me/mailFolders")
+        current_folder_list = current_folders.get("value", [])
+        
+        for i, part in enumerate(path_parts):
+            found = False
+            for folder in current_folder_list:
+                if folder.get("displayName", "").lower() == part.lower():
+                    if i == len(path_parts) - 1:
+                        return folder.get("id")
+                    
+                    if folder.get("childFolderCount", 0) > 0:
+                        child_folders = await self.get(f"/me/mailFolders/{folder.get('id')}/childFolders")
+                        current_folder_list = child_folders.get("value", [])
+                        found = True
+                        break
+            
+            if not found:
+                raise ValueError(f"Folder '{part}' not found in path '{folder_path}'")
+        
+        raise ValueError(f"Folder path '{folder_path}' not found")
+    
+    def _create_email_summary(self, email: Dict[str, Any], index: int, timezone_str: str = "UTC") -> Dict[str, Any]:
+        """Create a comprehensive email summary with all required fields."""
+        from_email = email.get("from", {}).get("emailAddress", {})
+        to_recipients = email.get("toRecipients", [])
+        cc_recipients = email.get("ccRecipients", [])
+        
+        received_datetime = email.get("receivedDateTime", "")
+        received_datetime_display = received_datetime
+        if received_datetime:
+            try:
+                dt = datetime.fromisoformat(received_datetime.replace('Z', '+00:00'))
+                user_tz = ZoneInfo(timezone_str)
+                dt_converted = dt.astimezone(user_tz)
+                received_datetime_display = dt_converted.strftime("%a %m/%d/%Y %I:%M %p")
+            except Exception:
+                pass
+        
+        body_content = email.get("body", {})
+        body_type = body_content.get("contentType", "")
+        body_text = body_content.get("content", "")
+        
+        has_embedded_images = False
+        embedded_image_count = 0
+        if body_type == "HTML" and body_text:
+            import re
+            img_tags = re.findall(r'<img[^>]+>', body_text, re.IGNORECASE)
+            embedded_image_count = len(img_tags)
+            has_embedded_images = embedded_image_count > 0
+        
+        return {
+            "number": index,
+            "id": email.get("id"),
+            "subject": email.get("subject", ""),
+            "from": {
+                "name": from_email.get("name", ""),
+                "email": from_email.get("address", "")
+            },
+            "to": [
+                {
+                    "name": r.get("emailAddress", {}).get("name", ""),
+                    "email": r.get("emailAddress", {}).get("address", "")
+                }
+                for r in to_recipients
+            ],
+            "cc": [
+                {
+                    "name": r.get("emailAddress", {}).get("name", ""),
+                    "email": r.get("emailAddress", {}).get("address", "")
+                }
+                for r in cc_recipients
+            ],
+            "receivedDateTime": received_datetime_display,
+            "receivedDateTimeOriginal": received_datetime,
+            "isRead": email.get("isRead", False),
+            "hasAttachments": email.get("hasAttachments", False),
+            "hasEmbeddedImages": has_embedded_images,
+            "embeddedImageCount": embedded_image_count,
+            "importance": email.get("importance", "normal")
+        }
+    
     async def browse_emails(
         self,
         folder: str = "Inbox",
@@ -130,7 +330,7 @@ class GraphClient:
         params = {
             "$top": top,
             "$skip": skip,
-            "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,importance"
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
         }
         if filter_query:
             params["$filter"] = filter_query
@@ -138,20 +338,10 @@ class GraphClient:
         result = await self.get(f"/me/mailFolders/{folder}/messages", params=params)
         
         emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
         summaries = []
-        for email in emails:
-            summary = {
-                "id": email.get("id"),
-                "subject": email.get("subject", ""),
-                "from": {
-                    "name": email.get("from", {}).get("emailAddress", {}).get("name", ""),
-                    "email": email.get("from", {}).get("emailAddress", {}).get("address", "")
-                },
-                "receivedDateTime": email.get("receivedDateTime"),
-                "isRead": email.get("isRead", False),
-                "hasAttachments": email.get("hasAttachments", False),
-                "importance": email.get("importance", "normal")
-            }
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, skip + idx + 1, user_timezone_str)
             summaries.append(summary)
         
         return {
@@ -177,11 +367,22 @@ class GraphClient:
         )
         return int(result) if isinstance(result, (int, str)) else 0
     
-    async def get_email(self, email_id: str) -> Dict[str, Any]:
-        """Get full email content by ID."""
-        params = {
-            "$select": "*"
-        }
+    async def get_email(self, email_id: str, text_only: bool = True) -> Dict[str, Any]:
+        """Get full email content by ID.
+        
+        Args:
+            email_id: The ID of the email to retrieve
+            text_only: If True, return only text content without embedded images and attachments.
+                      If False, return full content including embedded images and attachments.
+        """
+        if text_only:
+            params = {
+                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex"
+            }
+        else:
+            params = {
+                "$select": "*"
+            }
         return await self.get(f"/me/messages/{email_id}", params=params)
     
     async def search_emails(
@@ -194,7 +395,7 @@ class GraphClient:
         params = {
             "$search": f'"{query}"',
             "$top": top,
-            "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,importance"
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
         }
         
         endpoint = "/me/messages"
@@ -204,20 +405,161 @@ class GraphClient:
         result = await self.get(endpoint, params=params)
         
         emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
         summaries = []
-        for email in emails:
-            summary = {
-                "id": email.get("id"),
-                "subject": email.get("subject", ""),
-                "from": {
-                    "name": email.get("from", {}).get("emailAddress", {}).get("name", ""),
-                    "email": email.get("from", {}).get("emailAddress", {}).get("address", "")
-                },
-                "receivedDateTime": email.get("receivedDateTime"),
-                "isRead": email.get("isRead", False),
-                "hasAttachments": email.get("hasAttachments", False),
-                "importance": email.get("importance", "normal")
-            }
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, idx + 1, user_timezone_str)
+            summaries.append(summary)
+        
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        return {
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries)
+        }
+    
+    async def search_emails_by_sender(
+        self,
+        sender: str,
+        folder: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search emails by sender name or email address."""
+        filter_query = f"from/emailAddress/address eq '{sender}' or contains(from/emailAddress/name,'{sender}')"
+        params = {
+            "$filter": filter_query,
+            "$top": top,
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        }
+        
+        endpoint = "/me/messages"
+        if folder:
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
+        
+        result = await self.get(endpoint, params=params)
+        
+        emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
+        summaries = []
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, idx + 1, user_timezone_str)
+            summaries.append(summary)
+        
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        return {
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries)
+        }
+    
+    async def search_emails_by_recipient(
+        self,
+        recipient: str,
+        folder: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search emails by recipient name or email address."""
+        filter_query = f"toRecipients/any(r: r/emailAddress/address eq '{recipient}' or contains(r/emailAddress/name,'{recipient}'))"
+        params = {
+            "$filter": filter_query,
+            "$top": top,
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        }
+        
+        endpoint = "/me/messages"
+        if folder:
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
+        
+        result = await self.get(endpoint, params=params)
+        
+        emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
+        summaries = []
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, idx + 1, user_timezone_str)
+            summaries.append(summary)
+        
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        return {
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries)
+        }
+    
+    async def search_emails_by_subject(
+        self,
+        subject: str,
+        folder: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search emails by subject."""
+        filter_query = f"contains(subject,'{subject}')"
+        params = {
+            "$filter": filter_query,
+            "$top": top,
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        }
+        
+        endpoint = "/me/messages"
+        if folder:
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
+        
+        result = await self.get(endpoint, params=params)
+        
+        emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
+        summaries = []
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, idx + 1, user_timezone_str)
+            summaries.append(summary)
+        
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        return {
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries)
+        }
+    
+    async def search_emails_by_body(
+        self,
+        body_text: str,
+        folder: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search emails by text in body."""
+        params = {
+            "$search": f'"{body_text}"',
+            "$top": top,
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        }
+        
+        endpoint = "/me/messages"
+        if folder:
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
+        
+        result = await self.get(endpoint, params=params)
+        
+        emails = result.get("value", [])
+        user_timezone_str = await self.get_user_timezone()
+        summaries = []
+        for idx, email in enumerate(emails):
+            summary = self._create_email_summary(email, idx + 1, user_timezone_str)
             summaries.append(summary)
         
         return {

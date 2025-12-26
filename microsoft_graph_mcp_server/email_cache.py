@@ -1,10 +1,11 @@
 """Email browsing cache management module."""
 
+import asyncio
 import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from .auth import auth_manager
 
@@ -12,7 +13,7 @@ from .auth import auth_manager
 class EmailBrowsingCache:
     """Manages email browsing state with disk persistence."""
     
-    CACHE_VERSION = "1.0"
+    CACHE_VERSION = "2.0"
     CACHE_EXPIRY_HOURS = 1
     CACHE_MAX_AGE_HOURS = 24
     
@@ -54,13 +55,17 @@ class EmailBrowsingCache:
                 "folder": "Inbox",
                 "top": 20,
                 "filter": None,
-                "total_count": 0
+                "days": None,
+                "total_count": 0,
+                "emails": []
             },
             "search_state": {
                 "query": None,
-                "folder": "Inbox",
+                "folder": None,
                 "top": 20,
-                "total_count": 0
+                "search_type": None,
+                "total_count": 0,
+                "emails": []
             },
             "metadata": {
                 "user_id": None,
@@ -89,14 +94,18 @@ class EmailBrowsingCache:
         except (KeyError, ValueError):
             return True
     
-    def _save_cache(self):
-        """Save cache to disk."""
+    async def _save_cache(self):
+        """Save cache to disk asynchronously using threading."""
         self.cache["last_updated"] = datetime.utcnow().isoformat() + "Z"
         try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(self.cache, f, indent=2, ensure_ascii=False)
+            await asyncio.to_thread(self._save_cache_sync)
         except IOError:
             pass
+    
+    def _save_cache_sync(self):
+        """Save cache to disk synchronously (called from thread)."""
+        with open(self.cache_file, 'w', encoding='utf-8') as f:
+            json.dump(self.cache, f, indent=2, ensure_ascii=False)
     
     def _delete_cache_file(self):
         """Delete cache file from disk."""
@@ -106,34 +115,38 @@ class EmailBrowsingCache:
         except IOError:
             pass
     
-    def invalidate_list_state(self):
+    async def invalidate_list_state(self):
         """Invalidate list state (e.g., when folder or filter changes)."""
         self.cache["list_state"]["total_count"] = 0
-        self._save_cache()
+        self.cache["list_state"]["emails"] = []
+        await self._save_cache()
     
-    def invalidate_search_state(self):
+    async def invalidate_search_state(self):
         """Invalidate search state (e.g., when query changes)."""
         self.cache["search_state"]["total_count"] = 0
-        self._save_cache()
+        self.cache["search_state"]["emails"] = []
+        await self._save_cache()
     
-    def set_mode(self, mode: str):
+    async def set_mode(self, mode: str):
         """Set browsing mode ('list' or 'search')."""
         if self.cache["mode"] != mode:
             self.cache["mode"] = mode
-            self._save_cache()
+            await self._save_cache()
     
     def get_mode(self) -> str:
         """Get current browsing mode."""
         return self.cache["mode"]
     
-    def update_list_state(self, folder: Optional[str] = None, top: Optional[int] = None, 
-                          filter_query: Optional[str] = None, total_count: Optional[int] = None):
+    async def update_list_state(self, folder: Optional[str] = None, top: Optional[int] = None, 
+                          filter_query: Optional[str] = None, days: Optional[int] = None,
+                          total_count: Optional[int] = None, emails: Optional[List[Dict[str, Any]]] = None):
         """Update list state parameters."""
         state = self.cache["list_state"]
         
         if folder is not None and folder != state["folder"]:
             state["folder"] = folder
             state["total_count"] = 0
+            state["emails"] = []
         
         if top is not None and top != state["top"]:
             state["top"] = top
@@ -141,32 +154,52 @@ class EmailBrowsingCache:
         if filter_query != state["filter"]:
             state["filter"] = filter_query
             state["total_count"] = 0
+            state["emails"] = []
+        
+        if days != state["days"]:
+            state["days"] = days
+            state["total_count"] = 0
+            state["emails"] = []
         
         if total_count is not None:
             state["total_count"] = total_count
         
-        self._save_cache()
+        if emails is not None:
+            state["emails"] = emails
+        
+        await self._save_cache()
     
-    def update_search_state(self, query: str, folder: Optional[str] = None, 
-                            top: Optional[int] = None, total_count: Optional[int] = None):
+    async def update_search_state(self, query: str, folder: Optional[str] = None, 
+                            top: Optional[int] = None, search_type: Optional[str] = None,
+                            total_count: Optional[int] = None, emails: Optional[List[Dict[str, Any]]] = None):
         """Update search state parameters."""
         state = self.cache["search_state"]
         
         if query != state["query"]:
             state["query"] = query
             state["total_count"] = 0
+            state["emails"] = []
         
-        if folder is not None and folder != state["folder"]:
+        if folder != state["folder"]:
             state["folder"] = folder
             state["total_count"] = 0
+            state["emails"] = []
         
         if top is not None and top != state["top"]:
             state["top"] = top
         
+        if search_type != state["search_type"]:
+            state["search_type"] = search_type
+            state["total_count"] = 0
+            state["emails"] = []
+        
         if total_count is not None:
             state["total_count"] = total_count
         
-        self._save_cache()
+        if emails is not None:
+            state["emails"] = emails
+        
+        await self._save_cache()
     
     def get_list_state(self) -> Dict[str, Any]:
         """Get current list state."""
@@ -175,6 +208,15 @@ class EmailBrowsingCache:
     def get_search_state(self) -> Dict[str, Any]:
         """Get current search state."""
         return self.cache["search_state"].copy()
+    
+    def get_cached_emails(self) -> List[Dict[str, Any]]:
+        """Get cached emails from current mode, sorted by receivedDateTime (newest first)."""
+        if self.cache["mode"] == "list":
+            emails = self.cache["list_state"]["emails"].copy()
+        else:
+            emails = self.cache["search_state"]["emails"].copy()
+        
+        return sorted(emails, key=lambda x: x.get("receivedDateTimeOriginal", ""), reverse=True)
     
     def should_refresh_total_count(self) -> bool:
         """Check if total_count needs to be refreshed."""

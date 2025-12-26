@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     client_secret: str = os.getenv("CLIENT_SECRET", "")
     tenant_id: str = os.getenv("TENANT_ID", "organizations")
     
+    # User timezone configuration (fallback if API fails)
+    user_timezone: str = os.getenv("USER_TIMEZONE", "UTC")
+    
     # MCP Server configuration
     server_name: str = "microsoft-graph-mcp-server"
     server_version: str = "0.1.0"

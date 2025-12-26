@@ -89,17 +89,32 @@ Add the following configuration:
 
 ### Available Tools
 
+#### Authentication Tools
 - **login** - Authenticate with Microsoft Graph using device code flow (run this tool first)
-- **check_login_status** - Check current authentication status
+- **check_login_status** - Check current authentication status and token expiry
 - **logout** - Logout from Microsoft Graph and clear authentication state
-- **get_user_info** - Get current user information
+
+#### User and Contact Management
+- **get_user_info** - Get current user information from Microsoft Graph
 - **search_contacts** - Search contacts and people relevant to you
-- **browse_emails** - Browse emails in a folder with pagination
-- **get_email** - Get full email content by ID
-- **search_emails** - Search emails by keywords
+
+#### Email Management
+- **list_mail_folders** - List all mail folders with their paths (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024')
+- **list_recent_emails** - List recent emails from Inbox with optional days parameter (default: 1 day, maximum: 7 days)
+- **load_emails_by_folder** - Load emails from a folder into cache with filtering options (by days or top number)
+- **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
+- **search_emails** - Search emails by sender, recipient, subject, or body text
+- **get_email_content** - Get full email content by ID (with optional text-only mode)
 - **send_message** - Send an email message
-- **get_events** - Get calendar events
+- **clear_email_cache** - Clear the email browsing cache
+
+#### Calendar Management
+- **browse_events** - Browse calendar events with pagination
+- **get_event** - Get full calendar event by ID
+- **search_events** - Search calendar events by keywords
 - **create_event** - Create a calendar event
+
+#### File and Team Management
 - **list_files** - List files and folders from OneDrive
 - **get_teams** - Get list of Microsoft Teams
 - **get_team_channels** - Get channels for a specific Team
@@ -127,6 +142,29 @@ pytest
 black .
 isort .
 ```
+
+## Recent Improvements
+
+### Timezone Support
+Email timestamps are now automatically converted to the user's local timezone for better readability. The system:
+- Retrieves the user's mailbox timezone from Microsoft Graph
+- Falls back to the `USER_TIMEZONE` environment variable if unavailable
+- Defaults to UTC if no timezone information is available
+- Displays timestamps in a user-friendly format (e.g., "Fri 12/26/2025 09:27 PM")
+
+### Email Sorting and Filtering
+Emails are now properly sorted by received date (newest first) with:
+- Original ISO datetime preserved for accurate sorting
+- Formatted display timestamps for readability
+- Local-time-aware filtering when using the `days` parameter
+- Consistent ordering across both API responses and cached data
+
+### Enhanced Pagination
+The `browse_email_cache` tool now provides clear pagination information:
+- `current_page` - Current page number being viewed
+- `total_pages` - Total number of pages available
+- `count` - Number of emails on current page
+- `total_count` - Total number of emails in cache
 
 ## Documentation
 
