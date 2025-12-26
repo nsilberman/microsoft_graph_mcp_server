@@ -1,0 +1,1 @@
+"""Test package for Microsoft Graph MCP Server."""
