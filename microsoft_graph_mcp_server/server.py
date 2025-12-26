@@ -13,6 +13,7 @@ import mcp.types as types
 from .graph_client import graph_client
 from .config import settings
 from .auth import auth_manager
+from .email_cache import email_cache
 
 
 class MicrosoftGraphMCPServer:
@@ -62,39 +63,94 @@ class MicrosoftGraphMCPServer:
                     }
                 ),
                 types.Tool(
-                    name="list_users",
-                    description="List users in the organization",
+                    name="search_contacts",
+                    description="Search contacts and people relevant to you. Returns people you interact with most, including organization users and your personal contacts. Use this to find specific people by name or email.",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "filter": {
+                            "query": {
                                 "type": "string",
-                                "description": "Optional OData filter query"
+                                "description": "Search query (name or email)"
+                            },
+                            "top": {
+                                "type": "integer",
+                                "description": "Number of results to return (default: 10)",
+                                "default": 10
                             }
-                        }
+                        },
+                        "required": ["query"]
                     }
                 ),
                 types.Tool(
-                    name="get_messages",
-                    description="Get email messages from specified folder",
+                    name="browse_emails",
+                    description="Browse emails in a folder with pagination. Returns summary information (id, subject, from, date, read status, attachments, importance). Use page_number to navigate. Automatically manages browsing state with disk cache for persistence.",
                     inputSchema={
                         "type": "object",
                         "properties": {
+                            "page_number": {
+                                "type": "integer",
+                                "description": "Page number to view (starts at 1)",
+                                "minimum": 1
+                            },
                             "folder": {
                                 "type": "string",
-                                "description": "Mail folder name (default: Inbox)",
+                                "description": "Mail folder name (default: Inbox, cached from previous call)",
                                 "default": "Inbox"
                             },
                             "top": {
                                 "type": "integer",
-                                "description": "Number of messages to retrieve (default: 10)",
-                                "default": 10
+                                "description": "Number of emails per page (default: 20, cached from previous call)",
+                                "default": 20
                             },
                             "filter": {
                                 "type": "string",
-                                "description": "Optional OData filter query"
+                                "description": "Optional OData filter query (e.g., 'isRead eq false' for unread only)"
                             }
-                        }
+                        },
+                        "required": ["page_number"]
+                    }
+                ),
+                types.Tool(
+                    name="get_email",
+                    description="Get full email content by ID. Use the email ID from browse_emails or search_emails to retrieve complete email with body, attachments, and all details.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "email_id": {
+                                "type": "string",
+                                "description": "Email ID from browse_emails or search_emails"
+                            }
+                        },
+                        "required": ["email_id"]
+                    }
+                ),
+                types.Tool(
+                    name="search_emails",
+                    description="Search emails by keywords across all folders or specific folder. Returns summary information. Automatically manages search state with disk cache for persistence.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search keywords"
+                            },
+                            "page_number": {
+                                "type": "integer",
+                                "description": "Page number to view (starts at 1, cached from previous call)",
+                                "default": 1,
+                                "minimum": 1
+                            },
+                            "folder": {
+                                "type": "string",
+                                "description": "Optional folder to search (default: all folders)"
+                            },
+                            "top": {
+                                "type": "integer",
+                                "description": "Number of emails per page (default: 20, cached from previous call)",
+                                "default": 20
+                            }
+                        },
+                        "required": ["query"]
                     }
                 ),
                 types.Tool(
@@ -124,11 +180,16 @@ class MicrosoftGraphMCPServer:
                     }
                 ),
                 types.Tool(
-                    name="get_events",
-                    description="Get calendar events",
+                    name="browse_events",
+                    description="Browse calendar events with pagination. Returns summary information (id, subject, start, end, location, organizer, attendees, isAllDay, showAs, importance). Use page_number to navigate.",
                     inputSchema={
                         "type": "object",
                         "properties": {
+                            "page_number": {
+                                "type": "integer",
+                                "description": "Page number to view (starts at 1)",
+                                "minimum": 1
+                            },
                             "start_date": {
                                 "type": "string",
                                 "description": "Start date in ISO format (optional)"
@@ -136,8 +197,55 @@ class MicrosoftGraphMCPServer:
                             "end_date": {
                                 "type": "string",
                                 "description": "End date in ISO format (optional)"
+                            },
+                            "top": {
+                                "type": "integer",
+                                "description": "Number of events per page (default: 20)",
+                                "default": 20
                             }
-                        }
+                        },
+                        "required": ["page_number"]
+                    }
+                ),
+                types.Tool(
+                    name="get_event",
+                    description="Get full calendar event by ID. Use the event ID from browse_events or search_events to retrieve complete event with body, attachments, and all details.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "event_id": {
+                                "type": "string",
+                                "description": "Event ID from browse_events or search_events"
+                            }
+                        },
+                        "required": ["event_id"]
+                    }
+                ),
+                types.Tool(
+                    name="search_events",
+                    description="Search calendar events by keywords. Returns summary information. Note: Pagination with skip is not supported with search.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search keywords"
+                            },
+                            "start_date": {
+                                "type": "string",
+                                "description": "Start date in ISO format (optional)"
+                            },
+                            "end_date": {
+                                "type": "string",
+                                "description": "End date in ISO format (optional)"
+                            },
+                            "top": {
+                                "type": "integer",
+                                "description": "Number of events to return (default: 20)",
+                                "default": 20
+                            }
+                        },
+                        "required": ["query"]
                     }
                 ),
                 types.Tool(
@@ -244,22 +352,43 @@ class MicrosoftGraphMCPServer:
                         text=json.dumps(result, indent=2, ensure_ascii=False)
                     )]
                 
-                elif name == "list_users":
-                    filter_query = arguments.get("filter")
-                    users = await graph_client.get_users(filter_query)
+                elif name == "search_contacts":
+                    query = arguments["query"]
+                    top = arguments.get("top", 10)
+                    contacts = await graph_client.search_contacts(query, top)
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps(users, indent=2, ensure_ascii=False)
+                        text=json.dumps(contacts, indent=2, ensure_ascii=False)
                     )]
                 
-                elif name == "get_messages":
+                elif name == "browse_emails":
+                    page_number = arguments["page_number"]
                     folder = arguments.get("folder", "Inbox")
-                    top = arguments.get("top", 10)
+                    top = arguments.get("top", 20)
                     filter_query = arguments.get("filter")
-                    messages = await graph_client.get_messages(folder, top, filter_query)
+                    emails = await graph_client.browse_emails(page_number, folder, top, filter_query)
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps(messages, indent=2, ensure_ascii=False)
+                        text=json.dumps(emails, indent=2, ensure_ascii=False)
+                    )]
+                
+                elif name == "get_email":
+                    email_id = arguments["email_id"]
+                    email = await graph_client.get_email(email_id)
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps(email, indent=2, ensure_ascii=False)
+                    )]
+                
+                elif name == "search_emails":
+                    query = arguments["query"]
+                    page_number = arguments.get("page_number", 1)
+                    folder = arguments.get("folder")
+                    top = arguments.get("top", 20)
+                    emails = await graph_client.search_emails(query, page_number, folder, top)
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps(emails, indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "send_message":
@@ -293,10 +422,32 @@ class MicrosoftGraphMCPServer:
                         text=f"Message sent successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
                     )]
                 
-                elif name == "get_events":
+                elif name == "browse_events":
+                    page_number = arguments["page_number"]
                     start_date = arguments.get("start_date")
                     end_date = arguments.get("end_date")
-                    events = await graph_client.get_events(start_date, end_date)
+                    top = arguments.get("top", 20)
+                    skip = (page_number - 1) * top
+                    events = await graph_client.browse_events(start_date, end_date, top, skip)
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps(events, indent=2, ensure_ascii=False)
+                    )]
+                
+                elif name == "get_event":
+                    event_id = arguments["event_id"]
+                    event = await graph_client.get_event(event_id)
+                    return [types.TextContent(
+                        type="text",
+                        text=json.dumps(event, indent=2, ensure_ascii=False)
+                    )]
+                
+                elif name == "search_events":
+                    query = arguments["query"]
+                    start_date = arguments.get("start_date")
+                    end_date = arguments.get("end_date")
+                    top = arguments.get("top", 20)
+                    events = await graph_client.search_events(query, start_date, end_date, top)
                     return [types.TextContent(
                         type="text",
                         text=json.dumps(events, indent=2, ensure_ascii=False)

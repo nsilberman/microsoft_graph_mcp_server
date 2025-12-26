@@ -94,6 +94,16 @@ class GraphClient:
         """Get specific user by ID."""
         return await self.get(f"/users/{user_id}")
     
+    async def search_contacts(self, query: str, top: int = 10) -> List[Dict[str, Any]]:
+        """Search contacts and people relevant to the user."""
+        params = {
+            "$search": f'"{query}"',
+            "$top": top
+        }
+        
+        result = await self.get("/me/people", params=params)
+        return result.get("value", [])
+    
     # Mail management methods
     async def get_messages(
         self, 
@@ -109,24 +119,213 @@ class GraphClient:
         result = await self.get(f"/me/mailFolders/{folder}/messages", params=params)
         return result.get("value", [])
     
+    async def browse_emails(
+        self,
+        folder: str = "Inbox",
+        top: int = 20,
+        skip: int = 0,
+        filter_query: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Browse emails with pagination, returning summary information only."""
+        params = {
+            "$top": top,
+            "$skip": skip,
+            "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,importance"
+        }
+        if filter_query:
+            params["$filter"] = filter_query
+        
+        result = await self.get(f"/me/mailFolders/{folder}/messages", params=params)
+        
+        emails = result.get("value", [])
+        summaries = []
+        for email in emails:
+            summary = {
+                "id": email.get("id"),
+                "subject": email.get("subject", ""),
+                "from": {
+                    "name": email.get("from", {}).get("emailAddress", {}).get("name", ""),
+                    "email": email.get("from", {}).get("emailAddress", {}).get("address", "")
+                },
+                "receivedDateTime": email.get("receivedDateTime"),
+                "isRead": email.get("isRead", False),
+                "hasAttachments": email.get("hasAttachments", False),
+                "importance": email.get("importance", "normal")
+            }
+            summaries.append(summary)
+        
+        return {
+            "emails": summaries,
+            "count": len(summaries)
+        }
+    
+    async def get_email_count(self, folder: str = "Inbox", filter_query: Optional[str] = None) -> int:
+        """Get total count of emails in folder."""
+        params = {}
+        if filter_query:
+            params["$filter"] = filter_query
+        
+        headers = {
+            "Accept": "text/plain"
+        }
+        
+        result = await self._make_request(
+            "GET",
+            f"/me/mailFolders/{folder}/messages/$count",
+            params=params,
+            headers=headers
+        )
+        return int(result) if isinstance(result, (int, str)) else 0
+    
+    async def get_email(self, email_id: str) -> Dict[str, Any]:
+        """Get full email content by ID."""
+        params = {
+            "$select": "*"
+        }
+        return await self.get(f"/me/messages/{email_id}", params=params)
+    
+    async def search_emails(
+        self,
+        query: str,
+        folder: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search emails by keywords. Note: Pagination with skip is not supported with search."""
+        params = {
+            "$search": f'"{query}"',
+            "$top": top,
+            "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,importance"
+        }
+        
+        endpoint = "/me/messages"
+        if folder:
+            endpoint = f"/me/mailFolders/{folder}/messages"
+        
+        result = await self.get(endpoint, params=params)
+        
+        emails = result.get("value", [])
+        summaries = []
+        for email in emails:
+            summary = {
+                "id": email.get("id"),
+                "subject": email.get("subject", ""),
+                "from": {
+                    "name": email.get("from", {}).get("emailAddress", {}).get("name", ""),
+                    "email": email.get("from", {}).get("emailAddress", {}).get("address", "")
+                },
+                "receivedDateTime": email.get("receivedDateTime"),
+                "isRead": email.get("isRead", False),
+                "hasAttachments": email.get("hasAttachments", False),
+                "importance": email.get("importance", "normal")
+            }
+            summaries.append(summary)
+        
+        return {
+            "emails": summaries,
+            "count": len(summaries)
+        }
+    
     async def send_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """Send an email message."""
         return await self.post("/me/sendMail", data={"message": message_data})
     
     # Calendar management methods
-    async def get_events(
-        self, 
-        start_date: Optional[str] = None, 
-        end_date: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Get calendar events."""
-        params = {}
+    async def browse_events(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        top: int = 20,
+        skip: int = 0
+    ) -> Dict[str, Any]:
+        """Browse calendar events with pagination, returning summary information only."""
+        params = {
+            "$top": top,
+            "$skip": skip,
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance"
+        }
+        
         if start_date and end_date:
             params["startDateTime"] = start_date
             params["endDateTime"] = end_date
         
         result = await self.get("/me/events", params=params)
-        return result.get("value", [])
+        
+        events = result.get("value", [])
+        summaries = []
+        for event in events:
+            summary = {
+                "id": event.get("id"),
+                "subject": event.get("subject", ""),
+                "start": event.get("start", {}).get("dateTime", ""),
+                "end": event.get("end", {}).get("dateTime", ""),
+                "location": event.get("location", {}).get("displayName", ""),
+                "organizer": {
+                    "name": event.get("organizer", {}).get("emailAddress", {}).get("name", ""),
+                    "email": event.get("organizer", {}).get("emailAddress", {}).get("address", "")
+                },
+                "attendees": len(event.get("attendees", [])),
+                "isAllDay": event.get("isAllDay", False),
+                "showAs": event.get("showAs", ""),
+                "importance": event.get("importance", "normal")
+            }
+            summaries.append(summary)
+        
+        return {
+            "events": summaries,
+            "count": len(summaries)
+        }
+    
+    async def get_event(self, event_id: str) -> Dict[str, Any]:
+        """Get full calendar event by ID."""
+        params = {
+            "$select": "*"
+        }
+        return await self.get(f"/me/events/{event_id}", params=params)
+    
+    async def search_events(
+        self,
+        query: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        top: int = 20
+    ) -> Dict[str, Any]:
+        """Search calendar events by keywords. Note: Pagination with skip is not supported with search."""
+        params = {
+            "$search": f'"{query}"',
+            "$top": top,
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance"
+        }
+        
+        if start_date and end_date:
+            params["startDateTime"] = start_date
+            params["endDateTime"] = end_date
+        
+        result = await self.get("/me/events", params=params)
+        
+        events = result.get("value", [])
+        summaries = []
+        for event in events:
+            summary = {
+                "id": event.get("id"),
+                "subject": event.get("subject", ""),
+                "start": event.get("start", {}).get("dateTime", ""),
+                "end": event.get("end", {}).get("dateTime", ""),
+                "location": event.get("location", {}).get("displayName", ""),
+                "organizer": {
+                    "name": event.get("organizer", {}).get("emailAddress", {}).get("name", ""),
+                    "email": event.get("organizer", {}).get("emailAddress", {}).get("address", "")
+                },
+                "attendees": len(event.get("attendees", [])),
+                "isAllDay": event.get("isAllDay", False),
+                "showAs": event.get("showAs", ""),
+                "importance": event.get("importance", "normal")
+            }
+            summaries.append(summary)
+        
+        return {
+            "events": summaries,
+            "count": len(summaries)
+        }
     
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a calendar event."""
