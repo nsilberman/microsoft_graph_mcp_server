@@ -676,9 +676,10 @@ class GraphClient:
                     content_bytes = ""
                     content_id = ""
                 
-                # Use contentId as-is from the fetched attachment
-                # Microsoft Graph API handles the cid: matching automatically
-                # The contentId may or may not have angle brackets depending on the original email
+                # Normalize contentId by stripping angle brackets if present
+                # HTML cid: references use contentId without angle brackets (RFC 2387)
+                if content_id.startswith('<') and content_id.endswith('>'):
+                    content_id = content_id[1:-1]
                 
                 inline_attachments.append({
                     "@odata.type": "#microsoft.graph.fileAttachment",

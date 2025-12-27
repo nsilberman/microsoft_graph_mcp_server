@@ -58,7 +58,145 @@ The `contentId` is critical for proper rendering:
 - The attachment's `contentId` must match exactly
 - Microsoft Graph API handles the cid: matching automatically when the `contentId` is preserved
 
-**Important**: The `contentId` may or may not include angle brackets depending on the original email. The system preserves the original format without modification.
+**Important**: Microsoft Graph API may return `contentId` with angle brackets (e.g., `<banner>`), but HTML `cid:` references do not include angle brackets (e.g., `cid:banner`). To ensure proper rendering, the system normalizes the `contentId` by stripping angle brackets when reattaching inline attachments. This ensures compatibility with RFC 2387, which specifies that Content-ID headers use angle brackets while `cid:` scheme references do not.
+
+### Step-by-Step Process for Handling Inline Attachments
+
+This section provides a detailed breakdown of the inline attachment handling process, including the order of operations and key considerations at each step.
+
+#### Step 1: Identify Inline Attachments in Original Email
+
+**What to do:**
+- Fetch the original email message with `$expand=attachments` to get attachment metadata
+- Check if the email has attachments using `hasAttachments` property
+- Filter attachments where `isInline: true`
+
+**Key Points:**
+- Use `$select` to limit returned fields for better performance
+- Include `body` field to preserve HTML content with `cid:` references
+- Only inline attachments (`isInline: true`) need special handling
+
+**Code Location:** [graph_client.py - reply_to_message()](file:///c:\Project\microsoft_graph_mcp_server\microsoft_graph_mcp_server\graph_client.py#L640-L660)
+
+#### Step 2: Fetch Complete Attachment Data
+
+**What to do:**
+- For each inline attachment, make a separate API call to get full attachment details
+- Extract `contentBytes` (base64-encoded image data) and `contentId` (Content-ID for HTML references)
+
+**Key Points:**
+- The initial `$expand=attachments` only returns metadata, not `contentBytes`
+- Must call `/me/messages/{message_id}/attachments/{attachment_id}` for each inline attachment
+- Handle exceptions gracefully - if an attachment fails to fetch, log a warning and continue
+
+**Code Location:** [graph_client.py - reply_to_message()](file:///c:\Project\microsoft_graph_mcp_server\microsoft_graph_mcp_server\graph_client.py#L662-L672)
+
+#### Step 3: Normalize Content-ID (CRITICAL STEP)
+
+**What to do:**
+- Check if the `contentId` has angle brackets (e.g., `<banner>`)
+- Strip angle brackets to match HTML `cid:` reference format (e.g., `banner`)
+
+**Key Points:**
+- **This is the most critical step** - without normalization, images will appear as red crosses
+- Microsoft Graph API may return Content-IDs with angle brackets per RFC 2387
+- HTML `cid:` references never include angle brackets
+- Normalization ensures the attachment's `contentId` matches the HTML reference exactly
+
+**Code Location:** [graph_client.py - reply_to_message()](file:///c:\Project\microsoft_graph_mcp_server\microsoft_graph_mcp_server\graph_client.py#L680-L684)
+
+#### Step 4: Build Attachment Object for Reply
+
+**What to do:**
+- Create attachment object with all required fields
+- Set `isInline: true` to mark it as an inline attachment
+- Include the normalized `contentId` for HTML matching
+
+**Key Points:**
+- Must include `@odata.type: "#microsoft.graph.fileAttachment"`
+- All fields are required: `name`, `contentType`, `contentBytes`, `isInline`, `id`, `contentId`
+- The `contentId` must match exactly what's in the HTML `cid:` reference
+
+**Code Location:** [graph_client.py - reply_to_message()](file:///c:\Project\microsoft_graph_mcp_server\microsoft_graph_mcp_server\graph_client.py#L686-L694)
+
+#### Step 5: Attach Inline Attachments to Reply Message
+
+**What to do:**
+- Add all processed inline attachments to the reply message's `attachments` array
+- Include the original HTML body (which contains `cid:` references)
+- Send the reply message with attachments
+
+**Key Points:**
+- The HTML body must be preserved exactly as-is to maintain `cid:` references
+- Attachments array can include both inline and regular attachments
+- Microsoft Graph API automatically matches `cid:` references to `contentId` fields
+
+**Code Location:** [graph_client.py - reply_to_message()](file:///c:\Project\microsoft_graph_mcp_server\microsoft_graph_mcp_server\graph_client.py#L696-L700)
+
+### Key Success Factors
+
+1. **Content-ID Normalization** (Most Critical)
+   - Always strip angle brackets from `contentId` when reattaching
+   - Ensures compatibility with HTML `cid:` references
+   - Prevents broken images (red crosses) in email replies
+
+2. **Complete Attachment Data**
+   - Must fetch `contentBytes` and `contentId` for each inline attachment
+   - Initial `$expand` only provides metadata, not content
+
+3. **HTML Body Preservation**
+   - Keep original HTML body with `cid:` references intact
+   - Do not modify or strip `cid:` references from HTML
+
+4. **Error Handling**
+   - Gracefully handle attachment fetch failures
+   - Log warnings but continue processing other attachments
+
+5. **Property Consistency**
+   - Ensure `isInline: true` is set for all inline attachments
+   - All required fields must be present in attachment object
+
+### Process Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Fetch Original Email                                    │
+│    - Get email with attachments metadata                   │
+│    - Identify inline attachments (isInline: true)          │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Fetch Attachment Content                                │
+│    - For each inline attachment:                           │
+│      - Call /messages/{id}/attachments/{id}                │
+│      - Extract contentBytes and contentId                  │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Normalize Content-ID (CRITICAL)                          │
+│    - Check if contentId has angle brackets                  │
+│    - Strip brackets: <banner> → banner                      │
+│    - Ensures match with HTML cid: references               │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. Build Attachment Objects                                 │
+│    - Create fileAttachment objects                          │
+│    - Set isInline: true                                     │
+│    - Include normalized contentId                           │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Send Reply with Attachments                              │
+│    - Add inline attachments to message                      │
+│    - Include original HTML body                              │
+│    - Send reply via Microsoft Graph API                     │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## API Usage
 
@@ -137,15 +275,29 @@ except Exception as e:
 
 **Problem**: Inline images appear as broken image icons (red crosses) in email replies.
 
-**Possible Causes**:
-1. `contentId` mismatch between HTML and attachment metadata
-2. Attachment content not properly fetched
-3. Missing `isInline: true` property
+**Root Cause**: Microsoft Graph API may return `contentId` with angle brackets (e.g., `<banner>`), while HTML `cid:` references do not include angle brackets (e.g., `cid:banner`). This mismatch causes the email client to fail in locating the inline attachment, resulting in broken images.
 
-**Solutions**:
-1. Ensure `contentId` is preserved exactly as returned by Microsoft Graph API
-2. Verify the separate attachment endpoint is called to retrieve `contentBytes` and `contentId`
-3. Check that `isInline: true` is set when re-attaching to the reply
+**Solution**: The system automatically normalizes `contentId` by stripping angle brackets when reattaching inline attachments. This ensures the `contentId` matches the HTML `cid:` reference format.
+
+**Implementation**:
+```python
+# Normalize contentId by stripping angle brackets if present
+# HTML cid: references use contentId without angle brackets (RFC 2387)
+if content_id.startswith('<') and content_id.endswith('>'):
+    content_id = content_id[1:-1]
+```
+
+**Verification**: The fix has been validated through unit tests in `test_email_functions_unit.py`, which confirms that inline attachments with normalized Content-IDs are correctly preserved in email replies.
+
+**Possible Causes** (if issue persists):
+1. Attachment content not properly fetched
+2. Missing `isInline: true` property
+3. Incorrect Content-ID in HTML body
+
+**Additional Solutions**:
+1. Verify the separate attachment endpoint is called to retrieve `contentBytes` and `contentId`
+2. Check that `isInline: true` is set when re-attaching to the reply
+3. Ensure HTML body uses correct `cid:` references
 
 ### Attachment Not Found Error
 

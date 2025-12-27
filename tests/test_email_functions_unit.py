@@ -387,7 +387,8 @@ class EmailFunctionsUnitTester:
         
         try:
             with patch.object(GraphClient, 'post', new_callable=AsyncMock) as mock_post, \
-                 patch.object(GraphClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
+                 patch.object(GraphClient, 'get_email', new_callable=AsyncMock) as mock_get_email, \
+                 patch.object(GraphClient, 'get', new_callable=AsyncMock) as mock_get:
                 mock_post.return_value = {"id": "reply-email-id"}
                 mock_get_email.return_value = {
                     "id": "original-email-id-123",
@@ -408,12 +409,19 @@ class EmailFunctionsUnitTester:
                             "id": "attachment-id-1",
                             "name": "banner.png",
                             "contentType": "image/png",
-                            "contentBytes": "base64encodedimagedata",
                             "isInline": True,
-                            "size": 12345,
-                            "contentId": "banner"
+                            "size": 12345
                         }
                     ]
+                }
+                mock_get.return_value = {
+                    "id": "attachment-id-1",
+                    "name": "banner.png",
+                    "contentType": "image/png",
+                    "contentBytes": "base64encodedimagedata",
+                    "isInline": True,
+                    "size": 12345,
+                    "contentId": "banner"
                 }
                 
                 client = GraphClient()
@@ -444,7 +452,7 @@ class EmailFunctionsUnitTester:
                     correct_content_type = attachment.get("contentType") == "image/png"
                     correct_is_inline = attachment.get("isInline") == True
                     has_content_bytes = "contentBytes" in attachment
-                    correct_content_id = attachment.get("contentId") == "<banner>"
+                    correct_content_id = attachment.get("contentId") == "banner"
                     
                     if correct_endpoint and has_attachments and correct_odata_type and correct_name and correct_content_type and correct_is_inline and has_content_bytes and correct_content_id and has_user_reply and has_original_thread and has_cid_reference:
                         print_success("Reply email with inline attachments test passed")

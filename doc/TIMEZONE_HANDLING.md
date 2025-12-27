@@ -122,14 +122,14 @@ Output (Europe/London): `Fri 12/26/2025 01:27 PM`
 
 ## Testing
 
-Run the test scripts to verify timezone functionality:
+Run the unit tests to verify timezone functionality:
 
 ```bash
 # Test email loading with timezone conversion
-python test_load_emails.py
+python -m unittest tests/test_new_email_functions.py
 
-# Test last 1 day emails with local time filtering
-python test_last_day.py
+# Test all email functions including timezone handling
+python -m unittest tests/test_email_functions_unit.py
 ```
 
 ## Troubleshooting
