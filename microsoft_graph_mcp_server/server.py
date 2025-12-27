@@ -1,7 +1,9 @@
 """MCP Server implementation for Microsoft Graph API."""
 
 import asyncio
+import csv
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from mcp.server import Server
@@ -14,6 +16,51 @@ from .graph_client import graph_client
 from .config import settings
 from .auth import auth_manager
 from .email_cache import email_cache
+
+
+def read_bcc_from_csv(csv_file_path: str) -> List[str]:
+    """Read BCC email addresses from a CSV file.
+    
+    The CSV file should have a single column with header "Email" or "email".
+    
+    Args:
+        csv_file_path: Path to the CSV file
+        
+    Returns:
+        List of email addresses
+        
+    Raises:
+        FileNotFoundError: If the CSV file doesn't exist
+        ValueError: If the CSV file doesn't have the required header
+    """
+    csv_path = Path(csv_file_path)
+    
+    if not csv_path.exists():
+        raise FileNotFoundError(f"CSV file not found: {csv_file_path}")
+    
+    bcc_emails = []
+    
+    with open(csv_path, 'r', newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        
+        if not reader.fieldnames:
+            raise ValueError("CSV file is empty or has no headers")
+        
+        email_column = None
+        for header in reader.fieldnames:
+            if header.lower() == "email":
+                email_column = header
+                break
+        
+        if email_column is None:
+            raise ValueError("CSV file must have a column named 'Email' or 'email'")
+        
+        for row in reader:
+            email = row[email_column].strip()
+            if email:
+                bcc_emails.append(email)
+    
+    return bcc_emails
 
 
 class MicrosoftGraphMCPServer:
@@ -187,13 +234,13 @@ class MicrosoftGraphMCPServer:
                 ),
                 types.Tool(
                     name="get_email_content",
-                    description="Get full email content by ID. Use the email ID from browse_email_cache or search_emails to retrieve complete email with body, attachments, and all details.",
+                    description="Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "email_id": {
-                                "type": "string",
-                                "description": "Email ID from browse_email_cache or search_emails"
+                            "email_number": {
+                                "type": "integer",
+                                "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
                             },
                             "text_only": {
                                 "type": "boolean",
@@ -201,7 +248,7 @@ class MicrosoftGraphMCPServer:
                                 "default": True
                             }
                         },
-                        "required": ["email_id"]
+                        "required": ["email_number"]
                     }
                 ),
                 types.Tool(
@@ -228,6 +275,125 @@ class MicrosoftGraphMCPServer:
                             }
                         },
                         "required": ["to", "subject", "body"]
+                    }
+                ),
+                types.Tool(
+                    name="compose_email",
+                    description="Compose and send a new email. Supports multiple recipients, CC, and BCC.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "to": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of recipient email addresses"
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Email subject"
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Email body content"
+                            },
+                            "cc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of CC recipient email addresses (optional)"
+                            },
+                            "bcc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of BCC recipient email addresses (optional)"
+                            },
+                            "body_content_type": {
+                                "type": "string",
+                                "enum": ["Text", "HTML"],
+                                "description": "Content type for the email body (default: Text)",
+                                "default": "Text"
+                            }
+                        },
+                        "required": ["to", "subject", "body"]
+                    }
+                ),
+                types.Tool(
+                    name="reply_email",
+                    description="Reply to an existing email. The reply will be linked to the original email thread. If only email_number is provided, it will show the original email content for preview. If reply parameters are provided, it will send the reply with the email thread included. IMPORTANT: The body must be HTML format.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "email_number": {
+                                "type": "integer",
+                                "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                            },
+                            "to": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of recipient email addresses (optional - if not provided, will show email preview)"
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Email subject (optional - if not provided, will show email preview)"
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Email body content (optional - if not provided, will show email preview). MUST be HTML format."
+                            },
+                            "cc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of CC recipient email addresses (optional)"
+                            },
+                            "bcc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of BCC recipient email addresses (optional)"
+                            }
+                        },
+                        "required": ["email_number"]
+                    }
+                ),
+                types.Tool(
+                    name="forward_batch_email",
+                    description="Forward multiple emails as attachments to new recipients. All specified emails will be attached to a single outgoing email. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "email_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of email IDs to forward"
+                            },
+                            "to": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of recipient email addresses"
+                            },
+                            "subject": {
+                                "type": "string",
+                                "description": "Email subject"
+                            },
+                            "body": {
+                                "type": "string",
+                                "description": "Email body content (optional)"
+                            },
+                            "cc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of CC recipient email addresses (optional)"
+                            },
+                            "bcc_csv_file": {
+                                "type": "string",
+                                "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional)"
+                            },
+                            "body_content_type": {
+                                "type": "string",
+                                "enum": ["Text", "HTML"],
+                                "description": "Content type for the email body (default: Text)",
+                                "default": "Text"
+                            }
+                        },
+                        "required": ["email_ids", "to", "subject"]
                     }
                 ),
                 types.Tool(
@@ -582,12 +748,34 @@ class MicrosoftGraphMCPServer:
                     )]
                 
                 elif name == "get_email_content":
-                    email_id = arguments["email_id"]
+                    email_number = arguments["email_number"]
                     text_only = arguments.get("text_only", True)
-                    email = await graph_client.get_email(email_id, text_only=text_only)
+                    
+                    cached_emails = email_cache.get_cached_emails()
+                    
+                    if email_number < 1 or email_number > len(cached_emails):
+                        return [types.TextContent(
+                            type="text",
+                            text=json.dumps({
+                                "error": f"Email number {email_number} is out of range. Please choose a number between 1 and {len(cached_emails)}."
+                            }, indent=2, ensure_ascii=False)
+                        )]
+                    
+                    email = cached_emails[email_number - 1]
+                    email_id = email.get("id")
+                    
+                    if not email_id:
+                        return [types.TextContent(
+                            type="text",
+                            text=json.dumps({
+                                "error": f"Email number {email_number} does not have a valid Graph ID in cache."
+                            }, indent=2, ensure_ascii=False)
+                        )]
+                    
+                    email_content = await graph_client.get_email(email_id, text_only=text_only)
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps(email, indent=2, ensure_ascii=False)
+                        text=json.dumps(email_content, indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "send_message":
@@ -619,6 +807,112 @@ class MicrosoftGraphMCPServer:
                     return [types.TextContent(
                         type="text",
                         text=f"Message sent successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    )]
+                
+                elif name == "compose_email":
+                    to_recipients = arguments["to"]
+                    subject = arguments["subject"]
+                    body = arguments["body"]
+                    cc_recipients = arguments.get("cc")
+                    bcc_recipients = arguments.get("bcc")
+                    body_content_type = arguments.get("body_content_type", "Text")
+                    
+                    result = await graph_client.send_email(
+                        to_recipients=to_recipients,
+                        subject=subject,
+                        body=body,
+                        cc_recipients=cc_recipients,
+                        bcc_recipients=bcc_recipients,
+                        body_content_type=body_content_type
+                    )
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Email composed and sent successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    )]
+                
+                elif name == "reply_email":
+                    email_number = arguments["email_number"]
+                    to_recipients = arguments.get("to")
+                    subject = arguments.get("subject")
+                    body = arguments.get("body")
+                    cc_recipients = arguments.get("cc")
+                    bcc_recipients = arguments.get("bcc")
+
+                    # DEBUG: Log incoming body
+                    import sys
+                    print(f"[DEBUG] reply_email: body type={type(body).__name__}, first 100 chars={repr(body[:100]) if body else None}", file=sys.stderr)
+                    print(f"[DEBUG] reply_email: body has {repr(body.count(chr(10)) if body else 0)} newlines", file=sys.stderr)
+                    
+                    cached_emails = email_cache.get_cached_emails()
+                    if email_number < 1 or email_number > len(cached_emails):
+                        return [types.TextContent(
+                            type="text",
+                            text=f"Error: Email number {email_number} is out of range. Please use a number between 1 and {len(cached_emails)}."
+                        )]
+                    
+                    email = cached_emails[email_number - 1]
+                    email_id = email["id"]
+                    
+                    if not to_recipients or not subject or not body:
+                        full_email = await graph_client.get_email(email_id, text_only=True)
+                        return [types.TextContent(
+                            type="text",
+                            text=json.dumps({
+                                "message": "Original email content for preview. To reply, provide to, subject, and body parameters.",
+                                "email": full_email
+                            }, indent=2, ensure_ascii=False)
+                        )]
+                    
+                    result = await graph_client.send_email(
+                        to_recipients=to_recipients,
+                        subject=subject,
+                        body=body,
+                        cc_recipients=cc_recipients,
+                        bcc_recipients=bcc_recipients,
+                        reply_to_message_id=email_id,
+                        body_content_type="HTML"
+                    )
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Reply email sent successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    )]
+                
+                elif name == "forward_batch_email":
+                    email_ids = arguments["email_ids"]
+                    to_recipients = arguments["to"]
+                    subject = arguments["subject"]
+                    body = arguments.get("body", "")
+                    cc_recipients = arguments.get("cc")
+                    bcc_csv_file = arguments.get("bcc_csv_file")
+                    body_content_type = arguments.get("body_content_type", "Text")
+                    
+                    bcc_recipients = None
+                    if bcc_csv_file:
+                        try:
+                            bcc_recipients = read_bcc_from_csv(bcc_csv_file)
+                        except Exception as e:
+                            return [types.TextContent(
+                                type="text",
+                                text=f"Error reading BCC CSV file: {str(e)}"
+                            )]
+                    
+                    result = await graph_client.send_email(
+                        to_recipients=to_recipients,
+                        subject=subject,
+                        body=body,
+                        cc_recipients=cc_recipients,
+                        bcc_recipients=bcc_recipients,
+                        forward_message_ids=email_ids,
+                        body_content_type=body_content_type
+                    )
+                    
+                    response_message = f"Batch email forwarded successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    if bcc_recipients:
+                        response_message = f"Batch email forwarded successfully to {len(bcc_recipients)} BCC recipients: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    
+                    return [types.TextContent(
+                        type="text",
+                        text=response_message
                     )]
                 
                 elif name == "browse_events":
