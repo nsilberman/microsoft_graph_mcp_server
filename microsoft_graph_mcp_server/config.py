@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     # Cache settings
     cache_ttl: int = 300  # 5 minutes
     
+    # Search settings
+    default_search_days: int = int(os.getenv("DEFAULT_SEARCH_DAYS", "90"))  # Default search range in days
+    
+    # Pagination settings
+    page_size: int = int(os.getenv("PAGE_SIZE", "5"))  # Number of items per page for browsing
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

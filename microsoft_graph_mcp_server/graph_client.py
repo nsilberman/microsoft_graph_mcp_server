@@ -11,6 +11,7 @@ import httpx
 
 from .auth import auth_manager
 from .config import settings
+from .date_handler import date_handler
 
 
 class GraphClient:
@@ -100,9 +101,16 @@ class GraphClient:
             return {}
     
     async def get_user_timezone(self) -> str:
-        """Get user's timezone identifier (e.g., 'Asia/Shanghai')."""
-        mailbox_settings = await self.get_mailbox_settings()
-        return mailbox_settings.get("timeZone", settings.user_timezone)
+        """Get user's timezone identifier. Uses server local timezone."""
+        try:
+            local_tz = datetime.now().astimezone().tzinfo
+            if local_tz:
+                tz_str = str(local_tz)
+                if tz_str and tz_str != "UTC":
+                    return date_handler.convert_to_iana_timezone(tz_str)
+        except Exception:
+            pass
+        return date_handler.convert_to_iana_timezone(settings.user_timezone)
     
     async def get_users(self, filter_query: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get list of users in organization."""
@@ -271,15 +279,7 @@ class GraphClient:
         cc_recipients = email.get("ccRecipients", [])
         
         received_datetime = email.get("receivedDateTime", "")
-        received_datetime_display = received_datetime
-        if received_datetime:
-            try:
-                dt = datetime.fromisoformat(received_datetime.replace('Z', '+00:00'))
-                user_tz = ZoneInfo(timezone_str)
-                dt_converted = dt.astimezone(user_tz)
-                received_datetime_display = dt_converted.strftime("%a %m/%d/%Y %I:%M %p")
-            except Exception:
-                pass
+        received_datetime_display = date_handler.convert_utc_to_user_timezone(received_datetime, timezone_str)
         
         body_content = email.get("body", {})
         body_type = body_content.get("contentType", "")
@@ -380,6 +380,8 @@ class GraphClient:
             text_only: If True, return only text content without embedded images and attachments.
                       If False, return full content including embedded images and attachments.
         """
+        user_timezone_str = await self.get_user_timezone()
+        
         if text_only:
             params = {
                 "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex"
@@ -389,7 +391,20 @@ class GraphClient:
                 "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,attachments",
                 "$expand": "attachments($select=id,name,contentType,isInline)"
             }
-        return await self.get(f"/me/messages/{email_id}", params=params)
+        
+        email = await self.get(f"/me/messages/{email_id}", params=params)
+        
+        received_datetime = email.get("receivedDateTime", "")
+        if received_datetime:
+            email["receivedDateTimeDisplay"] = date_handler.convert_utc_to_user_timezone(received_datetime, user_timezone_str)
+        
+        sent_datetime = email.get("sentDateTime", "")
+        if sent_datetime:
+            email["sentDateTimeDisplay"] = date_handler.convert_utc_to_user_timezone(sent_datetime, user_timezone_str)
+        
+        email["timezone"] = user_timezone_str
+        
+        return email
     
     async def search_emails(
         self,
@@ -422,19 +437,31 @@ class GraphClient:
         for idx, summary in enumerate(sorted_summaries):
             summary["number"] = idx + 1
         
+        date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
+        
         return {
             "emails": sorted_summaries,
-            "count": len(sorted_summaries)
+            "count": len(sorted_summaries),
+            "date_range": date_range
         }
     
     async def search_emails_by_sender(
         self,
         sender: str,
         folder: Optional[str] = None,
-        top: int = 20
+        top: int = 20,
+        days: Optional[int] = None
     ) -> Dict[str, Any]:
         """Search emails by sender name or email address."""
+        if days is None:
+            days = settings.default_search_days
+        
         filter_query = f"from/emailAddress/address eq '{sender}' or contains(from/emailAddress/name,'{sender}')"
+        
+        if days is not None:
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_query = f"({filter_query}) and receivedDateTime ge {cutoff_date}"
+        
         params = {
             "$filter": filter_query,
             "$top": top,
@@ -460,19 +487,30 @@ class GraphClient:
         for idx, summary in enumerate(sorted_summaries):
             summary["number"] = idx + 1
         
+        date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
+        filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
+        
         return {
             "emails": sorted_summaries,
-            "count": len(sorted_summaries)
+            "count": len(sorted_summaries),
+            "date_range": date_range,
+            "filter_date_range": filter_date_range
         }
     
     async def search_emails_by_recipient(
         self,
         recipient: str,
         folder: Optional[str] = None,
-        top: int = 20
+        top: int = 20,
+        days: Optional[int] = 90
     ) -> Dict[str, Any]:
         """Search emails by recipient name or email address."""
         filter_query = f"toRecipients/any(r: r/emailAddress/address eq '{recipient}' or contains(r/emailAddress/name,'{recipient}'))"
+        
+        if days is not None:
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_query = f"({filter_query}) and receivedDateTime ge {cutoff_date}"
+        
         params = {
             "$filter": filter_query,
             "$top": top,
@@ -498,19 +536,30 @@ class GraphClient:
         for idx, summary in enumerate(sorted_summaries):
             summary["number"] = idx + 1
         
+        date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
+        filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
+        
         return {
             "emails": sorted_summaries,
-            "count": len(sorted_summaries)
+            "count": len(sorted_summaries),
+            "date_range": date_range,
+            "filter_date_range": filter_date_range
         }
     
     async def search_emails_by_subject(
         self,
         subject: str,
         folder: Optional[str] = None,
-        top: int = 20
+        top: int = 20,
+        days: Optional[int] = 90
     ) -> Dict[str, Any]:
         """Search emails by subject."""
         filter_query = f"contains(subject,'{subject}')"
+        
+        if days is not None:
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            filter_query = f"({filter_query}) and receivedDateTime ge {cutoff_date}"
+        
         params = {
             "$filter": filter_query,
             "$top": top,
@@ -536,16 +585,22 @@ class GraphClient:
         for idx, summary in enumerate(sorted_summaries):
             summary["number"] = idx + 1
         
+        date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
+        filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
+        
         return {
             "emails": sorted_summaries,
-            "count": len(sorted_summaries)
+            "count": len(sorted_summaries),
+            "date_range": date_range,
+            "filter_date_range": filter_date_range
         }
     
     async def search_emails_by_body(
         self,
         body_text: str,
         folder: Optional[str] = None,
-        top: int = 20
+        top: int = 20,
+        days: Optional[int] = 90
     ) -> Dict[str, Any]:
         """Search emails by text in body."""
         params = {
@@ -568,9 +623,19 @@ class GraphClient:
             summary = self._create_email_summary(email, idx + 1, user_timezone_str)
             summaries.append(summary)
         
+        sorted_summaries = sorted(summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True)
+        
+        for idx, summary in enumerate(sorted_summaries):
+            summary["number"] = idx + 1
+        
+        date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
+        filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
+        
         return {
-            "emails": summaries,
-            "count": len(summaries)
+            "emails": sorted_summaries,
+            "count": len(sorted_summaries),
+            "date_range": date_range,
+            "filter_date_range": filter_date_range
         }
     
     async def send_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -796,6 +861,8 @@ class GraphClient:
         skip: int = 0
     ) -> Dict[str, Any]:
         """Browse calendar events with pagination, returning summary information only."""
+        user_timezone_str = await self.get_user_timezone()
+        
         params = {
             "$top": top,
             "$skip": skip,
@@ -811,11 +878,14 @@ class GraphClient:
         events = result.get("value", [])
         summaries = []
         for event in events:
+            start_datetime = event.get("start", {}).get("dateTime", "")
+            end_datetime = event.get("end", {}).get("dateTime", "")
+            
             summary = {
                 "id": event.get("id"),
                 "subject": event.get("subject", ""),
-                "start": event.get("start", {}).get("dateTime", ""),
-                "end": event.get("end", {}).get("dateTime", ""),
+                "start": date_handler.convert_utc_to_user_timezone(start_datetime, user_timezone_str),
+                "end": date_handler.convert_utc_to_user_timezone(end_datetime, user_timezone_str),
                 "location": event.get("location", {}).get("displayName", ""),
                 "organizer": {
                     "name": event.get("organizer", {}).get("emailAddress", {}).get("name", ""),
@@ -830,15 +900,32 @@ class GraphClient:
         
         return {
             "events": summaries,
-            "count": len(summaries)
+            "count": len(summaries),
+            "timezone": user_timezone_str
         }
     
     async def get_event(self, event_id: str) -> Dict[str, Any]:
         """Get full calendar event by ID."""
+        user_timezone_str = await self.get_user_timezone()
+        
         params = {
             "$select": "*"
         }
-        return await self.get(f"/me/events/{event_id}", params=params)
+        event = await self.get(f"/me/events/{event_id}", params=params)
+        
+        start = event.get("start", {})
+        if start and start.get("dateTime"):
+            start_datetime = start.get("dateTime")
+            event["start"]["display"] = date_handler.convert_utc_to_user_timezone(start_datetime, user_timezone_str)
+        
+        end = event.get("end", {})
+        if end and end.get("dateTime"):
+            end_datetime = end.get("dateTime")
+            event["end"]["display"] = date_handler.convert_utc_to_user_timezone(end_datetime, user_timezone_str)
+        
+        event["timezone"] = user_timezone_str
+        
+        return event
     
     async def search_events(
         self,
@@ -848,6 +935,8 @@ class GraphClient:
         top: int = 20
     ) -> Dict[str, Any]:
         """Search calendar events by keywords. Note: Pagination with skip is not supported with search."""
+        user_timezone_str = await self.get_user_timezone()
+        
         params = {
             "$search": f'"{query}"',
             "$top": top,
@@ -863,11 +952,14 @@ class GraphClient:
         events = result.get("value", [])
         summaries = []
         for event in events:
+            start_datetime = event.get("start", {}).get("dateTime", "")
+            end_datetime = event.get("end", {}).get("dateTime", "")
+            
             summary = {
                 "id": event.get("id"),
                 "subject": event.get("subject", ""),
-                "start": event.get("start", {}).get("dateTime", ""),
-                "end": event.get("end", {}).get("dateTime", ""),
+                "start": date_handler.convert_utc_to_user_timezone(start_datetime, user_timezone_str),
+                "end": date_handler.convert_utc_to_user_timezone(end_datetime, user_timezone_str),
                 "location": event.get("location", {}).get("displayName", ""),
                 "organizer": {
                     "name": event.get("organizer", {}).get("emailAddress", {}).get("name", ""),
@@ -882,7 +974,8 @@ class GraphClient:
         
         return {
             "events": summaries,
-            "count": len(summaries)
+            "count": len(summaries),
+            "timezone": user_timezone_str
         }
     
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:

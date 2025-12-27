@@ -63,6 +63,7 @@ class EmailBrowsingCache:
                 "query": None,
                 "folder": None,
                 "top": 20,
+                "days": 90,
                 "search_type": None,
                 "total_count": 0,
                 "emails": []
@@ -170,7 +171,8 @@ class EmailBrowsingCache:
         await self._save_cache()
     
     async def update_search_state(self, query: str, folder: Optional[str] = None, 
-                            top: Optional[int] = None, search_type: Optional[str] = None,
+                            top: Optional[int] = None, days: Optional[int] = None,
+                            search_type: Optional[str] = None,
                             total_count: Optional[int] = None, emails: Optional[List[Dict[str, Any]]] = None):
         """Update search state parameters."""
         state = self.cache["search_state"]
@@ -187,6 +189,11 @@ class EmailBrowsingCache:
         
         if top is not None and top != state["top"]:
             state["top"] = top
+        
+        if days is not None and days != state["days"]:
+            state["days"] = days
+            state["total_count"] = 0
+            state["emails"] = []
         
         if search_type != state["search_type"]:
             state["search_type"] = search_type

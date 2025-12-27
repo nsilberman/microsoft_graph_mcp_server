@@ -16,6 +16,7 @@ from .graph_client import graph_client
 from .config import settings
 from .auth import auth_manager
 from .email_cache import email_cache
+from .date_handler import date_handler
 
 
 def read_bcc_from_csv(csv_file_path: str) -> List[str]:
@@ -118,11 +119,6 @@ class MicrosoftGraphMCPServer:
                             "query": {
                                 "type": "string",
                                 "description": "Search query (name or email)"
-                            },
-                            "top": {
-                                "type": "integer",
-                                "description": "Number of results to return (default: 10)",
-                                "default": 10
                             }
                         },
                         "required": ["query"]
@@ -194,11 +190,6 @@ class MicrosoftGraphMCPServer:
                                 "type": "integer",
                                 "description": "Page number to view (starts at 1)",
                                 "minimum": 1
-                            },
-                            "top": {
-                                "type": "integer",
-                                "description": "Number of emails per page (default: 20)",
-                                "default": 20
                             }
                         },
                         "required": ["page_number"]
@@ -223,10 +214,10 @@ class MicrosoftGraphMCPServer:
                                 "type": "string",
                                 "description": "Optional folder path to search (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: all folders"
                             },
-                            "top": {
+                            "days": {
                                 "type": "integer",
-                                "description": "Number of emails to search (default: 20)",
-                                "default": 20
+                                "description": "Number of days to search back (default: 90). Set to null to search all emails.",
+                                "default": 90
                             }
                         },
                         "required": ["search_type", "query"]
@@ -414,11 +405,6 @@ class MicrosoftGraphMCPServer:
                             "end_date": {
                                 "type": "string",
                                 "description": "End date in ISO format (optional)"
-                            },
-                            "top": {
-                                "type": "integer",
-                                "description": "Number of events per page (default: 20)",
-                                "default": 20
                             }
                         },
                         "required": ["page_number"]
@@ -455,11 +441,6 @@ class MicrosoftGraphMCPServer:
                             "end_date": {
                                 "type": "string",
                                 "description": "End date in ISO format (optional)"
-                            },
-                            "top": {
-                                "type": "integer",
-                                "description": "Number of events to return (default: 20)",
-                                "default": 20
                             }
                         },
                         "required": ["query"]
@@ -571,8 +552,8 @@ class MicrosoftGraphMCPServer:
                 
                 elif name == "search_contacts":
                     query = arguments["query"]
-                    top = arguments.get("top", 10)
-                    contacts = await graph_client.search_contacts(query, top)
+                    page_size = settings.page_size
+                    contacts = await graph_client.search_contacts(query, page_size)
                     return [types.TextContent(
                         type="text",
                         text=json.dumps(contacts, indent=2, ensure_ascii=False)
@@ -601,6 +582,8 @@ class MicrosoftGraphMCPServer:
                     email_cache.clear_cache()
                     result = await graph_client.load_emails_by_folder("Inbox", days, None)
                     
+                    user_timezone = await graph_client.get_user_timezone()
+                    
                     await email_cache.set_mode("list")
                     await email_cache.update_list_state(
                         folder="Inbox",
@@ -610,15 +593,23 @@ class MicrosoftGraphMCPServer:
                         emails=result["emails"]
                     )
                     
+                    email_date_range = date_handler.format_email_date_range(result["emails"], user_timezone)
+                    filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
+                    
+                    response_data = {
+                        "message": f"Loaded {result['count']} recent emails from Inbox (last {days} day(s))",
+                        "folder": "Inbox",
+                        "days": days,
+                        "count": result["count"],
+                        "timezone": user_timezone,
+                        "date_range": email_date_range,
+                        "filter_date_range": filter_date_range,
+                        "hint": "Use browse_email_cache to view the loaded emails"
+                    }
+                    
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps({
-                            "message": f"Loaded {result['count']} recent emails from Inbox (last {days} day(s))",
-                            "folder": "Inbox",
-                            "days": days,
-                            "count": result["count"],
-                            "hint": "Use browse_email_cache to view the loaded emails"
-                        }, indent=2, ensure_ascii=False)
+                        text=json.dumps(response_data, indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "load_emails_by_folder":
@@ -635,6 +626,8 @@ class MicrosoftGraphMCPServer:
                     email_cache.clear_cache()
                     result = await graph_client.load_emails_by_folder(folder, days, top)
                     
+                    user_timezone = await graph_client.get_user_timezone()
+                    
                     await email_cache.set_mode("list")
                     await email_cache.update_list_state(
                         folder=folder,
@@ -644,16 +637,25 @@ class MicrosoftGraphMCPServer:
                         emails=result["emails"]
                     )
                     
+                    filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
+                    
+                    response_data = {
+                        "message": f"Loaded {result['count']} emails from {folder}",
+                        "folder": folder,
+                        "count": result["count"],
+                        "timezone": user_timezone,
+                        "date_range": filter_date_range,
+                        "hint": "Use browse_email_cache to view the loaded emails"
+                    }
+                    
+                    if days is not None:
+                        response_data["days"] = days
+                    if top is not None:
+                        response_data["top"] = top
+                    
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps({
-                            "message": f"Loaded {result['count']} emails from {folder}",
-                            "folder": folder,
-                            "filter_days": days,
-                            "limit_top": top,
-                            "count": result["count"],
-                            "hint": "Use browse_email_cache to view the loaded emails"
-                        }, indent=2, ensure_ascii=False)
+                        text=json.dumps(response_data, indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "clear_email_cache":
@@ -668,7 +670,6 @@ class MicrosoftGraphMCPServer:
                 
                 elif name == "browse_email_cache":
                     page_number = arguments["page_number"]
-                    top = arguments.get("top", 20)
                     
                     cached_emails = email_cache.get_cached_emails()
                     total_count = len(cached_emails)
@@ -683,9 +684,12 @@ class MicrosoftGraphMCPServer:
                             }, indent=2, ensure_ascii=False)
                         )]
                     
-                    start_idx = (page_number - 1) * top
-                    end_idx = start_idx + top
+                    page_size = settings.page_size
+                    start_idx = (page_number - 1) * page_size
+                    end_idx = start_idx + page_size
                     page_emails = cached_emails[start_idx:end_idx]
+                    
+                    user_timezone = await graph_client.get_user_timezone()
                     
                     filtered_emails = []
                     for idx, email in enumerate(page_emails):
@@ -700,7 +704,8 @@ class MicrosoftGraphMCPServer:
                             "count": len(filtered_emails),
                             "total_count": total_count,
                             "current_page": page_number,
-                            "total_pages": (total_count + top - 1) // top
+                            "total_pages": (total_count + page_size - 1) // page_size,
+                            "timezone": user_timezone
                         }, indent=2, ensure_ascii=False)
                     )]
                 
@@ -708,18 +713,21 @@ class MicrosoftGraphMCPServer:
                     search_type = arguments["search_type"]
                     query = arguments["query"]
                     folder = arguments.get("folder")
-                    top = arguments.get("top", 20)
+                    page_size = settings.page_size
+                    days = arguments.get("days", 90)
                     
                     email_cache.clear_cache()
                     
+                    user_timezone = await graph_client.get_user_timezone()
+                    
                     if search_type == "sender":
-                        result = await graph_client.search_emails_by_sender(query, folder, top)
+                        result = await graph_client.search_emails_by_sender(query, folder, page_size, days)
                     elif search_type == "recipient":
-                        result = await graph_client.search_emails_by_recipient(query, folder, top)
+                        result = await graph_client.search_emails_by_recipient(query, folder, page_size, days)
                     elif search_type == "subject":
-                        result = await graph_client.search_emails_by_subject(query, folder, top)
+                        result = await graph_client.search_emails_by_subject(query, folder, page_size, days)
                     elif search_type == "body":
-                        result = await graph_client.search_emails_by_body(query, folder, top)
+                        result = await graph_client.search_emails_by_body(query, folder, page_size, days)
                     else:
                         return [types.TextContent(
                             type="text",
@@ -731,20 +739,26 @@ class MicrosoftGraphMCPServer:
                         query=query,
                         folder=folder,
                         top=top,
+                        days=days,
                         search_type=search_type,
                         total_count=result["count"],
                         emails=result["emails"]
                     )
                     
+                    response_data = {
+                        "search_type": search_type,
+                        "query": query,
+                        "folder": folder,
+                        "count": result["count"],
+                        "timezone": user_timezone,
+                        "date_range": result.get("date_range"),
+                        "filter_date_range": result.get("filter_date_range"),
+                        "hint": f"Found {result['count']} emails. Use browse_email_cache to view the results."
+                    }
+                    
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps({
-                            "search_type": search_type,
-                            "query": query,
-                            "folder": folder,
-                            "count": result["count"],
-                            "hint": f"Found {result['count']} emails. Use browse_email_cache to view the results."
-                        }, indent=2, ensure_ascii=False)
+                        text=json.dumps(response_data, indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "get_email_content":
@@ -919,9 +933,9 @@ class MicrosoftGraphMCPServer:
                     page_number = arguments["page_number"]
                     start_date = arguments.get("start_date")
                     end_date = arguments.get("end_date")
-                    top = arguments.get("top", 20)
-                    skip = (page_number - 1) * top
-                    events = await graph_client.browse_events(start_date, end_date, top, skip)
+                    page_size = settings.page_size
+                    skip = (page_number - 1) * page_size
+                    events = await graph_client.browse_events(start_date, end_date, page_size, skip)
                     return [types.TextContent(
                         type="text",
                         text=json.dumps(events, indent=2, ensure_ascii=False)
@@ -939,8 +953,8 @@ class MicrosoftGraphMCPServer:
                     query = arguments["query"]
                     start_date = arguments.get("start_date")
                     end_date = arguments.get("end_date")
-                    top = arguments.get("top", 20)
-                    events = await graph_client.search_events(query, start_date, end_date, top)
+                    page_size = settings.page_size
+                    events = await graph_client.search_events(query, start_date, end_date, page_size)
                     return [types.TextContent(
                         type="text",
                         text=json.dumps(events, indent=2, ensure_ascii=False)

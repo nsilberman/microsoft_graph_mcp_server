@@ -55,7 +55,17 @@ The `browse_email_cache` tool provides paginated access to cached emails.
 ### Parameters
 
 - **page_number** (required): Page number to view (starts at 1)
-- **top** (optional): Number of emails per page (default: 20)
+
+### Configuration
+
+The number of emails per page is controlled by the `PAGE_SIZE` environment variable:
+
+```env
+# .env file
+PAGE_SIZE=5
+```
+
+Default page size is 5 emails per page. This ensures consistent pagination across all browsing operations.
 
 ### Response Fields
 
@@ -69,9 +79,10 @@ The tool returns the following pagination metadata:
 ### Pagination Calculation
 
 ```python
-total_pages = (total_count + top - 1) // top
-start_idx = (page_number - 1) * top
-end_idx = start_idx + top
+page_size = settings.page_size
+total_pages = (total_count + page_size - 1) // page_size
+start_idx = (page_number - 1) * page_size
+end_idx = start_idx + page_size
 ```
 
 ## Usage Examples
@@ -80,8 +91,7 @@ end_idx = start_idx + top
 
 ```python
 {
-  "page_number": 1,
-  "top": 5
+  "page_number": 1
 }
 ```
 
@@ -100,8 +110,7 @@ Response:
 
 ```python
 {
-  "page_number": 2,
-  "top": 5
+  "page_number": 2
 }
 ```
 
@@ -116,12 +125,19 @@ Response:
 }
 ```
 
-### Example 3: Custom Page Size
+### Example 3: Adjust Page Size
 
+To change the number of emails per page, modify the `PAGE_SIZE` environment variable:
+
+```env
+# .env file
+PAGE_SIZE=10
+```
+
+Then browse:
 ```python
 {
-  "page_number": 1,
-  "top": 10
+  "page_number": 1
 }
 ```
 
@@ -174,11 +190,11 @@ Two test scripts are available to verify sorting and pagination:
 #### test_load_emails.py
 
 Comprehensive testing including:
-- Loading emails with `top` parameter
 - Loading emails with `days` parameter
 - Verifying sorting order (newest first)
 - Testing cache operations
 - Timezone conversion verification
+- Pagination with configured page_size
 
 Run with:
 ```bash
@@ -218,9 +234,16 @@ if page_number > total_pages:
 
 ### 3. Use Appropriate Page Sizes
 
+Configure the `PAGE_SIZE` environment variable based on your needs:
 - Small pages (5-10): Better for slow connections or limited display space
-- Medium pages (20-50): Good balance for most use cases (default: 20)
+- Medium pages (20-50): Good balance for most use cases
 - Large pages (100+): Only for batch processing or data export
+
+Example:
+```env
+# .env file
+PAGE_SIZE=20
+```
 
 ### 4. Cache Results When Possible
 
@@ -246,8 +269,9 @@ The email cache persists to disk, so you can:
 
 **Solutions**:
 1. Verify `total_count` is correct
-2. Check page size calculation: `(total_count + top - 1) // top`
+2. Check page size calculation: `(total_count + page_size - 1) // page_size`
 3. Ensure cache is up to date (reload if needed)
+4. Verify `PAGE_SIZE` environment variable is set correctly
 
 ### Local Time Filtering Not Working
 

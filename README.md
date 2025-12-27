@@ -53,7 +53,17 @@ If you want to use a custom Azure app registration, you can create a `.env` file
 ```env
 CLIENT_ID=your_custom_client_id
 TENANT_ID=organizations
+USER_TIMEZONE=Asia/Shanghai
+DEFAULT_SEARCH_DAYS=90
+PAGE_SIZE=5
 ```
+
+**Configuration Options**:
+- `CLIENT_ID`: Custom Azure application client ID (optional)
+- `TENANT_ID`: Azure tenant ID (default: "organizations")
+- `USER_TIMEZONE`: User's timezone in IANA format (e.g., "Asia/Shanghai", "America/New_York")
+- `DEFAULT_SEARCH_DAYS`: Default search range in days for email searches (default: 90)
+- `PAGE_SIZE`: Number of items per page for browsing emails, events, and contacts (default: 5)
 
 **Note**: By default, Microsoft's public client ID is used, and no configuration is required.
 
@@ -103,7 +113,7 @@ Add the following configuration:
 - **list_recent_emails** - List recent emails from Inbox with optional days parameter (default: 1 day, maximum: 7 days)
 - **load_emails_by_folder** - Load emails from a folder into cache with filtering options (by days or top number)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
-- **search_emails** - Search emails by sender, recipient, subject, or body text
+- **search_emails** - Search emails by sender, recipient, subject, or body text with configurable date range
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
 - **send_message** - Send an email message
 - **clear_email_cache** - Clear the email browsing cache
@@ -150,10 +160,17 @@ isort .
 
 ### Timezone Support
 Email timestamps are now automatically converted to the user's local timezone for better readability. The system:
-- Retrieves the user's mailbox timezone from Microsoft Graph
-- Falls back to the `USER_TIMEZONE` environment variable if unavailable
+- Retrieves the user's timezone from the server's local timezone
+- Supports Windows timezone names with automatic conversion to IANA format
+- Falls back to the `USER_TIMEZONE` environment variable if needed
 - Defaults to UTC if no timezone information is available
 - Displays timestamps in a user-friendly format (e.g., "Fri 12/26/2025 09:27 PM")
+
+### Date Range Information
+Email list and search tools now return date range information to help users understand the time span of results:
+- **date_range**: Shows the actual date range of emails returned (from most recent to oldest)
+- **filter_date_range**: Shows the filter applied to the search (e.g., "last 90 days")
+- **timezone**: Shows the user's timezone for reference
 
 ### Email Sorting and Filtering
 Emails are now properly sorted by received date (newest first) with:
@@ -168,6 +185,12 @@ The `browse_email_cache` tool now provides clear pagination information:
 - `total_pages` - Total number of pages available
 - `count` - Number of emails on current page
 - `total_count` - Total number of emails in cache
+
+### Configurable Search Range
+Email search functions now support a configurable default search range:
+- Default search range: 90 days (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+- Override default by specifying `days` parameter in search functions
+- Makes searches more efficient and predictable by limiting the time range
 
 ### Inline Attachment Support
 When replying to emails, the system now properly handles inline attachments (embedded images):

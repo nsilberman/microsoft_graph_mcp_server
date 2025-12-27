@@ -32,9 +32,23 @@ Lists recent emails from the Inbox folder with a configurable time range. This i
   "folder": "Inbox",
   "days": N,
   "count": X,
+  "timezone": "Asia/Shanghai",
+  "date_range": {
+    "from": "Fri 12/27/2025 09:36 PM",
+    "to": "Wed 12/24/2025 10:28 PM"
+  },
   "hint": "Use browse_email_cache to view the loaded emails"
 }
 ```
+
+### Return Fields
+- `message`: Confirmation message
+- `folder`: Folder loaded (always "Inbox")
+- `days`: Number of days looked back
+- `count`: Number of emails loaded
+- `timezone`: User's timezone for reference
+- `date_range`: Actual date range of emails loaded (from most recent to oldest)
+- `hint`: Instructions for viewing results
 
 ### Example Usage
 ```python
@@ -58,7 +72,7 @@ result = await list_recent_emails(days=7)
 ## Load Emails by Folder
 
 ### Description
-Loads emails from a specific folder into the cache. Can filter by days or limit by top number (mutually exclusive parameters).
+Loads emails from a specific folder into the cache. Can filter by days or limit by page size (mutually exclusive parameters).
 
 ### Parameters
 - `folder` (optional, string): Mail folder name
@@ -69,6 +83,16 @@ Loads emails from a specific folder into the cache. Can filter by days or limit 
 - `top` (optional, integer): Maximum number of emails to load
   - Minimum: 1
   - Maximum: 99 (cannot be 100 or more)
+
+### Configuration
+The number of emails per page is controlled by the `PAGE_SIZE` environment variable:
+
+```env
+# .env file
+PAGE_SIZE=5
+```
+
+Default page size is 5 emails per page. This ensures consistent pagination across all browsing operations.
 
 ### Constraints
 - Cannot specify both `days` and `top` parameters simultaneously
@@ -83,9 +107,24 @@ Loads emails from a specific folder into the cache. Can filter by days or limit 
   "filter_days": N,
   "limit_top": M,
   "count": X,
+  "timezone": "Asia/Shanghai",
+  "date_range": {
+    "from": "Fri 12/27/2025 09:36 PM",
+    "to": "Wed 12/24/2025 10:28 PM"
+  },
   "hint": "Use browse_email_cache to view the loaded emails"
 }
 ```
+
+### Return Fields
+- `message`: Confirmation message
+- `folder`: Folder loaded
+- `filter_days`: Days filter applied (if days parameter used)
+- `limit_top`: Top limit applied (if top parameter used)
+- `count`: Number of emails loaded
+- `timezone`: User's timezone for reference
+- `date_range`: Actual date range of emails loaded (from most recent to oldest)
+- `hint`: Instructions for viewing results
 
 ### Example Usage
 ```python
@@ -109,7 +148,7 @@ result = await load_emails_by_folder(folder="Archive", days=14)
 ## Search Emails
 
 ### Description
-Unified search tool for emails. Search by sender, recipient, subject, or body text. Returns email numbers found in cache.
+Unified search tool for emails. Search by sender, recipient, subject, or body text with configurable date range filtering.
 
 ### Parameters
 - `search_type` (required, string): Type of search to perform
@@ -120,8 +159,9 @@ Unified search tool for emails. Search by sender, recipient, subject, or body te
   - For subject: subject text
   - For body: body text content
 - `folder` (optional, string): Folder to search (default: all folders)
-- `top` (optional, integer): Number of emails to search
-  - Default: 20
+- `days` (optional, integer): Number of days to search back
+  - Default: 90 (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+  - Set to `null` to search all emails (not recommended for large mailboxes)
 
 ### Returns
 ```json
@@ -130,39 +170,76 @@ Unified search tool for emails. Search by sender, recipient, subject, or body te
   "query": "search query",
   "folder": "Inbox",
   "count": X,
+  "timezone": "Asia/Shanghai",
+  "date_range": {
+    "from": "Fri 12/27/2025 09:36 PM",
+    "to": "Wed 12/24/2025 10:28 PM"
+  },
+  "filter_date_range": "last 90 days",
   "hint": "Found X emails. Use browse_email_cache to view the results."
 }
 ```
 
+### Return Fields
+- `search_type`: Type of search performed
+- `query`: Search query used
+- `folder`: Folder searched (or null for all folders)
+- `count`: Number of emails found
+- `timezone`: User's timezone for reference
+- `date_range`: Actual date range of emails returned (from most recent to oldest)
+- `filter_date_range`: Filter applied to the search (e.g., "last 90 days")
+- `hint`: Instructions for viewing results
+
 ### Example Usage
 ```python
-# Search by sender in Inbox
+# Search by sender in Inbox (default 90 days)
 result = await search_emails(search_type="sender", query="john@example.com", folder="Inbox")
 
-# Search by subject across all folders
-result = await search_emails(search_type="subject", query="meeting")
+# Search by subject with custom date range
+result = await search_emails(search_type="subject", query="meeting", days=30)
 
-# Search by body text in Sent Items
-result = await search_emails(search_type="body", query="project update", folder="Sent Items", top=10)
+# Search by body text in Sent Items with custom date range
+result = await search_emails(search_type="body", query="project update", folder="Sent Items", days=60)
+
+# Search all emails (not recommended for large mailboxes)
+result = await search_emails(search_type="sender", query="john@example.com", days=None)
+```
+
+### Configuration
+The default search range can be configured via the `DEFAULT_SEARCH_DAYS` environment variable:
+
+```env
+# .env file
+DEFAULT_SEARCH_DAYS=90
 ```
 
 ### Notes
 - Automatically clears the cache before performing search
 - Loads search results into cache for browsing
 - Use `browse_email_cache` to view the search results
+- Date range filtering makes searches more efficient and predictable
+- Setting `days` to `null` will search all emails (may be slow for large mailboxes)
 
 ---
 
 ## Browse Email Cache
 
 ### Description
-Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache.
+Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. The page size is configured via the `PAGE_SIZE` environment variable (default: 5).
 
 ### Parameters
 - `page_number` (required, integer): Page number to view
   - Minimum: 1
-- `top` (optional, integer): Number of emails per page
-  - Default: 20
+
+### Configuration
+The number of emails per page is controlled by the `PAGE_SIZE` environment variable:
+
+```env
+# .env file
+PAGE_SIZE=5
+```
+
+Default page size is 5 emails per page. This ensures consistent pagination across all browsing operations.
 
 ### Returns
 ```json
@@ -205,8 +282,8 @@ Each email in the cache contains:
 # View first page (default 20 emails per page)
 result = await browse_email_cache(page_number=1)
 
-# View second page with 10 emails per page
-result = await browse_email_cache(page_number=2, top=10)
+# View second page (uses configured page_size)
+result = await browse_email_cache(page_number=2)
 ```
 
 ### Notes
@@ -335,7 +412,7 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 3. **Clear cache when needed**: Use `clear_email_cache` to free up memory or start fresh.
 
-4. **Use pagination for large result sets**: When browsing emails, use pagination with appropriate `top` values to manage memory usage.
+4. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
 5. **Respect parameter limits**: 
    - `days` parameter: maximum 29 (not 30)
