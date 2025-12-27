@@ -382,6 +382,90 @@ class EmailFunctionsUnitTester:
             traceback.print_exc()
             self.record_result("reply_email_with_cc_bcc", False, str(e))
     
+    async def test_reply_email_with_inline_attachments(self):
+        print_test_header("Reply Email - With Inline Attachments")
+        
+        try:
+            with patch.object(GraphClient, 'post', new_callable=AsyncMock) as mock_post, \
+                 patch.object(GraphClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
+                mock_post.return_value = {"id": "reply-email-id"}
+                mock_get_email.return_value = {
+                    "id": "original-email-id-123",
+                    "subject": "Original Subject",
+                    "from": {
+                        "emailAddress": {
+                            "name": "Original Sender",
+                            "address": "original-sender@example.com"
+                        }
+                    },
+                    "sentDateTime": "2024-01-01T00:00:00Z",
+                    "body": {
+                        "contentType": "HTML",
+                        "content": '<html><body><p>Original email body content</p><div><img alt="Banner" src="cid:banner"></div></body></html>'
+                    },
+                    "attachments": [
+                        {
+                            "id": "attachment-id-1",
+                            "name": "banner.png",
+                            "contentType": "image/png",
+                            "contentBytes": "base64encodedimagedata",
+                            "isInline": True,
+                            "size": 12345,
+                            "contentId": "banner"
+                        }
+                    ]
+                }
+                
+                client = GraphClient()
+                result = await client.send_email(
+                    to_recipients=["original-sender@example.com"],
+                    subject="Re: Original Subject",
+                    body="<p>Reply content</p>",
+                    cc_recipients=None,
+                    bcc_recipients=None,
+                    reply_to_message_id="original-email-id-123",
+                    body_content_type="HTML"
+                )
+                
+                call_args = mock_post.call_args
+                data = call_args[1]["data"]
+                message = data["message"]
+                
+                has_attachments = "attachments" in message and len(message["attachments"]) == 1
+                correct_endpoint = call_args[0][0] == "/me/sendMail"
+                has_user_reply = "Reply content" in message["body"]["content"]
+                has_original_thread = "Original email body content" in message["body"]["content"]
+                has_cid_reference = "cid:banner" in message["body"]["content"]
+                
+                if has_attachments:
+                    attachment = message["attachments"][0]
+                    correct_odata_type = attachment.get("@odata.type") == "#microsoft.graph.fileAttachment"
+                    correct_name = attachment.get("name") == "banner.png"
+                    correct_content_type = attachment.get("contentType") == "image/png"
+                    correct_is_inline = attachment.get("isInline") == True
+                    has_content_bytes = "contentBytes" in attachment
+                    correct_content_id = attachment.get("contentId") == "<banner>"
+                    
+                    if correct_endpoint and has_attachments and correct_odata_type and correct_name and correct_content_type and correct_is_inline and has_content_bytes and correct_content_id and has_user_reply and has_original_thread and has_cid_reference:
+                        print_success("Reply email with inline attachments test passed")
+                        print_info(f"Number of inline attachments: {len(message['attachments'])}")
+                        print_info(f"Attachment name: {attachment['name']}")
+                        print_info(f"Attachment is inline: {attachment['isInline']}")
+                        print_info(f"Attachment contentId: {attachment.get('contentId')}")
+                        print_info(f"Body contains cid reference: {has_cid_reference}")
+                        self.record_result("reply_email_with_inline_attachments", True)
+                    else:
+                        print_error(f"Endpoint: {correct_endpoint}, Attachments: {has_attachments}, OData Type: {correct_odata_type}, Name: {correct_name}, Content Type: {correct_content_type}, Is Inline: {correct_is_inline}, Content Bytes: {has_content_bytes}, Content ID: {correct_content_id}, User Reply: {has_user_reply}, Thread: {has_original_thread}, CID Reference: {has_cid_reference}")
+                        self.record_result("reply_email_with_inline_attachments", False, "Incorrect attachment structure")
+                else:
+                    print_error(f"Expected 1 inline attachment, got {len(message.get('attachments', []))}")
+                    self.record_result("reply_email_with_inline_attachments", False, "Missing inline attachments")
+        except Exception as e:
+            print_error(f"Reply email with inline attachments test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            self.record_result("reply_email_with_inline_attachments", False, str(e))
+    
     async def test_forward_batch_email_basic(self):
         print_test_header("Forward Batch Email - Basic")
         
@@ -614,6 +698,7 @@ async def main():
     await tester.test_compose_email_with_cc_bcc()
     await tester.test_reply_email_basic()
     await tester.test_reply_email_with_cc_bcc()
+    await tester.test_reply_email_with_inline_attachments()
     await tester.test_forward_batch_email_basic()
     await tester.test_forward_batch_email_with_csv_bcc()
     await tester.test_forward_batch_email_with_cc()

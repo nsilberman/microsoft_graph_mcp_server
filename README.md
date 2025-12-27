@@ -107,6 +107,9 @@ Add the following configuration:
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
 - **send_message** - Send an email message
 - **clear_email_cache** - Clear the email browsing cache
+- **compose_email** - Compose and send a new email with support for multiple recipients, CC, and BCC
+- **reply_email** - Reply to an existing email with inline attachment support
+- **forward_batch_email** - Forward multiple emails as attachments to new recipients
 
 #### Calendar Management
 - **browse_events** - Browse calendar events with pagination
@@ -166,12 +169,28 @@ The `browse_email_cache` tool now provides clear pagination information:
 - `count` - Number of emails on current page
 - `total_count` - Total number of emails in cache
 
+### Inline Attachment Support
+When replying to emails, the system now properly handles inline attachments (embedded images):
+- **Automatic Detection**: Inline attachments are identified by the `isInline` property
+- **Content Preservation**: Original attachment content (`contentBytes`) and content ID (`contentId`) are preserved
+- **HTML Rendering**: Embedded images referenced with `cid:` (Content-ID) are properly rendered in email replies
+- **Thread Continuity**: Original email content including inline images is maintained in reply threads
+- **Error Handling**: Failed attachment fetches are logged without breaking the reply process
+
+The implementation uses Microsoft Graph API's separate endpoint calls to retrieve complete attachment data:
+1. Fetch email with basic attachment metadata using `$expand=attachments($select=id,name,contentType,isInline)`
+2. For each inline attachment, call `/me/messages/{message_id}/attachments/{attachment_id}` to get `contentBytes` and `contentId`
+3. Re-attach inline attachments to the reply email with preserved metadata
+
+This ensures that emails with embedded images, logos, or other inline content maintain their visual integrity when replied to.
+
 ## Documentation
 
 Additional documentation is available in the `doc/` folder:
 - [INSTALLATION.md](doc/INSTALLATION.md) - Detailed installation instructions
 - [LOGIN_DOCUMENTATION.md](doc/LOGIN_DOCUMENTATION.md) - Authentication guide
 - [TEST_README.md](doc/TEST_README.md) - Testing guide
+- [INLINE_ATTACHMENTS.md](doc/INLINE_ATTACHMENTS.md) - Inline attachment handling documentation
 - [CONTRIBUTING.md](doc/CONTRIBUTING.md) - Contribution guidelines
 
 ## License

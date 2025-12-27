@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Union
 from zoneinfo import ZoneInfo
@@ -385,7 +386,8 @@ class GraphClient:
             }
         else:
             params = {
-                "$select": "*"
+                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,attachments",
+                "$expand": "attachments($select=id,name,contentType,isInline)"
             }
         return await self.get(f"/me/messages/{email_id}", params=params)
     
@@ -588,8 +590,7 @@ class GraphClient:
 
         This method appends the original email thread to the user's reply body.
         The LLM must generate HTML directly when calling this tool.
-        Embedded images with cid: references are removed from the quoted section
-        to prevent red crosses, but they remain visible in the email thread view.
+        Inline images from the original email are re-attached to preserve display.
 
         Args:
             message_id: The ID of the message to reply to
@@ -654,6 +655,43 @@ class GraphClient:
 
         if bcc_recipients:
             message_data["bccRecipients"] = [{"emailAddress": {"address": addr}} for addr in bcc_recipients]
+
+        # Extract inline attachments from original email and re-attach them
+        attachments = original_email.get("attachments", [])
+        inline_attachments = []
+        
+        for attachment in attachments:
+            if attachment.get("isInline", False):
+                attachment_id = attachment.get("id", "")
+                
+                # Fetch the attachment with contentBytes and contentId
+                # We need to make a separate call to get the actual content
+                try:
+                    attachment_with_content = await self.get(f"/me/messages/{message_id}/attachments/{attachment_id}")
+                    content_bytes = attachment_with_content.get("contentBytes", "")
+                    content_id = attachment_with_content.get("contentId", "")
+                except Exception as e:
+                    # If we can't fetch the attachment content, skip it
+                    print(f"Warning: Could not fetch attachment content for {attachment.get('name')}: {e}", file=sys.stderr)
+                    content_bytes = ""
+                    content_id = ""
+                
+                # Use contentId as-is from the fetched attachment
+                # Microsoft Graph API handles the cid: matching automatically
+                # The contentId may or may not have angle brackets depending on the original email
+                
+                inline_attachments.append({
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": attachment.get("name", ""),
+                    "contentType": attachment.get("contentType", ""),
+                    "contentBytes": content_bytes,
+                    "isInline": True,
+                    "id": attachment.get("id", ""),
+                    "contentId": content_id
+                })
+        
+        if inline_attachments:
+            message_data["attachments"] = inline_attachments
 
         # Send the reply email
         return await self.send_message(message_data)
