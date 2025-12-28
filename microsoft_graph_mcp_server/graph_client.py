@@ -66,9 +66,9 @@ class GraphClient:
                 else:
                     raise Exception(f"Graph API request failed: {response.status_code} - {response.text}")
     
-    async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """Make GET request to Graph API."""
-        return await self._make_request("GET", endpoint, params=params)
+        return await self._make_request("GET", endpoint, params=params, headers=headers)
     
     async def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make POST request to Graph API."""
@@ -401,12 +401,12 @@ class GraphClient:
         )
         return int(result) if isinstance(result, (int, str)) else 0
     
-    async def get_email(self, email_id: str, emailNumber: int, text_only: bool = True) -> Dict[str, Any]:
+    async def get_email(self, email_id: str, emailNumber: int = 0, text_only: bool = True) -> Dict[str, Any]:
         """Get full email content by ID.
         
         Args:
             email_id: The ID of the email to retrieve
-            emailNumber: The cache number of the email
+            emailNumber: The cache number of the email (optional, defaults to 0)
             text_only: If True, return only text content without embedded images and attachments.
                       If False, return full content including embedded images and attachments.
         """
@@ -416,13 +416,17 @@ class GraphClient:
             params = {
                 "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,bodyPreview,internetMessageId,parentFolderId,flag,categories"
             }
+            headers = {
+                "Prefer": 'outlook.body-content-type="text"'
+            }
         else:
             params = {
                 "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,bodyPreview,internetMessageId,parentFolderId,flag,categories",
                 "$expand": "attachments($select=id,name,contentType,isInline)"
             }
+            headers = None
         
-        email = await self.get(f"/me/messages/{email_id}", params=params)
+        email = await self.get(f"/me/messages/{email_id}", params=params, headers=headers)
         
         received_datetime = email.get("receivedDateTime", "")
         received_datetime_display = ""
@@ -742,7 +746,8 @@ class GraphClient:
         body_content_type: str = "HTML",
         to_recipients: Optional[List[str]] = None,
         cc_recipients: Optional[List[str]] = None,
-        bcc_recipients: Optional[List[str]] = None
+        bcc_recipients: Optional[List[str]] = None,
+        subject: Optional[str] = None
     ) -> Dict[str, Any]:
         """Reply to an email message using Microsoft Graph API.
 
@@ -757,18 +762,26 @@ class GraphClient:
             to_recipients: Optional list of recipient email addresses (defaults to original sender)
             cc_recipients: Optional list of CC recipient email addresses
             bcc_recipients: Optional list of BCC recipient email addresses
+            subject: Optional subject for the reply (defaults to original subject)
 
         Returns:
             Response from the Graph API
         """
         original_email = await self.get_email(message_id, text_only=False)
 
-        from_email = original_email.get("from", {}).get("emailAddress", {})
+        # Extract data from the structured response
+        email_content = original_email.get("content", {})
+        email_metadata = original_email.get("metadata", {})
+
+        from_email = email_content.get("from", {})
         from_name = from_email.get("name", "")
-        from_address = from_email.get("address", "")
-        sent_date = original_email.get("sentDateTime", "")
-        original_subject = original_email.get("subject", "")
-        original_body = original_email.get("body", {}).get("content", "")
+        from_address = from_email.get("email", "")
+        sent_date = email_metadata.get("sentDateTime", "")
+        original_subject = email_content.get("subject", "")
+        original_body = email_content.get("body", {}).get("content", "")
+
+        # Use provided subject or default to original subject
+        reply_subject = subject if subject else original_subject
 
         # Extract body content from original HTML email
         import re
@@ -800,7 +813,7 @@ class GraphClient:
 
         # Build message data
         message_data = {
-            "subject": original_subject,
+            "subject": reply_subject,
             "body": {
                 "contentType": body_content_type,
                 "content": reply_body
@@ -815,7 +828,8 @@ class GraphClient:
             message_data["bccRecipients"] = [{"emailAddress": {"address": addr}} for addr in bcc_recipients]
 
         # Extract inline attachments from original email and re-attach them
-        attachments = original_email.get("attachments", [])
+        # Note: get_email returns {content: {...}, metadata: {...}}, so we need to access content.attachments
+        attachments = email_content.get("attachments", [])
         inline_attachments = []
         
         for attachment in attachments:
@@ -894,7 +908,8 @@ class GraphClient:
                 body_content_type=body_content_type,
                 to_recipients=to_recipients,
                 cc_recipients=cc_recipients,
-                bcc_recipients=bcc_recipients
+                bcc_recipients=bcc_recipients,
+                subject=subject
             )
         
         message_data = {

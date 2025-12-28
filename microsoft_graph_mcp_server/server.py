@@ -868,7 +868,7 @@ class MicrosoftGraphMCPServer:
                     email_id = email["id"]
                     
                     if not to_recipients or not subject or not body:
-                        full_email = await graph_client.get_email(email_id, text_only=True)
+                        full_email = await graph_client.get_email(email_id, emailNumber, text_only=True)
                         return [types.TextContent(
                             type="text",
                             text=json.dumps({
