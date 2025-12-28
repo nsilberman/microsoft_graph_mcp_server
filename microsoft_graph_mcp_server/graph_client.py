@@ -219,7 +219,7 @@ class GraphClient:
         else:
             params["$top"] = 100
         
-        params["$select"] = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+        params["$select"] = "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         
         result = await self.get(f"/me/mailFolders/{folder_id}/messages", params=params)
         emails = result.get("value", [])
@@ -277,9 +277,13 @@ class GraphClient:
         from_email = email.get("from", {}).get("emailAddress", {})
         to_recipients = email.get("toRecipients", [])
         cc_recipients = email.get("ccRecipients", [])
+        bcc_recipients = email.get("bccRecipients", [])
         
         received_datetime = email.get("receivedDateTime", "")
         received_datetime_display = date_handler.convert_utc_to_user_timezone(received_datetime, timezone_str)
+        
+        sent_datetime = email.get("sentDateTime", "")
+        sent_datetime_display = date_handler.convert_utc_to_user_timezone(sent_datetime, timezone_str)
         
         body_content = email.get("body", {})
         body_type = body_content.get("contentType", "")
@@ -292,6 +296,9 @@ class GraphClient:
             img_tags = re.findall(r'<img[^>]+>', body_text, re.IGNORECASE)
             embedded_image_count = len(img_tags)
             has_embedded_images = embedded_image_count > 0
+        
+        flag_info = email.get("flag", {})
+        flag_status = flag_info.get("flagStatus", "notFlagged")
         
         return {
             "number": index,
@@ -321,7 +328,29 @@ class GraphClient:
             "hasAttachments": email.get("hasAttachments", False),
             "hasEmbeddedImages": has_embedded_images,
             "embeddedImageCount": embedded_image_count,
-            "importance": email.get("importance", "normal")
+            "importance": email.get("importance", "normal"),
+            "metadata": {
+                "sentDateTime": sent_datetime,
+                "sentDateTimeDisplay": sent_datetime_display,
+                "conversationId": email.get("conversationId", ""),
+                "conversationIndex": email.get("conversationIndex", ""),
+                "isDraft": email.get("isDraft", False),
+                "bccRecipients": [
+                    {
+                        "name": r.get("emailAddress", {}).get("name", ""),
+                        "email": r.get("emailAddress", {}).get("address", "")
+                    }
+                    for r in bcc_recipients
+                ],
+                "bodyPreview": email.get("bodyPreview", ""),
+                "size": email.get("size", 0),
+                "internetMessageId": email.get("internetMessageId", ""),
+                "parentFolderId": email.get("parentFolderId", ""),
+                "flag": {
+                    "flagStatus": flag_status
+                },
+                "categories": email.get("categories", [])
+            }
         }
     
     async def browse_emails(
@@ -335,7 +364,7 @@ class GraphClient:
         params = {
             "$top": top,
             "$skip": skip,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         if filter_query:
             params["$filter"] = filter_query
@@ -372,11 +401,12 @@ class GraphClient:
         )
         return int(result) if isinstance(result, (int, str)) else 0
     
-    async def get_email(self, email_id: str, text_only: bool = True) -> Dict[str, Any]:
+    async def get_email(self, email_id: str, emailNumber: int, text_only: bool = True) -> Dict[str, Any]:
         """Get full email content by ID.
         
         Args:
             email_id: The ID of the email to retrieve
+            emailNumber: The cache number of the email
             text_only: If True, return only text content without embedded images and attachments.
                       If False, return full content including embedded images and attachments.
         """
@@ -384,27 +414,90 @@ class GraphClient:
         
         if text_only:
             params = {
-                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex"
+                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,bodyPreview,internetMessageId,parentFolderId,flag,categories"
             }
         else:
             params = {
-                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,attachments",
+                "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,importance,isRead,isDraft,hasAttachments,body,conversationId,conversationIndex,bodyPreview,internetMessageId,parentFolderId,flag,categories",
                 "$expand": "attachments($select=id,name,contentType,isInline)"
             }
         
         email = await self.get(f"/me/messages/{email_id}", params=params)
         
         received_datetime = email.get("receivedDateTime", "")
+        received_datetime_display = ""
         if received_datetime:
-            email["receivedDateTimeDisplay"] = date_handler.convert_utc_to_user_timezone(received_datetime, user_timezone_str)
+            received_datetime_display = date_handler.convert_utc_to_user_timezone(received_datetime, user_timezone_str)
         
         sent_datetime = email.get("sentDateTime", "")
+        sent_datetime_display = ""
         if sent_datetime:
-            email["sentDateTimeDisplay"] = date_handler.convert_utc_to_user_timezone(sent_datetime, user_timezone_str)
+            sent_datetime_display = date_handler.convert_utc_to_user_timezone(sent_datetime, user_timezone_str)
         
-        email["timezone"] = user_timezone_str
+        flag = email.get("flag", {})
+        flag_status = flag.get("flagStatus", "notFlagged")
         
-        return email
+        content = {
+            "emailNumber": emailNumber,
+            "subject": email.get("subject", ""),
+            "from": {
+                "name": email.get("from", {}).get("emailAddress", {}).get("name", ""),
+                "email": email.get("from", {}).get("emailAddress", {}).get("address", "")
+            },
+            "to": [
+                {
+                    "name": r.get("emailAddress", {}).get("name", ""),
+                    "email": r.get("emailAddress", {}).get("address", "")
+                }
+                for r in email.get("toRecipients", [])
+            ],
+            "cc": [
+                {
+                    "name": r.get("emailAddress", {}).get("name", ""),
+                    "email": r.get("emailAddress", {}).get("address", "")
+                }
+                for r in email.get("ccRecipients", [])
+            ],
+            "receivedDateTimeDisplay": received_datetime_display,
+            "importance": email.get("importance", "normal"),
+            "isRead": email.get("isRead", False),
+            "hasAttachments": email.get("hasAttachments", False),
+            "body": email.get("body", {})
+        }
+        
+        if not text_only:
+            content["attachments"] = email.get("attachments", [])
+        
+        metadata = {
+            "id": email.get("id", ""),
+            "receivedDateTime": received_datetime,
+            "sentDateTime": sent_datetime,
+            "sentDateTimeDisplay": sent_datetime_display,
+            "timezone": user_timezone_str,
+            "conversationId": email.get("conversationId", ""),
+            "conversationIndex": email.get("conversationIndex", ""),
+            "isDraft": email.get("isDraft", False),
+            "bccRecipients": [
+                {
+                    "name": r.get("emailAddress", {}).get("name", ""),
+                    "email": r.get("emailAddress", {}).get("address", "")
+                }
+                for r in email.get("bccRecipients", [])
+            ],
+            "size": email.get("size", 0),
+            "internetMessageId": email.get("internetMessageId", ""),
+            "parentFolderId": email.get("parentFolderId", ""),
+            "flag": {
+                "flagStatus": flag_status
+            },
+            "categories": email.get("categories", []),
+            "bodyPreview": email.get("bodyPreview", "")
+        }
+        
+        return {
+            "content": content,
+            "metadata": metadata
+        }
     
     async def search_emails(
         self,
@@ -416,7 +509,7 @@ class GraphClient:
         params = {
             "$search": f'"{query}"',
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         
         endpoint = "/me/messages"
@@ -465,7 +558,7 @@ class GraphClient:
         params = {
             "$filter": filter_query,
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         
         endpoint = "/me/messages"
@@ -514,7 +607,7 @@ class GraphClient:
         params = {
             "$filter": filter_query,
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         
         endpoint = "/me/messages"
@@ -563,7 +656,7 @@ class GraphClient:
         params = {
             "$filter": filter_query,
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         
         endpoint = "/me/messages"
@@ -606,7 +699,7 @@ class GraphClient:
         params = {
             "$search": f'"{body_text}"',
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,hasAttachments,importance,body"
+            "$select": "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,conversationId,conversationIndex,isDraft,internetMessageId,parentFolderId,flag,categories"
         }
         
         endpoint = "/me/messages"

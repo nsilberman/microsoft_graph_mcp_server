@@ -9,7 +9,7 @@ This document describes the email-related functions available in the Microsoft G
 3. [Search Emails](#search-emails)
 4. [Browse Email Cache](#browse-email-cache)
 5. [Clear Email Cache](#clear-email-cache)
-6. [Get Email](#get-email)
+6. [Get Email Content](#get-email-content)
 7. [List Mail Folders](#list-mail-folders)
 
 ---
@@ -257,7 +257,6 @@ Each email in the cache contains:
 ```json
 {
   "number": 1,
-  "id": "email-id",
   "subject": "Email Subject",
   "from": {
     "name": "Sender Name",
@@ -270,12 +269,23 @@ Each email in the cache contains:
     }
   ],
   "cc": [],
-  "receivedDateTime": "2025-12-26T11:01:26Z",
+  "receivedDateTime": "Fri 12/27/2025 09:36 PM",
+  "receivedDateTimeOriginal": "2025-12-27T13:36:27Z",
   "isRead": false,
   "hasAttachments": false,
+  "hasEmbeddedImages": false,
+  "embeddedImageCount": 0,
   "importance": "normal"
 }
 ```
+
+### Return Fields
+- `emails`: Array of email summaries
+- `count`: Number of emails on current page
+- `total_count`: Total emails in cache
+- `current_page`: Current page number
+- `total_pages`: Total pages available
+- `timezone`: User's timezone for reference
 
 ### Example Usage
 ```python
@@ -321,31 +331,70 @@ result = await clear_email_cache()
 
 ---
 
-## Get Email
+## Get Email Content
 
 ### Description
-Get full email content by ID. Use the email ID from browse_email_cache or search_emails to retrieve complete email with body, attachments, and all details.
+Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
 
 ### Parameters
-- `email_id` (required, string): Email ID from browse_email_cache or search_emails
+- `emailNumber` (required, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+- `text_only` (optional, boolean): If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.
+  - Default: true
 
 ### Returns
-Full email object including:
-- Subject, from, to, cc, bcc
-- Body content (HTML and text)
-- Attachments
-- Headers
-- All other email properties
+User-facing email content:
+```json
+{
+  "emailNumber": 1,
+  "subject": "Email Subject",
+  "from": {
+    "name": "Sender Name",
+    "email": "sender@example.com"
+  },
+  "to": [
+    {
+      "name": "Recipient Name",
+      "email": "recipient@example.com"
+    }
+  ],
+  "cc": [],
+  "receivedDateTimeDisplay": "Fri 12/27/2025 09:36 PM",
+  "importance": "normal",
+  "isRead": false,
+  "hasAttachments": false,
+  "body": {
+    "contentType": "html",
+    "content": "<html>...</html>"
+  }
+}
+```
+
+### Return Fields
+- `emailNumber`: Email number in cache
+- `subject`: Email subject
+- `from`: Sender information (name, email)
+- `to`: Array of to recipients (name, email)
+- `cc`: Array of CC recipients (name, email)
+- `receivedDateTimeDisplay`: Formatted local time
+- `importance`: Email importance level
+- `isRead`: Read status
+- `hasAttachments`: Has attachments flag
+- `body`: Email body content (contentType, content)
+- `attachments`: Array of attachments (only when text_only=false)
 
 ### Example Usage
 ```python
-# Get email by ID
-result = await get_email(email_id="AAMkADc4MDRiMTA2LWM5MTctNGY0Yy1iNGZhLTk5N2FkZDYzNTdlMABGAAAAAADvtPkv_HNvQ5BD_qICmjfLBwAS9HxkbFcHSLwsZGppet3QAAAAAAEMAAAS9HxkbFcHSLwsZGppet3QAAdhgdQfAAA=")
+# Get email content with text only (default)
+result = await get_email_content(emailNumber=1)
+
+# Get email content with full attachments and images
+result = await get_email_content(emailNumber=1, text_only=false)
 ```
 
 ### Notes
-- Requires valid email ID from cache
-- Returns complete email with all details
+- Requires valid email number from cache
+- Returns only user-facing content (system metadata is excluded)
+- Use `text_only=false` to include attachments and embedded images
 
 ---
 

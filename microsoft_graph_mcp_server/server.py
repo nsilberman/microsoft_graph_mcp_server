@@ -229,7 +229,7 @@ class MicrosoftGraphMCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "email_number": {
+                            "emailNumber": {
                                 "type": "integer",
                                 "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
                             },
@@ -239,7 +239,7 @@ class MicrosoftGraphMCPServer:
                                 "default": True
                             }
                         },
-                        "required": ["email_number"]
+                        "required": ["emailNumber"]
                     }
                 ),
                 types.Tool(
@@ -309,11 +309,11 @@ class MicrosoftGraphMCPServer:
                 ),
                 types.Tool(
                     name="reply_email",
-                    description="Reply to an existing email. The reply will be linked to the original email thread. If only email_number is provided, it will show the original email content for preview. If reply parameters are provided, it will send the reply with the email thread included. IMPORTANT: The body must be HTML format.",
+                    description="Reply to an existing email. The reply will be linked to the original email thread. If only emailNumber is provided, it will show the original email content for preview. If reply parameters are provided, it will send the reply with the email thread included. IMPORTANT: The body must be HTML format.",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "email_number": {
+                            "emailNumber": {
                                 "type": "integer",
                                 "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
                             },
@@ -341,7 +341,7 @@ class MicrosoftGraphMCPServer:
                                 "description": "List of BCC recipient email addresses (optional)"
                             }
                         },
-                        "required": ["email_number"]
+                        "required": ["emailNumber"]
                     }
                 ),
                 types.Tool(
@@ -693,7 +693,7 @@ class MicrosoftGraphMCPServer:
                     
                     filtered_emails = []
                     for idx, email in enumerate(page_emails):
-                        filtered_email = {k: v for k, v in email.items() if k != "id"}
+                        filtered_email = {k: v for k, v in email.items() if k not in ["id", "metadata"]}
                         filtered_email["number"] = start_idx + idx + 1
                         filtered_emails.append(filtered_email)
                     
@@ -736,14 +736,14 @@ class MicrosoftGraphMCPServer:
                     
                     await email_cache.set_mode("search")
                     await email_cache.update_search_state(
-                        query=query,
-                        folder=folder,
-                        top=top,
-                        days=days,
-                        search_type=search_type,
-                        total_count=result["count"],
-                        emails=result["emails"]
-                    )
+                    query=query,
+                    folder=folder,
+                    top=page_size,
+                    days=days,
+                    search_type=search_type,
+                    total_count=result["count"],
+                    emails=result["emails"]
+                )
                     
                     response_data = {
                         "search_type": search_type,
@@ -762,34 +762,34 @@ class MicrosoftGraphMCPServer:
                     )]
                 
                 elif name == "get_email_content":
-                    email_number = arguments["email_number"]
+                    emailNumber = arguments["emailNumber"]
                     text_only = arguments.get("text_only", True)
                     
                     cached_emails = email_cache.get_cached_emails()
                     
-                    if email_number < 1 or email_number > len(cached_emails):
+                    if emailNumber < 1 or emailNumber > len(cached_emails):
                         return [types.TextContent(
                             type="text",
                             text=json.dumps({
-                                "error": f"Email number {email_number} is out of range. Please choose a number between 1 and {len(cached_emails)}."
+                                "error": f"Email number {emailNumber} is out of range. Please choose a number between 1 and {len(cached_emails)}."
                             }, indent=2, ensure_ascii=False)
                         )]
                     
-                    email = cached_emails[email_number - 1]
+                    email = cached_emails[emailNumber - 1]
                     email_id = email.get("id")
                     
                     if not email_id:
                         return [types.TextContent(
                             type="text",
                             text=json.dumps({
-                                "error": f"Email number {email_number} does not have a valid Graph ID in cache."
+                                "error": f"Email number {emailNumber} does not have a valid Graph ID in cache."
                             }, indent=2, ensure_ascii=False)
                         )]
                     
-                    email_content = await graph_client.get_email(email_id, text_only=text_only)
+                    email_content = await graph_client.get_email(email_id, emailNumber, text_only=text_only)
                     return [types.TextContent(
                         type="text",
-                        text=json.dumps(email_content, indent=2, ensure_ascii=False)
+                        text=json.dumps(email_content["content"], indent=2, ensure_ascii=False)
                     )]
                 
                 elif name == "send_message":
@@ -845,7 +845,7 @@ class MicrosoftGraphMCPServer:
                     )]
                 
                 elif name == "reply_email":
-                    email_number = arguments["email_number"]
+                    emailNumber = arguments["emailNumber"]
                     to_recipients = arguments.get("to")
                     subject = arguments.get("subject")
                     body = arguments.get("body")
@@ -858,13 +858,13 @@ class MicrosoftGraphMCPServer:
                     print(f"[DEBUG] reply_email: body has {repr(body.count(chr(10)) if body else 0)} newlines", file=sys.stderr)
                     
                     cached_emails = email_cache.get_cached_emails()
-                    if email_number < 1 or email_number > len(cached_emails):
+                    if emailNumber < 1 or emailNumber > len(cached_emails):
                         return [types.TextContent(
                             type="text",
-                            text=f"Error: Email number {email_number} is out of range. Please use a number between 1 and {len(cached_emails)}."
+                            text=f"Error: Email number {emailNumber} is out of range. Please use a number between 1 and {len(cached_emails)}."
                         )]
                     
-                    email = cached_emails[email_number - 1]
+                    email = cached_emails[emailNumber - 1]
                     email_id = email["id"]
                     
                     if not to_recipients or not subject or not body:
