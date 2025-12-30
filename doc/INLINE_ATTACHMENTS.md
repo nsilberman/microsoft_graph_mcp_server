@@ -335,7 +335,6 @@ if content_id.startswith('<') and content_id.endswith('>'):
 ```json
 {
   "@odata.type": "#microsoft.graph.fileAttachment",
-  "id": "attachment-id",
   "name": "banner.png",
   "contentType": "image/png",
   "contentBytes": "base64-encoded-data",

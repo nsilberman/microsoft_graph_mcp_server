@@ -381,6 +381,10 @@ User-facing email content:
 - `hasAttachments`: Has attachments flag
 - `body`: Email body content (contentType, content)
 - `attachments`: Array of attachments (only when text_only=false)
+  - `name`: Attachment filename
+  - `size`: Attachment size in bytes
+  - `contentType`: MIME type of the attachment
+  - `isInline`: Whether the attachment is inline (embedded in the email body)
 
 ### Example Usage
 ```python

@@ -5,32 +5,40 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from microsoft_graph_mcp_server.graph_client import GraphClient
+from microsoft_graph_mcp_server.clients.email_client import EmailClient
 
 
+@pytest.mark.asyncio
 async def test_reply_with_html_original():
     """Test replying to an HTML original email with Text content type."""
     print("Testing reply to HTML original email with Text content type...")
 
-    with patch.object(GraphClient, 'post', new_callable=AsyncMock) as mock_post, \
-         patch.object(GraphClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
+    with patch.object(EmailClient, 'post', new_callable=AsyncMock) as mock_post, \
+         patch.object(EmailClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
 
         mock_post.return_value = {"id": "reply-email-id"}
         mock_get_email.return_value = {
-            "id": "original-email-id-123",
-            "subject": "Original Subject",
-            "from": {
-                "emailAddress": {
+            "content": {
+                "id": "original-email-id-123",
+                "subject": "Original Subject",
+                "from": {
                     "name": "Original Sender",
-                    "address": "original-sender@example.com"
-                }
+                    "email": "original-sender@example.com"
+                },
+                "to": [],
+                "cc": [],
+                "bcc": [],
+                "body": "<p>Original email body content</p><p>Second paragraph</p>",
+                "bodyType": "HTML",
+                "attachments": []
             },
-            "sentDateTime": "2024-01-01T00:00:00Z",
-            "body": {
-                "contentType": "HTML",
-                "content": "<p>Original email body content</p><p>Second paragraph</p>"
+            "metadata": {
+                "sentDateTime": "2024-01-01T00:00:00Z"
             }
         }
 
@@ -45,7 +53,7 @@ async def test_reply_with_html_original():
             cc_recipients=None,
             bcc_recipients=None,
             reply_to_message_id="original-email-id-123",
-            forward_message_ids=None,
+            forward_to_message_id=None,
             body_content_type="Text"
         )
 
@@ -74,27 +82,32 @@ async def test_reply_with_html_original():
         print("PASS: Text reply to HTML original email works correctly")
 
 
+@pytest.mark.asyncio
 async def test_reply_with_html_content_type():
     """Test replying with HTML content type."""
     print("\nTesting reply with HTML content type...")
 
-    with patch.object(GraphClient, 'post', new_callable=AsyncMock) as mock_post, \
-         patch.object(GraphClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
+    with patch.object(EmailClient, 'post', new_callable=AsyncMock) as mock_post, \
+         patch.object(EmailClient, 'get_email', new_callable=AsyncMock) as mock_get_email:
 
         mock_post.return_value = {"id": "reply-email-id"}
         mock_get_email.return_value = {
-            "id": "original-email-id-123",
-            "subject": "Original Subject",
-            "from": {
-                "emailAddress": {
+            "content": {
+                "id": "original-email-id-123",
+                "subject": "Original Subject",
+                "from": {
                     "name": "Original Sender",
-                    "address": "original-sender@example.com"
-                }
+                    "email": "original-sender@example.com"
+                },
+                "to": [],
+                "cc": [],
+                "bcc": [],
+                "body": "<p>Original email body content</p>",
+                "bodyType": "HTML",
+                "attachments": []
             },
-            "sentDateTime": "2024-01-01T00:00:00Z",
-            "body": {
-                "contentType": "HTML",
-                "content": "<p>Original email body content</p>"
+            "metadata": {
+                "sentDateTime": "2024-01-01T00:00:00Z"
             }
         }
 
@@ -109,7 +122,7 @@ async def test_reply_with_html_content_type():
             cc_recipients=None,
             bcc_recipients=None,
             reply_to_message_id="original-email-id-123",
-            forward_message_ids=None,
+            forward_to_message_id=None,
             body_content_type="HTML"
         )
 

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from microsoft_graph_mcp_server.server import read_bcc_from_csv
+from microsoft_graph_mcp_server.utils import read_bcc_from_csv
 from microsoft_graph_mcp_server.graph_client import GraphClient
 
 
