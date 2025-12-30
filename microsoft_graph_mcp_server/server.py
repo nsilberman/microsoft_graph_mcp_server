@@ -194,11 +194,10 @@ class MicrosoftGraphMCPServer:
                             "mode": {
                                 "type": "string",
                                 "enum": ["user", "llm"],
-                                "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
-                                "default": "user"
+                                "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)"
                             }
                         },
-                        "required": ["page_number"]
+                        "required": ["page_number", "mode"]
                     }
                 ),
                 types.Tool(
@@ -681,7 +680,7 @@ class MicrosoftGraphMCPServer:
                 
                 elif name == "browse_email_cache":
                     page_number = arguments["page_number"]
-                    mode = arguments.get("mode", "user")
+                    mode = arguments["mode"]
                     
                     cached_emails = email_cache.get_cached_emails()
                     total_count = len(cached_emails)
