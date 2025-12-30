@@ -739,6 +739,136 @@ class GraphClient:
         """Send an email message."""
         return await self.post("/me/sendMail", data={"message": message_data})
     
+    async def forward_message(
+        self,
+        message_id: str,
+        body: str,
+        body_content_type: str = "HTML",
+        to_recipients: Optional[List[str]] = None,
+        cc_recipients: Optional[List[str]] = None,
+        bcc_recipients: Optional[List[str]] = None,
+        subject: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Forward an email message using Microsoft Graph API.
+
+        This method appends the original email thread to the user's forward body.
+        The LLM must generate HTML directly when calling this tool.
+        Inline images from the original email are re-attached to preserve display.
+
+        Args:
+            message_id: The ID of the message to forward
+            body: Forward body content (must be HTML)
+            body_content_type: Content type for body (always 'HTML')
+            to_recipients: Optional list of recipient email addresses (defaults to original sender)
+            cc_recipients: Optional list of CC recipient email addresses
+            bcc_recipients: Optional list of BCC recipient email addresses
+            subject: Optional subject for the forward (defaults to "FW: " + original subject)
+
+        Returns:
+            Response from the Graph API
+        """
+        original_email = await self.get_email(message_id, text_only=False)
+
+        # Extract data from the structured response
+        email_content = original_email.get("content", {})
+        email_metadata = original_email.get("metadata", {})
+
+        from_email = email_content.get("from", {})
+        from_name = from_email.get("name", "")
+        from_address = from_email.get("email", "")
+        sent_date = email_metadata.get("sentDateTime", "")
+        original_subject = email_content.get("subject", "")
+        original_body = email_content.get("body", {}).get("content", "")
+
+        # Use provided subject or default to "FW: " + original subject
+        forward_subject = subject if subject else f"FW: {original_subject}"
+
+        # Extract body content from original HTML email
+        import re
+        original_body_content = original_body
+
+        # First, try to extract content between <body> tags
+        body_match = re.search(r'<body[^>]*>(.*?)</body>', original_body, re.DOTALL | re.IGNORECASE)
+        if body_match:
+            original_body_content = body_match.group(1)
+        else:
+            # If no <body> tag found, try to extract content between <html> tags
+            html_match = re.search(r'<html[^>]*>(.*?)</html>', original_body, re.DOTALL | re.IGNORECASE)
+            if html_match:
+                original_body_content = html_match.group(1)
+
+        # Build the quoted forward section
+        quoted_forward = f"""
+<br><br>
+<hr>
+<div>
+    <b>From:</b> {from_name} &lt;{from_address}&gt;<br>
+    <b>Sent:</b> {sent_date}<br>
+    <b>Subject:</b> {original_subject}
+</div>
+<br>
+{original_body_content}
+"""
+        forward_body = body + quoted_forward
+
+        # Build message data
+        message_data = {
+            "subject": forward_subject,
+            "body": {
+                "contentType": body_content_type,
+                "content": forward_body
+            },
+            "toRecipients": [{"emailAddress": {"address": addr}} for addr in to_recipients]
+        }
+
+        if cc_recipients:
+            message_data["ccRecipients"] = [{"emailAddress": {"address": addr}} for addr in cc_recipients]
+
+        if bcc_recipients:
+            message_data["bccRecipients"] = [{"emailAddress": {"address": addr}} for addr in bcc_recipients]
+
+        # Extract inline attachments from original email and re-attach them
+        # Note: get_email returns {content: {...}, metadata: {...}}, so we need to access content.attachments
+        attachments = email_content.get("attachments", [])
+        inline_attachments = []
+        
+        for attachment in attachments:
+            if attachment.get("isInline", False):
+                attachment_id = attachment.get("id", "")
+                
+                # Fetch the attachment with contentBytes and contentId
+                # We need to make a separate call to get the actual content
+                try:
+                    attachment_with_content = await self.get(f"/me/messages/{message_id}/attachments/{attachment_id}")
+                    content_bytes = attachment_with_content.get("contentBytes", "")
+                    content_id = attachment_with_content.get("contentId", "")
+                except Exception as e:
+                    # If we can't fetch the attachment content, skip it
+                    print(f"Warning: Could not fetch attachment content for {attachment.get('name')}: {e}", file=sys.stderr)
+                    content_bytes = ""
+                    content_id = ""
+                
+                # Normalize contentId by stripping angle brackets if present
+                # HTML cid: references use contentId without angle brackets (RFC 2387)
+                if content_id.startswith('<') and content_id.endswith('>'):
+                    content_id = content_id[1:-1]
+                
+                inline_attachments.append({
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": attachment.get("name", ""),
+                    "contentType": attachment.get("contentType", ""),
+                    "contentBytes": content_bytes,
+                    "isInline": True,
+                    "id": attachment.get("id", ""),
+                    "contentId": content_id
+                })
+        
+        if inline_attachments:
+            message_data["attachments"] = inline_attachments
+
+        # Send the forward email
+        return await self.send_message(message_data)
+
     async def reply_to_message(
         self,
         message_id: str,
@@ -877,7 +1007,7 @@ class GraphClient:
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         reply_to_message_id: Optional[str] = None,
-        forward_message_ids: Optional[List[str]] = None,
+        forward_to_message_id: Optional[str] = None,
         body_content_type: str = "Text"
     ) -> Dict[str, Any]:
         """Unified backend function to send emails (compose, reply, or forward).
@@ -889,14 +1019,14 @@ class GraphClient:
             cc_recipients: Optional list of CC recipient email addresses
             bcc_recipients: Optional list of BCC recipient email addresses
             reply_to_message_id: Optional message ID to reply to
-            forward_message_ids: Optional list of message IDs to forward (for batch forwarding)
+            forward_to_message_id: Optional message ID to forward
             body_content_type: Content type for body ('Text' or 'HTML')
         
         Returns:
             Response from the Graph API
         """
 
-        # DEBUG: Log before routing to reply_to_message
+        # Route to reply_to_message if reply_to_message_id is provided
         if reply_to_message_id:
             import sys
             print(f"[DEBUG] send_email: Routing to reply_to_message, body first 100 chars: {repr(body[:100])}", file=sys.stderr)
@@ -904,6 +1034,18 @@ class GraphClient:
 
             return await self.reply_to_message(
                 message_id=reply_to_message_id,
+                body=body,
+                body_content_type=body_content_type,
+                to_recipients=to_recipients,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                subject=subject
+            )
+        
+        # Route to forward_message if forward_to_message_id is provided
+        if forward_to_message_id:
+            return await self.forward_message(
+                message_id=forward_to_message_id,
                 body=body,
                 body_content_type=body_content_type,
                 to_recipients=to_recipients,
@@ -936,29 +1078,41 @@ class GraphClient:
                 for email in bcc_recipients
             ]
         
-        if forward_message_ids:
-            attachments = []
-            for msg_id in forward_message_ids:
-                email = await self.get_email(msg_id, text_only=False)
-                email_content = {
-                    "@odata.type": "#microsoft.graph.itemAttachment",
-                    "item": {
-                        "@odata.type": "#microsoft.graph.message",
-                        "id": msg_id,
-                        "subject": email.get("subject", ""),
-                        "body": email.get("body", {}),
-                        "from": email.get("from", {}),
-                        "toRecipients": email.get("toRecipients", []),
-                        "ccRecipients": email.get("ccRecipients", []),
-                        "receivedDateTime": email.get("receivedDateTime", "")
-                    }
-                }
-                attachments.append(email_content)
-            
-            if attachments:
-                message_data["attachments"] = attachments
-        
         return await self.post("/me/sendMail", data={"message": message_data})
+    
+    async def batch_forward_emails(
+        self,
+        to_recipients: List[str],
+        subject: str,
+        body: str,
+        email_ids: List[str],
+        cc_recipients: Optional[List[str]] = None,
+        bcc_recipients: Optional[List[str]] = None,
+        body_content_type: str = "Text"
+    ) -> Dict[str, Any]:
+        """Backend function to forward multiple emails to recipients with batch BCC support.
+        
+        Args:
+            to_recipients: List of recipient email addresses
+            subject: Email subject
+            body: Email body content
+            email_ids: List of email IDs to forward (only first email is used)
+            cc_recipients: Optional list of CC recipient email addresses
+            bcc_recipients: Optional list of BCC recipient email addresses
+            body_content_type: Content type for body ('Text' or 'HTML')
+        
+        Returns:
+            Response from the Graph API
+        """
+        return await self.send_email(
+            to_recipients=to_recipients,
+            subject=subject,
+            body=body,
+            cc_recipients=cc_recipients,
+            bcc_recipients=bcc_recipients,
+            forward_to_message_id=email_ids[0] if email_ids else None,
+            body_content_type=body_content_type
+        )
     
     # Calendar management methods
     async def browse_events(

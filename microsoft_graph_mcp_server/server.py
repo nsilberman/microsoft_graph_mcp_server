@@ -41,7 +41,7 @@ def read_bcc_from_csv(csv_file_path: str) -> List[str]:
     
     bcc_emails = []
     
-    with open(csv_path, 'r', newline='', encoding='utf-8') as csvfile:
+    with open(csv_path, 'r', newline='', encoding='utf-8-sig') as csvfile:
         reader = csv.DictReader(csvfile)
         
         if not reader.fieldnames:
@@ -49,7 +49,7 @@ def read_bcc_from_csv(csv_file_path: str) -> List[str]:
         
         email_column = None
         for header in reader.fieldnames:
-            if header.lower() == "email":
+            if header.strip().lower() == "email":
                 email_column = header
                 break
         
@@ -212,7 +212,8 @@ class MicrosoftGraphMCPServer:
                             },
                             "folder": {
                                 "type": "string",
-                                "description": "Optional folder path to search (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: all folders"
+                                "description": "Optional folder path to search (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: Inbox",
+                                "default": "Inbox"
                             },
                             "days": {
                                 "type": "integer",
@@ -300,8 +301,8 @@ class MicrosoftGraphMCPServer:
                             "body_content_type": {
                                 "type": "string",
                                 "enum": ["Text", "HTML"],
-                                "description": "Content type for the email body (default: Text)",
-                                "default": "Text"
+                                "description": "Content type for the email body (default: HTML)",
+                                "default": "HTML"
                             }
                         },
                         "required": ["to", "subject", "body"]
@@ -345,15 +346,14 @@ class MicrosoftGraphMCPServer:
                     }
                 ),
                 types.Tool(
-                    name="forward_batch_email",
-                    description="Forward multiple emails as attachments to new recipients. All specified emails will be attached to a single outgoing email. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column.",
+                    name="batch_forward_email",
+                    description="Forward an email to batch recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches.",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "email_ids": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "List of email IDs to forward"
+                            "emailNumber": {
+                                "type": "integer",
+                                "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
                             },
                             "to": {
                                 "type": "array",
@@ -362,16 +362,21 @@ class MicrosoftGraphMCPServer:
                             },
                             "subject": {
                                 "type": "string",
-                                "description": "Email subject"
+                                "description": "Email subject (optional, defaults to 'FW: ' + original subject)"
                             },
                             "body": {
                                 "type": "string",
-                                "description": "Email body content (optional)"
+                                "description": "Email body content (optional, message to add before forwarded content)"
                             },
                             "cc": {
                                 "type": "array",
                                 "items": {"type": "string"},
                                 "description": "List of CC recipient email addresses (optional)"
+                            },
+                            "bcc": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of BCC recipient email addresses (optional)"
                             },
                             "bcc_csv_file": {
                                 "type": "string",
@@ -384,7 +389,7 @@ class MicrosoftGraphMCPServer:
                                 "default": "Text"
                             }
                         },
-                        "required": ["email_ids", "to", "subject"]
+                        "required": ["emailNumber", "to"]
                     }
                 ),
                 types.Tool(
@@ -712,7 +717,7 @@ class MicrosoftGraphMCPServer:
                 elif name == "search_emails":
                     search_type = arguments["search_type"]
                     query = arguments["query"]
-                    folder = arguments.get("folder")
+                    folder = arguments.get("folder", "Inbox")
                     page_size = settings.page_size
                     days = arguments.get("days", 90)
                     
@@ -891,38 +896,96 @@ class MicrosoftGraphMCPServer:
                         text=f"Reply email sent successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
                     )]
                 
-                elif name == "forward_batch_email":
-                    email_ids = arguments["email_ids"]
+                elif name == "batch_forward_email":
+                    email_number = arguments["emailNumber"]
                     to_recipients = arguments["to"]
-                    subject = arguments["subject"]
+                    subject = arguments.get("subject")
                     body = arguments.get("body", "")
                     cc_recipients = arguments.get("cc")
+                    bcc_recipients = arguments.get("bcc")
                     bcc_csv_file = arguments.get("bcc_csv_file")
-                    body_content_type = arguments.get("body_content_type", "Text")
+                    body_content_type = arguments.get("body_content_type", "HTML")
                     
-                    bcc_recipients = None
+                    cached_emails = email_cache.get_cached_emails()
+                    total_count = len(cached_emails)
+                    
+                    if total_count == 0:
+                        return [types.TextContent(
+                            type="text",
+                            text="Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+                        )]
+                    
+                    if email_number < 1 or email_number > total_count:
+                        return [types.TextContent(
+                            type="text",
+                            text=f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                        )]
+                    
+                    email = cached_emails[email_number - 1]
+                    email_id = email.get("id")
+                    
+                    if not email_id:
+                        return [types.TextContent(
+                            type="text",
+                            text="Error: No valid email ID found. Please check the cache and try again."
+                        )]
+                    
                     if bcc_csv_file:
                         try:
-                            bcc_recipients = read_bcc_from_csv(bcc_csv_file)
+                            csv_bcc = read_bcc_from_csv(bcc_csv_file)
+                            if bcc_recipients:
+                                bcc_recipients = bcc_recipients + csv_bcc
+                            else:
+                                bcc_recipients = csv_bcc
                         except Exception as e:
                             return [types.TextContent(
                                 type="text",
                                 text=f"Error reading BCC CSV file: {str(e)}"
                             )]
                     
-                    result = await graph_client.send_email(
-                        to_recipients=to_recipients,
-                        subject=subject,
-                        body=body,
-                        cc_recipients=cc_recipients,
-                        bcc_recipients=bcc_recipients,
-                        forward_message_ids=email_ids,
-                        body_content_type=body_content_type
-                    )
+                    all_bcc_recipients = bcc_recipients or []
+                    max_bcc = settings.max_bcc_recipients
+                    total_bcc = len(all_bcc_recipients)
                     
-                    response_message = f"Batch email forwarded successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
-                    if bcc_recipients:
-                        response_message = f"Batch email forwarded successfully to {len(bcc_recipients)} BCC recipients: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                    if total_bcc > max_bcc:
+                        num_batches = (total_bcc + max_bcc - 1) // max_bcc
+                        results = []
+                        
+                        for i in range(num_batches):
+                            start_idx = i * max_bcc
+                            end_idx = start_idx + max_bcc
+                            batch_bcc = all_bcc_recipients[start_idx:end_idx]
+                            
+                            result = await graph_client.batch_forward_emails(
+                                to_recipients=to_recipients,
+                                subject=subject,
+                                body=body,
+                                email_ids=[email_id],
+                                cc_recipients=cc_recipients,
+                                bcc_recipients=batch_bcc,
+                                body_content_type=body_content_type
+                            )
+                            results.append({
+                                "batch": i + 1,
+                                "bcc_count": len(batch_bcc),
+                                "result": result
+                            })
+                        
+                        response_message = f"Email forwarded successfully in {num_batches} batches (total {total_bcc} BCC recipients): {json.dumps(results, indent=2, ensure_ascii=False)}"
+                    else:
+                        result = await graph_client.batch_forward_emails(
+                            to_recipients=to_recipients,
+                            subject=subject,
+                            body=body,
+                            email_ids=[email_id],
+                            cc_recipients=cc_recipients,
+                            bcc_recipients=bcc_recipients,
+                            body_content_type=body_content_type
+                        )
+                        
+                        response_message = f"Email forwarded successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+                        if bcc_recipients:
+                            response_message = f"Email forwarded successfully to {len(bcc_recipients)} BCC recipients: {json.dumps(result, indent=2, ensure_ascii=False)}"
                     
                     return [types.TextContent(
                         type="text",

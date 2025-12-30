@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Pagination settings
     page_size: int = int(os.getenv("PAGE_SIZE", "5"))  # Number of items per page for browsing
     
+    # Email forwarding settings
+    max_bcc_recipients: int = int(os.getenv("MAX_BCC_RECIPIENTS", "500"))  # Maximum BCC recipients per email
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
