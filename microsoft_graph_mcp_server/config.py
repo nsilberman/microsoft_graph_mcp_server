@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     default_search_days: int = int(os.getenv("DEFAULT_SEARCH_DAYS", "90"))  # Default search range in days
     
     # Pagination settings
-    page_size: int = int(os.getenv("PAGE_SIZE", "5"))  # Number of items per page for browsing
+    page_size: int = int(os.getenv("PAGE_SIZE", "5"))  # Number of items per page for user browsing
+    llm_page_size: int = int(os.getenv("LLM_PAGE_SIZE", "20"))  # Number of items per page for LLM browsing
     
     # Email forwarding settings
     max_bcc_recipients: int = int(os.getenv("MAX_BCC_RECIPIENTS", "500"))  # Maximum BCC recipients per email

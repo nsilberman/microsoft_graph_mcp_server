@@ -190,6 +190,12 @@ class MicrosoftGraphMCPServer:
                                 "type": "integer",
                                 "description": "Page number to view (starts at 1)",
                                 "minimum": 1
+                            },
+                            "mode": {
+                                "type": "string",
+                                "enum": ["user", "llm"],
+                                "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
+                                "default": "user"
                             }
                         },
                         "required": ["page_number"]
@@ -675,6 +681,7 @@ class MicrosoftGraphMCPServer:
                 
                 elif name == "browse_email_cache":
                     page_number = arguments["page_number"]
+                    mode = arguments.get("mode", "user")
                     
                     cached_emails = email_cache.get_cached_emails()
                     total_count = len(cached_emails)
@@ -689,7 +696,7 @@ class MicrosoftGraphMCPServer:
                             }, indent=2, ensure_ascii=False)
                         )]
                     
-                    page_size = settings.page_size
+                    page_size = settings.llm_page_size if mode == "llm" else settings.page_size
                     start_idx = (page_number - 1) * page_size
                     end_idx = start_idx + page_size
                     page_emails = cached_emails[start_idx:end_idx]
@@ -710,6 +717,8 @@ class MicrosoftGraphMCPServer:
                             "total_count": total_count,
                             "current_page": page_number,
                             "total_pages": (total_count + page_size - 1) // page_size,
+                            "page_size": page_size,
+                            "mode": mode,
                             "timezone": user_timezone
                         }, indent=2, ensure_ascii=False)
                     )]
