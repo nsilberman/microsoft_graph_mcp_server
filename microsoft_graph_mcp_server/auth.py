@@ -111,7 +111,79 @@ class GraphAuthManager:
         }
     
     async def check_login_status(self) -> Dict[str, Any]:
-        """Check current login status without initiating authentication."""
+        if self.device_flow is not None:
+            try:
+                loop = asyncio.get_event_loop()
+                
+                async def acquire_with_timeout():
+                    try:
+                        result = await asyncio.wait_for(
+                            loop.run_in_executor(
+                                None,
+                                self.client_app.acquire_token_by_device_flow,
+                                self.device_flow
+                            ),
+                            timeout=3.0
+                        )
+                        return result
+                    except asyncio.TimeoutError:
+                        return {"error": "timeout", "error_description": "Authentication still pending"}
+                
+                result = await acquire_with_timeout()
+                
+                if "access_token" in result:
+                    self.access_token = result["access_token"]
+                    self.token_expiry = time.time() + result.get("expires_in", 3600)
+                    self.refresh_token = result.get("refresh_token")
+                    self.authenticated = True
+                    self.device_flow = None
+                    
+                    self._save_tokens_to_disk()
+                    
+                    remaining_seconds = int(self.token_expiry - time.time())
+                    remaining_minutes = remaining_seconds // 60
+                    remaining_hours = remaining_minutes // 60
+                    remaining_minutes = remaining_minutes % 60
+                    
+                    expiry_datetime = datetime.datetime.fromtimestamp(self.token_expiry)
+                    expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    if remaining_hours > 0:
+                        time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                    else:
+                        time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                    
+                    return {
+                        "status": "authenticated",
+                        "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
+                        "token_expiry": self.token_expiry,
+                        "expiry_datetime": expiry_str,
+                        "remaining_seconds": remaining_seconds,
+                        "remaining_minutes": remaining_minutes,
+                        "remaining_hours": remaining_hours
+                    }
+                else:
+                    error = result.get("error", "")
+                    if error in ["authorization_pending", "timeout"]:
+                        return {
+                            "status": "pending",
+                            "message": "Authentication is pending. Please complete authentication in the browser using the verification link and code, then call login again to verify.",
+                            "verification_uri": self.device_flow.get("verification_uri", ""),
+                            "user_code": self.device_flow.get("user_code", "")
+                        }
+                    else:
+                        self.device_flow = None
+                        return {
+                            "status": "failed",
+                            "message": f"Authentication failed: {result.get('error_description', 'Unknown error')}"
+                        }
+            except Exception as e:
+                self.device_flow = None
+                return {
+                    "status": "error",
+                    "message": f"Authentication check failed: {str(e)}"
+                }
+        
         if not self.authenticated or not self.access_token:
             return {
                 "status": "not_authenticated",
