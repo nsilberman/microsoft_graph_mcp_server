@@ -595,10 +595,10 @@ class MicrosoftGraphMCPServer:
                         days=days,
                         top=None,
                         total_count=result["count"],
-                        emails=result["emails"]
+                        metadata=result["metadata"]
                     )
                     
-                    email_date_range = date_handler.format_email_date_range(result["emails"], user_timezone)
+                    email_date_range = date_handler.format_email_date_range(result["metadata"], user_timezone)
                     filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
                     
                     response_data = {
@@ -639,7 +639,7 @@ class MicrosoftGraphMCPServer:
                         days=days,
                         top=top,
                         total_count=result["count"],
-                        emails=result["emails"]
+                        metadata=result["metadata"]
                     )
                     
                     filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
@@ -747,7 +747,7 @@ class MicrosoftGraphMCPServer:
                     days=days,
                     search_type=search_type,
                     total_count=result["count"],
-                    emails=result["emails"]
+                    metadata=result["metadata"]
                 )
                     
                     response_data = {

@@ -235,7 +235,7 @@ class GraphClient:
             summary["number"] = idx + 1
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "folder": folder,
             "folder_id": folder_id,
@@ -379,7 +379,7 @@ class GraphClient:
             summaries.append(summary)
         
         return {
-            "emails": summaries,
+            "metadata": summaries,
             "count": len(summaries)
         }
     
@@ -537,7 +537,7 @@ class GraphClient:
         date_range = date_handler.format_email_date_range(sorted_summaries, user_timezone_str)
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "date_range": date_range
         }
@@ -588,7 +588,7 @@ class GraphClient:
         filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "date_range": date_range,
             "filter_date_range": filter_date_range
@@ -637,7 +637,7 @@ class GraphClient:
         filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "date_range": date_range,
             "filter_date_range": filter_date_range
@@ -686,7 +686,7 @@ class GraphClient:
         filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "date_range": date_range,
             "filter_date_range": filter_date_range
@@ -729,7 +729,7 @@ class GraphClient:
         filter_date_range = date_handler.format_filter_date_range(days, user_timezone_str)
         
         return {
-            "emails": sorted_summaries,
+            "metadata": sorted_summaries,
             "count": len(sorted_summaries),
             "date_range": date_range,
             "filter_date_range": filter_date_range
