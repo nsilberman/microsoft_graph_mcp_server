@@ -176,37 +176,41 @@ class GraphClient:
         self,
         sender: str,
         folder: str = "Inbox",
-        top: int = 10
+        top: int = 10,
+        days: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Search emails by sender."""
-        return await self.email_client.search_emails_by_sender(sender, folder, top)
+        return await self.email_client.search_emails_by_sender(sender, folder, top, days)
     
     async def search_emails_by_recipient(
         self,
         recipient: str,
         folder: str = "Inbox",
-        top: int = 10
+        top: int = 10,
+        days: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Search emails by recipient."""
-        return await self.email_client.search_emails_by_recipient(recipient, folder, top)
+        return await self.email_client.search_emails_by_recipient(recipient, folder, top, days)
     
     async def search_emails_by_subject(
         self,
         subject: str,
         folder: str = "Inbox",
-        top: int = 10
+        top: int = 10,
+        days: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Search emails by subject."""
-        return await self.email_client.search_emails_by_subject(subject, folder, top)
+        return await self.email_client.search_emails_by_subject(subject, folder, top, days)
     
     async def search_emails_by_body(
         self,
         body: str,
         folder: str = "Inbox",
-        top: int = 10
+        top: int = 10,
+        days: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Search emails by body content."""
-        return await self.email_client.search_emails_by_body(body, folder, top)
+        return await self.email_client.search_emails_by_body(body, folder, top, days)
     
     async def send_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
         """Send a message."""
@@ -255,12 +259,24 @@ class GraphClient:
     
     async def batch_forward_emails(
         self,
-        message_ids: List[str],
         to_recipients: List[str],
-        comment: Optional[str] = None
+        subject: str,
+        body: str,
+        email_ids: List[str],
+        cc_recipients: Optional[List[str]] = None,
+        bcc_recipients: Optional[List[str]] = None,
+        body_content_type: str = "Text"
     ) -> Dict[str, Any]:
         """Batch forward emails."""
-        return await self.email_client.batch_forward_emails(message_ids, to_recipients, comment)
+        return await self.email_client.batch_forward_emails(
+            to_recipients,
+            subject,
+            body,
+            email_ids,
+            cc_recipients,
+            bcc_recipients,
+            body_content_type
+        )
     
     # Calendar management methods - delegated to CalendarClient
     async def browse_events(

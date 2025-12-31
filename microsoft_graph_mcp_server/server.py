@@ -100,8 +100,8 @@ class MicrosoftGraphMCPServer:
                 elif name == "reply_email":
                     return await self.email_handler.handle_reply_email(arguments)
                 
-                elif name == "batch_forward_email":
-                    return await self.email_handler.handle_batch_forward_email(arguments, read_bcc_from_csv)
+                elif name == "forward_email":
+                    return await self.email_handler.handle_forward_email(arguments)
                 
                 elif name == "browse_events":
                     return await self.calendar_handler.handle_browse_events(arguments)

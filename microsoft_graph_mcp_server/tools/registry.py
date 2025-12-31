@@ -26,7 +26,7 @@ class ToolRegistry:
             ToolRegistry.send_message(),
             ToolRegistry.compose_email(),
             ToolRegistry.reply_email(),
-            ToolRegistry.batch_forward_email(),
+            ToolRegistry.forward_email(),
             ToolRegistry.browse_events(),
             ToolRegistry.get_event(),
             ToolRegistry.search_events(),
@@ -222,9 +222,8 @@ class ToolRegistry:
                         "default": "Inbox"
                     },
                     "days": {
-                        "type": "integer",
-                        "description": "Number of days to search back (default: 90). Set to null to search all emails.",
-                        "default": 90
+                        "type": "string",
+                        "description": "Number of days to search back (e.g., '30', '90', '365') or 'unlimited' for no date restriction. Default is set in .env file (DEFAULT_SEARCH_DAYS)."
                     }
                 },
                 "required": ["search_type", "query"]
@@ -332,7 +331,7 @@ class ToolRegistry:
         """Reply email tool definition."""
         return types.Tool(
             name="reply_email",
-            description="Reply to an existing email. The reply will be linked to the original email thread. If only emailNumber is provided, it will show the original email content for preview. If reply parameters are provided, it will send the reply with the email thread included. IMPORTANT: The body must be HTML format.",
+            description="Reply to an existing email. The reply will be linked to the original email thread and will include inline attachments from the original email. IMPORTANT: The body must be HTML format.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -343,15 +342,15 @@ class ToolRegistry:
                     "to": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of recipient email addresses (optional - if not provided, will show email preview)"
+                        "description": "List of recipient email addresses"
                     },
                     "subject": {
                         "type": "string",
-                        "description": "Email subject (optional - if not provided, will show email preview)"
+                        "description": "Email subject"
                     },
                     "body": {
                         "type": "string",
-                        "description": "Email body content (optional - if not provided, will show email preview). MUST be HTML format."
+                        "description": "Email body content. MUST be HTML format."
                     },
                     "cc": {
                         "type": "array",
@@ -364,16 +363,16 @@ class ToolRegistry:
                         "description": "List of BCC recipient email addresses (optional)"
                     }
                 },
-                "required": ["emailNumber"]
+                    "required": ["emailNumber", "to", "body"]
             }
         )
     
     @staticmethod
-    def batch_forward_email() -> types.Tool:
-        """Batch forward email tool definition."""
+    def forward_email() -> types.Tool:
+        """Forward email tool definition."""
         return types.Tool(
-            name="batch_forward_email",
-            description="Forward an email to batch recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches.",
+            name="forward_email",
+            description="Forward an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches.",
             inputSchema={
                 "type": "object",
                 "properties": {

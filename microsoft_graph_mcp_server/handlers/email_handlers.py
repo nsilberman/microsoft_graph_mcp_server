@@ -147,7 +147,17 @@ class EmailHandler(BaseHandler):
         query = arguments["query"]
         folder = arguments.get("folder", "Inbox")
         page_size = settings.page_size
-        days = arguments.get("days", 90)
+        
+        days_param = arguments.get("days")
+        if days_param == "unlimited":
+            days = None
+        elif days_param is not None:
+            try:
+                days = int(days_param)
+            except (ValueError, TypeError):
+                return self._format_error(f"Error: Invalid days parameter '{days_param}'. Must be a number (e.g., '30', '90') or 'unlimited'.")
+        else:
+            days = settings.default_search_days
         
         email_cache.clear_cache()
         
@@ -273,13 +283,6 @@ class EmailHandler(BaseHandler):
         email = cached_emails[emailNumber - 1]
         email_id = email["id"]
         
-        if not to_recipients or not subject or not body:
-            full_email = await graph_client.get_email(email_id, emailNumber, text_only=True)
-            return self._format_response({
-                "message": "Original email content for preview. To reply, provide to, subject, and body parameters.",
-                "email": full_email
-            })
-        
         result = await graph_client.send_email(
             to_recipients=to_recipients,
             subject=subject,
@@ -291,8 +294,8 @@ class EmailHandler(BaseHandler):
         )
         return self._format_response(f"Reply email sent successfully: {result}")
     
-    async def handle_batch_forward_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle batch_forward_email tool."""
+    async def handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle forward_email tool."""
         email_number = arguments["emailNumber"]
         to_recipients = arguments["to"]
         subject = arguments.get("subject")
