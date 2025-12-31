@@ -98,7 +98,7 @@ class ToolRegistry:
         """Search contacts tool definition."""
         return types.Tool(
             name="search_contacts",
-            description="Search contacts and people relevant to you. Returns people you interact with most, including organization users and your personal contacts. Use this to find specific people by name or email.",
+            description="Search contacts and people relevant to you. Returns people you interact with most, including organization users and your personal contacts. Use this to find specific people by name or email. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.",
             inputSchema={
                 "type": "object",
                 "properties": {

@@ -56,6 +56,8 @@ TENANT_ID=organizations
 USER_TIMEZONE=Asia/Shanghai
 DEFAULT_SEARCH_DAYS=90
 PAGE_SIZE=5
+LLM_PAGE_SIZE=20
+CONTACT_SEARCH_LIMIT=10
 ```
 
 **Configuration Options**:
@@ -63,7 +65,9 @@ PAGE_SIZE=5
 - `TENANT_ID`: Azure tenant ID (default: "organizations")
 - `USER_TIMEZONE`: User's timezone in IANA format (e.g., "Asia/Shanghai", "America/New_York")
 - `DEFAULT_SEARCH_DAYS`: Default search range in days for email searches (default: 90)
-- `PAGE_SIZE`: Number of items per page for browsing emails, events, and contacts (default: 5)
+- `PAGE_SIZE`: Number of items per page for browsing emails (default: 5)
+- `LLM_PAGE_SIZE`: Number of items per page for LLM browsing (default: 20)
+- `CONTACT_SEARCH_LIMIT`: Maximum contacts to return in search results (default: 10)
 
 **Note**: By default, Microsoft's public client ID is used, and no configuration is required.
 
@@ -106,7 +110,7 @@ Add the following configuration:
 
 #### User and Contact Management
 - **get_user_info** - Get current user information from Microsoft Graph
-- **search_contacts** - Search contacts and people relevant to you
+- **search_contacts** - Search contacts and people relevant to you. Returns people you interact with most, including organization users and personal contacts. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.
 
 #### Email Management
 - **list_mail_folders** - List all mail folders with their paths (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024')

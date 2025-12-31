@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     page_size: int = int(os.getenv("PAGE_SIZE", "5"))  # Number of items per page for user browsing
     llm_page_size: int = int(os.getenv("LLM_PAGE_SIZE", "20"))  # Number of items per page for LLM browsing
     
+    # Contact search settings
+    contact_search_limit: int = int(os.getenv("CONTACT_SEARCH_LIMIT", "10"))  # Maximum contacts to return in search results
+    
     # Email forwarding settings
     max_bcc_recipients: int = int(os.getenv("MAX_BCC_RECIPIENTS", "500"))  # Maximum BCC recipients per email
     

@@ -17,6 +17,24 @@ class UserHandler(BaseHandler):
     async def handle_search_contacts(self, arguments: dict) -> list[types.TextContent]:
         """Handle search_contacts tool."""
         query = arguments["query"]
-        page_size = settings.page_size
-        contacts = await graph_client.search_contacts(query, page_size)
-        return self._format_response(contacts)
+        limit = settings.contact_search_limit
+        
+        contacts = await graph_client.search_contacts(query, limit + 1)
+        
+        if len(contacts) > limit:
+            contacts = contacts[:limit]
+            result = {
+                "contacts": contacts,
+                "count": len(contacts),
+                "limit_reached": True,
+                "message": f"Showing {len(contacts)} contacts (limit reached). More results available - use more specific search terms to narrow results."
+            }
+        else:
+            result = {
+                "contacts": contacts,
+                "count": len(contacts),
+                "limit_reached": False,
+                "message": f"Found {len(contacts)} contact(s)."
+            }
+        
+        return self._format_response(result)
