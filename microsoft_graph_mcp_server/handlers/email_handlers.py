@@ -375,3 +375,175 @@ class EmailHandler(BaseHandler):
                 response_message = f"Email forwarded successfully to {len(bcc_recipients)} BCC recipients: {result}"
         
         return self._format_response(response_message)
+    
+    async def handle_create_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle create_folder tool."""
+        folder_name = arguments["folder_name"]
+        parent_folder = arguments.get("parent_folder")
+        
+        result = await graph_client.create_folder(folder_name, parent_folder)
+        
+        folder_path = f"{parent_folder}/{folder_name}" if parent_folder else folder_name
+        
+        folder_info = {
+            "path": folder_path,
+            "displayName": result.get("displayName", folder_name),
+            "totalItemCount": result.get("totalItemCount", 0),
+            "unreadItemCount": result.get("unreadItemCount", 0),
+            "childFolderCount": result.get("childFolderCount", 0)
+        }
+        
+        return self._format_response({
+            "message": f"Folder '{folder_name}' created successfully",
+            "folder": folder_info
+        })
+    
+    async def handle_delete_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete_folder tool."""
+        folder_path = arguments["folder_path"]
+        
+        result = await graph_client.delete_folder(folder_path)
+        
+        return self._format_response(result)
+    
+    async def handle_delete_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete_email tool."""
+        email_number = arguments["email_number"]
+        
+        email = self.email_cache.get_email_by_number(email_number)
+        if not email:
+            return self._format_response({
+                "error": f"Email number {email_number} not found in current list"
+            })
+        
+        email_id = email["id"]
+        result = await graph_client.delete_email(email_id)
+        
+        self.email_cache.remove_email(email_id)
+        
+        return self._format_response(result)
+    
+    async def handle_rename_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle rename_folder tool."""
+        folder_path = arguments["folder_path"]
+        new_name = arguments["new_name"]
+        
+        result = await graph_client.rename_folder(folder_path, new_name)
+        
+        if "/" in folder_path:
+            parent_path = folder_path.rsplit("/", 1)[0]
+            new_path = f"{parent_path}/{new_name}"
+        else:
+            new_path = new_name
+        
+        folder_info = {
+            "path": new_path,
+            "displayName": result.get("displayName", new_name),
+            "totalItemCount": result.get("totalItemCount", 0),
+            "unreadItemCount": result.get("unreadItemCount", 0),
+            "childFolderCount": result.get("childFolderCount", 0)
+        }
+        
+        return self._format_response({
+            "message": f"Folder renamed to '{new_name}' successfully",
+            "folder": folder_info
+        })
+    
+    async def handle_get_folder_details(self, arguments: dict) -> list[types.TextContent]:
+        """Handle get_folder_details tool."""
+        folder_path = arguments["folder_path"]
+        
+        result = await graph_client.get_folder_details(folder_path)
+        
+        folder_info = {
+            "path": folder_path,
+            "displayName": result.get("displayName", folder_path),
+            "totalItemCount": result.get("totalItemCount", 0),
+            "unreadItemCount": result.get("unreadItemCount", 0),
+            "childFolderCount": result.get("childFolderCount", 0)
+        }
+        
+        return self._format_response({
+            "message": f"Folder details for '{folder_path}'",
+            "folder": folder_info
+        })
+    
+    async def handle_move_email_to_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle move_email_to_folder tool."""
+        email_number = arguments["email_number"]
+        destination_folder = arguments["destination_folder"]
+        
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+        
+        if total_count == 0:
+            return self._format_error("Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first.")
+        
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count}).")
+        
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+        
+        if not email_id:
+            return self._format_error("Error: No valid email ID found. Please check the cache and try again.")
+        
+        result = await graph_client.move_email_to_folder(email_id, destination_folder)
+        
+        return self._format_response(result)
+    
+    async def handle_copy_email_to_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle copy_email_to_folder tool."""
+        email_number = arguments["email_number"]
+        destination_folder = arguments["destination_folder"]
+        
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+        
+        if total_count == 0:
+            return self._format_error("Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first.")
+        
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count}).")
+        
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+        
+        if not email_id:
+            return self._format_error("Error: No valid email ID found. Please check the cache and try again.")
+        
+        result = await graph_client.copy_email_to_folder(email_id, destination_folder)
+        
+        return self._format_response(result)
+    
+    async def handle_move_all_emails_from_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle move_all_emails_from_folder tool."""
+        source_folder = arguments["source_folder"]
+        destination_folder = arguments["destination_folder"]
+        
+        result = await graph_client.move_all_emails_from_folder(source_folder, destination_folder)
+        
+        return self._format_response(result)
+    
+    async def handle_move_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle move_folder tool."""
+        folder_path = arguments["folder_path"]
+        destination_parent = arguments["destination_parent"]
+        
+        result = await graph_client.move_folder(folder_path, destination_parent)
+        
+        folder_name = folder_path.split("/")[-1]
+        new_path = f"{destination_parent}/{folder_name}"
+        
+        folder_info = {
+            "path": new_path,
+            "displayName": result.get("displayName", folder_name),
+            "totalItemCount": result.get("totalItemCount", 0),
+            "unreadItemCount": result.get("unreadItemCount", 0),
+            "childFolderCount": result.get("childFolderCount", 0)
+        }
+        
+        return self._format_response({
+            "message": f"Folder moved to '{destination_parent}' successfully",
+            "folder": folder_info
+        })

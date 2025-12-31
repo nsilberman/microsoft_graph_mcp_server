@@ -73,6 +73,33 @@ class MicrosoftGraphMCPServer:
                 elif name == "list_mail_folders":
                     return await self.email_handler.handle_list_mail_folders(arguments)
                 
+                elif name == "create_folder":
+                    return await self.email_handler.handle_create_folder(arguments)
+                
+                elif name == "delete_folder":
+                    return await self.email_handler.handle_delete_folder(arguments)
+                
+                elif name == "rename_folder":
+                    return await self.email_handler.handle_rename_folder(arguments)
+                
+                elif name == "get_folder_details":
+                    return await self.email_handler.handle_get_folder_details(arguments)
+                
+                elif name == "move_email_to_folder":
+                    return await self.email_handler.handle_move_email_to_folder(arguments)
+                
+                elif name == "copy_email_to_folder":
+                    return await self.email_handler.handle_copy_email_to_folder(arguments)
+                
+                elif name == "move_all_emails_from_folder":
+                    return await self.email_handler.handle_move_all_emails_from_folder(arguments)
+                
+                elif name == "delete_email":
+                    return await self.email_handler.handle_delete_email(arguments)
+                
+                elif name == "move_folder":
+                    return await self.email_handler.handle_move_folder(arguments)
+                
                 elif name == "list_recent_emails":
                     return await self.email_handler.handle_list_recent_emails(arguments)
                 

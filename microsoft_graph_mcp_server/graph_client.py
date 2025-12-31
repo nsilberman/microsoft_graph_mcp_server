@@ -278,6 +278,42 @@ class GraphClient:
             body_content_type
         )
     
+    async def create_folder(self, folder_name: str, parent_folder: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new mail folder."""
+        return await self.email_client.create_folder(folder_name, parent_folder)
+    
+    async def delete_folder(self, folder_path: str) -> Dict[str, Any]:
+        """Delete a mail folder."""
+        return await self.email_client.delete_folder(folder_path)
+    
+    async def rename_folder(self, folder_path: str, new_name: str) -> Dict[str, Any]:
+        """Rename a mail folder."""
+        return await self.email_client.rename_folder(folder_path, new_name)
+    
+    async def get_folder_details(self, folder_path: str) -> Dict[str, Any]:
+        """Get detailed information about a folder."""
+        return await self.email_client.get_folder_details(folder_path)
+    
+    async def move_email_to_folder(self, email_id: str, destination_folder: str) -> Dict[str, Any]:
+        """Move an email to a different folder."""
+        return await self.email_client.move_email_to_folder(email_id, destination_folder)
+    
+    async def copy_email_to_folder(self, email_id: str, destination_folder: str) -> Dict[str, Any]:
+        """Copy an email to a different folder."""
+        return await self.email_client.copy_email_to_folder(email_id, destination_folder)
+    
+    async def move_all_emails_from_folder(self, source_folder: str, destination_folder: str) -> Dict[str, Any]:
+        """Move all emails from one folder to another."""
+        return await self.email_client.move_all_emails_from_folder(source_folder, destination_folder)
+    
+    async def delete_email(self, email_id: str) -> Dict[str, Any]:
+        """Delete an email by moving it to Deleted Items."""
+        return await self.email_client.delete_email(email_id)
+    
+    async def move_folder(self, folder_path: str, destination_parent: str) -> Dict[str, Any]:
+        """Move a folder to a different parent folder."""
+        return await self.email_client.move_folder(folder_path, destination_parent)
+    
     # Calendar management methods - delegated to CalendarClient
     async def browse_events(
         self,

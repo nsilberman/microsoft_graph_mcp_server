@@ -15,7 +15,19 @@ class BaseGraphClient:
     def __init__(self):
         self.base_url = settings.graph_api_base_url
         self.timeout = 30.0
-        self._semaphore = asyncio.Semaphore(10)
+        self._semaphore = asyncio.Semaphore(20)
+        self._client: Optional[httpx.AsyncClient] = None
+    
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create the HTTP client."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
+    
+    async def close(self):
+        """Close the HTTP client."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
     
     async def _make_request(
         self, 
@@ -41,23 +53,23 @@ class BaseGraphClient:
             
             url = f"{self.base_url}{endpoint}"
             
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.request(
-                    method=method,
-                    url=url,
-                    params=params,
-                    json=data,
-                    headers=default_headers
-                )
+            client = await self._get_client()
+            response = await client.request(
+                method=method,
+                url=url,
+                params=params,
+                json=data,
+                headers=default_headers
+            )
 
-                if response.status_code in (200, 201):
-                    return response.json()
-                elif response.status_code == 202:
-                    return {"status": "accepted"}
-                elif response.status_code == 204:
-                    return {"status": "success"}
-                else:
-                    raise Exception(f"Graph API request failed: {response.status_code} - {response.text}")
+            if response.status_code in (200, 201):
+                return response.json()
+            elif response.status_code == 202:
+                return {"status": "accepted"}
+            elif response.status_code == 204:
+                return {"status": "success"}
+            else:
+                raise Exception(f"Graph API request failed: {response.status_code} - {response.text}")
     
     async def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """Make GET request to Graph API."""

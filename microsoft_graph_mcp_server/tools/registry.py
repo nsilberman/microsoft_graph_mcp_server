@@ -17,6 +17,15 @@ class ToolRegistry:
             ToolRegistry.get_user_info(),
             ToolRegistry.search_contacts(),
             ToolRegistry.list_mail_folders(),
+            ToolRegistry.create_folder(),
+            ToolRegistry.delete_folder(),
+            ToolRegistry.rename_folder(),
+            ToolRegistry.get_folder_details(),
+            ToolRegistry.move_email_to_folder(),
+            ToolRegistry.copy_email_to_folder(),
+            ToolRegistry.move_all_emails_from_folder(),
+            ToolRegistry.delete_email(),
+            ToolRegistry.move_folder(),
             ToolRegistry.list_recent_emails(),
             ToolRegistry.load_emails_by_folder(),
             ToolRegistry.clear_email_cache(),
@@ -111,6 +120,192 @@ class ToolRegistry:
             inputSchema={
                 "type": "object",
                 "properties": {}
+            }
+        )
+    
+    @staticmethod
+    def create_folder() -> types.Tool:
+        """Create folder tool definition."""
+        return types.Tool(
+            name="create_folder",
+            description="Create a new mail folder. Can create a top-level folder or a child folder under a parent folder.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_name": {
+                        "type": "string",
+                        "description": "Name of the folder to create"
+                    },
+                    "parent_folder": {
+                        "type": "string",
+                        "description": "Optional parent folder path (e.g., 'Inbox', 'Archive/2024'). If not provided, creates a top-level folder."
+                    }
+                },
+                "required": ["folder_name"]
+            }
+        )
+    
+    @staticmethod
+    def delete_folder() -> types.Tool:
+        """Delete folder tool definition."""
+        return types.Tool(
+            name="delete_folder",
+            description="Delete a mail folder by moving it to the Deleted Items folder. The folder and all its contents can be recovered from Deleted Items if needed.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_path": {
+                        "type": "string",
+                        "description": "Path of the folder to delete (e.g., 'Inbox/Projects', 'Archive/Old')"
+                    }
+                },
+                "required": ["folder_path"]
+            }
+        )
+    
+    @staticmethod
+    def rename_folder() -> types.Tool:
+        """Rename folder tool definition."""
+        return types.Tool(
+            name="rename_folder",
+            description="Rename an existing mail folder.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_path": {
+                        "type": "string",
+                        "description": "Path of the folder to rename (e.g., 'Inbox/OldName')"
+                    },
+                    "new_name": {
+                        "type": "string",
+                        "description": "New name for the folder"
+                    }
+                },
+                "required": ["folder_path", "new_name"]
+            }
+        )
+    
+    @staticmethod
+    def get_folder_details() -> types.Tool:
+        """Get folder details tool definition."""
+        return types.Tool(
+            name="get_folder_details",
+            description="Get detailed information about a specific folder including item counts, size, and hierarchy info.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_path": {
+                        "type": "string",
+                        "description": "Path of the folder (e.g., 'Inbox', 'Archive/2024')"
+                    }
+                },
+                "required": ["folder_path"]
+            }
+        )
+    
+    @staticmethod
+    def move_email_to_folder() -> types.Tool:
+        """Move email to folder tool definition."""
+        return types.Tool(
+            name="move_email_to_folder",
+            description="Move an email from the cache to a different folder. Use email number from browse_email_cache.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "email_number": {
+                        "type": "integer",
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                    },
+                    "destination_folder": {
+                        "type": "string",
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
+                    }
+                },
+                "required": ["email_number", "destination_folder"]
+            }
+        )
+    
+    @staticmethod
+    def copy_email_to_folder() -> types.Tool:
+        """Copy email to folder tool definition."""
+        return types.Tool(
+            name="copy_email_to_folder",
+            description="Copy an email from the cache to a different folder. The original email remains in its current location. Use email number from browse_email_cache.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "email_number": {
+                        "type": "integer",
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                    },
+                    "destination_folder": {
+                        "type": "string",
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
+                    }
+                },
+                "required": ["email_number", "destination_folder"]
+            }
+        )
+    
+    @staticmethod
+    def move_all_emails_from_folder() -> types.Tool:
+        """Move all emails from folder tool definition."""
+        return types.Tool(
+            name="move_all_emails_from_folder",
+            description="Move all emails from one folder to another folder. This will move all emails in the source folder to the destination folder.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source_folder": {
+                        "type": "string",
+                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024')"
+                    },
+                    "destination_folder": {
+                        "type": "string",
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
+                    }
+                },
+                "required": ["source_folder", "destination_folder"]
+            }
+        )
+    
+    @staticmethod
+    def delete_email() -> types.Tool:
+        """Delete email tool definition."""
+        return types.Tool(
+            name="delete_email",
+            description="Delete an email by moving it to the Deleted Items folder. The email can be recovered from Deleted Items if needed. Use email number from browse_email_cache.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "email_number": {
+                        "type": "integer",
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                    }
+                },
+                "required": ["email_number"]
+            }
+        )
+    
+    @staticmethod
+    def move_folder() -> types.Tool:
+        """Move folder tool definition."""
+        return types.Tool(
+            name="move_folder",
+            description="Move a folder to a different parent folder in the hierarchy.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "folder_path": {
+                        "type": "string",
+                        "description": "Path of the folder to move (e.g., 'Inbox/Projects')"
+                    },
+                    "destination_parent": {
+                        "type": "string",
+                        "description": "Path of the destination parent folder (e.g., 'Archive', 'Sent Items')"
+                    }
+                },
+                "required": ["folder_path", "destination_parent"]
             }
         )
     
