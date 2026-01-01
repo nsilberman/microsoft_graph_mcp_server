@@ -299,7 +299,7 @@ result = await get_email_content(emailNumber=1, text_only=false)
 
 ---
 
-## Mail Folder Management
+## Manage Mail Folder
 
 ### Description
 Manage mail folders with support for list, create, delete, rename, get_details, and move operations.
@@ -342,7 +342,7 @@ Lists all mail folders with hierarchy including child folders, total item count,
 
 **Example Usage:**
 ```python
-result = await mail_folder(action="list")
+result = await manage_mail_folder(action="list")
 ```
 
 #### Create Folder (action="create")
@@ -454,7 +454,7 @@ Moves a mail folder to a different parent folder.
 
 **Example Usage:**
 ```python
-result = await mail_folder(action="move", folder_path="Inbox/Projects", destination_parent="Archive")
+result = await manage_mail_folder(action="move", folder_path="Inbox/Projects", destination_parent="Archive")
 ```
 
 ### Notes
@@ -535,7 +535,7 @@ result = await move_email(
 - Requires valid email number from cache for "single" action
 - Use `browse_email_cache` to get email numbers
 - "all" action moves all emails from source folder
-- Destination folder must exist (use mail_folder to create if needed)
+- Destination folder must exist (use manage_mail_folder to create if needed)
 
 ---
 

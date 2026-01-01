@@ -291,8 +291,8 @@ class EmailHandler(BaseHandler):
         
         return self._format_response(response_message)
     
-    async def handle_mail_folder(self, arguments: dict) -> list[types.TextContent]:
-        """Handle mail_folder tool with list, create, delete, rename, get_details, and move actions."""
+    async def handle_manage_mail_folder(self, arguments: dict) -> list[types.TextContent]:
+        """Handle manage_mail_folder tool with list, create, delete, rename, get_details, and move actions."""
         action = arguments.get("action")
         
         if action == "list":

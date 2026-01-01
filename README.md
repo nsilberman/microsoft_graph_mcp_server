@@ -111,7 +111,7 @@ Add the following configuration:
 - **search_contacts** - Search contacts and people relevant to you. Returns people you interact with most, including organization users and personal contacts. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.
 
 #### Email Management
-- **mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
+- **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
 - **move_email** - Move emails to a different folder. Supports moving a single email or all emails from a folder
 - **list_recent_emails** - List recent emails from Inbox with optional days parameter (default: 1 day, maximum: 7 days)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)

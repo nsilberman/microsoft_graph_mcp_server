@@ -58,14 +58,11 @@ class MicrosoftGraphMCPServer:
                 if name == "auth":
                     return await self.auth_handler.handle_auth(arguments)
                 
-                elif name == "get_user_info":
-                    return await self.user_handler.handle_get_user_info(arguments)
-                
                 elif name == "search_contacts":
                     return await self.user_handler.handle_search_contacts(arguments)
                 
-                elif name == "mail_folder":
-                    return await self.email_handler.handle_mail_folder(arguments)
+                elif name == "manage_mail_folder":
+                    return await self.email_handler.handle_manage_mail_folder(arguments)
                 
                 elif name == "move_email":
                     return await self.email_handler.handle_move_email(arguments)

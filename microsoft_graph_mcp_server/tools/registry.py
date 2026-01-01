@@ -12,9 +12,8 @@ class ToolRegistry:
         """Get all available tools."""
         return [
             ToolRegistry.auth(),
-            ToolRegistry.get_user_info(),
             ToolRegistry.search_contacts(),
-            ToolRegistry.mail_folder(),
+            ToolRegistry.manage_mail_folder(),
             ToolRegistry.move_email(),
             ToolRegistry.delete_email(),
             ToolRegistry.list_recent_emails(),
@@ -83,10 +82,10 @@ class ToolRegistry:
         )
     
     @staticmethod
-    def mail_folder() -> types.Tool:
+    def manage_mail_folder() -> types.Tool:
         """Mail folder tool definition."""
         return types.Tool(
-            name="mail_folder",
+            name="manage_mail_folder",
             description="Manage mail folders. Supports list, create, delete, rename, get_details, and move operations.",
             inputSchema={
                 "type": "object",
