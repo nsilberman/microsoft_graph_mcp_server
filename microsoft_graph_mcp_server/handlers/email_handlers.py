@@ -12,41 +12,6 @@ from ..config import settings
 class EmailHandler(BaseHandler):
     """Handler for email-related tools."""
     
-    async def handle_list_recent_emails(self, arguments: dict) -> list[types.TextContent]:
-        """Handle list_recent_emails tool."""
-        days = arguments.get("days", 1)
-        
-        if days > 7:
-            return self._format_error("Error: Days parameter must be 7 or less.")
-        
-        email_cache.clear_cache()
-        result = await graph_client.load_emails_by_folder("Inbox", days, None)
-        
-        user_timezone = await graph_client.get_user_timezone()
-        
-        await email_cache.set_mode("list")
-        await email_cache.update_list_state(
-            folder="Inbox",
-            days=days,
-            top=None,
-            total_count=result["count"],
-            metadata=result["metadata"]
-        )
-        
-        email_date_range = date_handler.format_email_date_range(result["metadata"], user_timezone)
-        filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
-        
-        return self._format_response({
-            "message": f"Loaded {result['count']} recent emails from Inbox (last {days} day(s))",
-            "folder": "Inbox",
-            "days": days,
-            "count": result["count"],
-            "timezone": user_timezone,
-            "date_range": email_date_range,
-            "filter_date_range": filter_date_range,
-            "hint": "Use browse_email_cache to view the loaded emails"
-        })
-    
     async def handle_browse_email_cache(self, arguments: dict) -> list[types.TextContent]:
         """Handle browse_email_cache tool."""
         page_number = arguments["page_number"]
@@ -87,59 +52,78 @@ class EmailHandler(BaseHandler):
         })
     
     async def handle_search_emails(self, arguments: dict) -> list[types.TextContent]:
-        """Handle search_emails tool."""
-        search_type = arguments["search_type"]
-        query = arguments["query"]
+        """Handle search_emails tool. Combines list_recent_emails and search_emails functionality."""
+        search_type = arguments.get("search_type")
+        query = arguments.get("query")
+        days = arguments.get("days", 1)
         folder = arguments.get("folder", "Inbox")
-        page_size = settings.page_size
         
-        days_param = arguments.get("days")
-        if days_param == "unlimited":
-            days = None
-        elif days_param is not None:
-            try:
-                days = int(days_param)
-            except (ValueError, TypeError):
-                return self._format_error(f"Error: Invalid days parameter '{days_param}'. Must be a number (e.g., '30', '90') or 'unlimited'.")
-        else:
-            days = settings.default_search_days
+        if days > 7:
+            return self._format_error("Error: Days parameter must be 7 or less.")
         
         email_cache.clear_cache()
-        
         user_timezone = await graph_client.get_user_timezone()
         
-        if search_type == "sender":
-            result = await graph_client.search_emails_by_sender(query, folder, page_size, days)
-        elif search_type == "recipient":
-            result = await graph_client.search_emails_by_recipient(query, folder, page_size, days)
-        elif search_type == "subject":
-            result = await graph_client.search_emails_by_subject(query, folder, page_size, days)
-        elif search_type == "body":
-            result = await graph_client.search_emails_by_body(query, folder, page_size, days)
+        if search_type and query:
+            page_size = settings.page_size
+            
+            if search_type == "sender":
+                result = await graph_client.search_emails_by_sender(query, folder, page_size, days)
+            elif search_type == "recipient":
+                result = await graph_client.search_emails_by_recipient(query, folder, page_size, days)
+            elif search_type == "subject":
+                result = await graph_client.search_emails_by_subject(query, folder, page_size, days)
+            elif search_type == "body":
+                result = await graph_client.search_emails_by_body(query, folder, page_size, days)
+            else:
+                return self._format_error(f"Error: Invalid search_type '{search_type}'. Must be one of: sender, recipient, subject, body")
+            
+            await email_cache.set_mode("search")
+            await email_cache.update_search_state(
+                query=query,
+                folder=folder,
+                top=page_size,
+                days=days,
+                search_type=search_type,
+                total_count=result["count"],
+                metadata=result["metadata"]
+            )
+            
+            return self._format_response({
+                "search_type": search_type,
+                "query": query,
+                "folder": folder,
+                "count": result["count"],
+                "timezone": user_timezone,
+                "date_range": result.get("date_range"),
+                "filter_date_range": result.get("filter_date_range"),
+                "hint": f"Found {result['count']} emails. Use browse_email_cache to view the results."
+            })
         else:
-            return self._format_error(f"Error: Invalid search_type '{search_type}'. Must be one of: sender, recipient, subject, body")
-        
-        await email_cache.set_mode("search")
-        await email_cache.update_search_state(
-            query=query,
-            folder=folder,
-            top=page_size,
-            days=days,
-            search_type=search_type,
-            total_count=result["count"],
-            metadata=result["metadata"]
-        )
-        
-        return self._format_response({
-            "search_type": search_type,
-            "query": query,
-            "folder": folder,
-            "count": result["count"],
-            "timezone": user_timezone,
-            "date_range": result.get("date_range"),
-            "filter_date_range": result.get("filter_date_range"),
-            "hint": f"Found {result['count']} emails. Use browse_email_cache to view the results."
-        })
+            result = await graph_client.load_emails_by_folder("Inbox", days, None)
+            
+            await email_cache.set_mode("list")
+            await email_cache.update_list_state(
+                folder="Inbox",
+                days=days,
+                top=None,
+                total_count=result["count"],
+                metadata=result["metadata"]
+            )
+            
+            email_date_range = date_handler.format_email_date_range(result["metadata"], user_timezone)
+            filter_date_range = date_handler.format_filter_date_range(days, user_timezone)
+            
+            return self._format_response({
+                "message": f"Loaded {result['count']} recent emails from Inbox (last {days} day(s))",
+                "folder": "Inbox",
+                "days": days,
+                "count": result["count"],
+                "timezone": user_timezone,
+                "date_range": email_date_range,
+                "filter_date_range": filter_date_range,
+                "hint": "Use browse_email_cache to view the loaded emails"
+            })
     
     async def handle_get_email_content(self, arguments: dict) -> list[types.TextContent]:
         """Handle get_email_content tool."""

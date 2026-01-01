@@ -70,9 +70,6 @@ class MicrosoftGraphMCPServer:
                 elif name == "delete_email":
                     return await self.email_handler.handle_delete_email(arguments)
                 
-                elif name == "list_recent_emails":
-                    return await self.email_handler.handle_list_recent_emails(arguments)
-                
                 elif name == "browse_email_cache":
                     return await self.email_handler.handle_browse_email_cache(arguments)
                 

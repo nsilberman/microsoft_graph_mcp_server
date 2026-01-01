@@ -16,7 +16,6 @@ class ToolRegistry:
             ToolRegistry.manage_mail_folder(),
             ToolRegistry.move_email(),
             ToolRegistry.delete_email(),
-            ToolRegistry.list_recent_emails(),
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
@@ -218,18 +217,18 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="Unified search tool for emails. Search by sender, recipient, subject, or body text. Returns email numbers found in cache. Use browse_email_cache to view the results. All searches return only the count and hint to use browse tool.",
+            description="Unified search tool for emails. Search by sender, recipient, subject, or body text. If no search_type and query are provided, lists recent emails from Inbox. Returns email numbers found in cache. Use browse_email_cache to view the results.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "search_type": {
                         "type": "string",
                         "enum": ["sender", "recipient", "subject", "body"],
-                        "description": "Type of search to perform"
+                        "description": "Type of search to perform (optional). If not provided, lists recent emails from Inbox"
                     },
                     "query": {
                         "type": "string",
-                        "description": "Search query (sender name/email, recipient name/email, subject text, or body text)"
+                        "description": "Search query (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided"
                     },
                     "folder": {
                         "type": "string",
@@ -237,11 +236,13 @@ class ToolRegistry:
                         "default": "Inbox"
                     },
                     "days": {
-                        "type": "string",
-                        "description": "Number of days to search back (e.g., '30', '90', '365') or 'unlimited' for no date restriction. Default is set in .env file (DEFAULT_SEARCH_DAYS)."
+                        "type": "integer",
+                        "description": "Number of days to look back (default: 1, maximum: 7). Used for both recent emails list and advanced search",
+                        "default": 1,
+                        "minimum": 1,
+                        "maximum": 7
                     }
-                },
-                "required": ["search_type", "query"]
+                }
             }
         )
     

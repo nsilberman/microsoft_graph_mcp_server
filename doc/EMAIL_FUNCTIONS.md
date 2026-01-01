@@ -4,14 +4,11 @@ This document describes the email-related functions available in the Microsoft G
 
 ## Table of Contents
 
-1. [List Recent Emails](#list-recent-emails)
-2. [Load Emails by Folder](#load-emails-by-folder)
-3. [Search Emails](#search-emails)
-4. [Browse Email Cache](#browse-email-cache)
-5. [Clear Email Cache](#clear-email-cache)
-6. [Get Email Content](#get-email-content)
-7. [Mail Folder Management](#mail-folder-management)
-8. [Move Email](#move-email)
+1. [Search Emails](#search-emails)
+2. [Browse Email Cache](#browse-email-cache)
+3. [Get Email Content](#get-email-content)
+4. [Manage Mail Folder](#manage-mail-folder)
+5. [Move Email](#move-email)
 
 ---
 

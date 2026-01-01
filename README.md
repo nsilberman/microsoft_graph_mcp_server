@@ -113,9 +113,8 @@ Add the following configuration:
 #### Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
 - **move_email** - Move emails to a different folder. Supports moving a single email or all emails from a folder
-- **list_recent_emails** - List recent emails from Inbox with optional days parameter (default: 1 day, maximum: 7 days)
+- **search_emails** - Search emails by sender, recipient, subject, or body text. If no search criteria provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
-- **search_emails** - Search emails by sender, recipient, subject, or body text with configurable date range
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
 - **delete_email** - Delete an email by moving it to Deleted Items (recoverable)
 - **compose_email** - Compose and send a new email with support for multiple recipients, CC, and BCC
