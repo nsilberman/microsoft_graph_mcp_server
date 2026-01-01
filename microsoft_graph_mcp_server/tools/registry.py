@@ -281,7 +281,7 @@ class ToolRegistry:
         """Compose, reply, or forward email tool definition."""
         return types.Tool(
             name="compose_reply_forward_email",
-            description="Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.",
+            description="Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -299,9 +299,9 @@ class ToolRegistry:
                         "type": "string",
                         "description": "Email subject (required for compose, optional for reply/forward)",
                     },
-                    "body": {
+                    "htmlbody": {
                         "type": "string",
-                        "description": "Email body content. MUST be HTML format.",
+                        "description": "Email body content in HTML format. Use HTML tags like <p>, <br>, <strong>, <em>, <ul>, <li>, etc. Example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><br><p>Best regards</p>'",
                     },
                     "emailNumber": {
                         "type": "integer",
@@ -322,7 +322,7 @@ class ToolRegistry:
                         "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)",
                     },
                 },
-                "required": ["action", "to", "body"],
+                "required": ["action", "to", "htmlbody"],
             },
         )
 

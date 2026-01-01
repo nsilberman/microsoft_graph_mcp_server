@@ -82,6 +82,10 @@ class EmailHandler(BaseHandler):
             display_range, start_date, end_date = date_handler.parse_date_range(time_range, user_timezone)
             start_date_display = date_handler.format_date_with_weekday(start_date, user_timezone)
             end_date_display = date_handler.format_date_with_weekday(end_date, user_timezone)
+        elif not start_date and not end_date:
+            start_date, end_date = date_handler.get_filter_date_range(days)
+            start_date_display = date_handler.format_date_with_weekday(start_date, user_timezone)
+            end_date_display = date_handler.format_date_with_weekday(end_date, user_timezone)
         else:
             if start_date:
                 start_date = date_handler.parse_local_date_to_utc(start_date, user_timezone)
@@ -178,7 +182,7 @@ class EmailHandler(BaseHandler):
         """Handle compose email action."""
         to_recipients = arguments["to"]
         subject = arguments["subject"]
-        body = arguments["body"]
+        body = arguments["htmlbody"]
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
 
@@ -197,7 +201,7 @@ class EmailHandler(BaseHandler):
         emailNumber = arguments["emailNumber"]
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
-        body = arguments.get("body")
+        body = arguments.get("htmlbody")
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
 
@@ -226,7 +230,7 @@ class EmailHandler(BaseHandler):
         email_number = arguments["emailNumber"]
         to_recipients = arguments["to"]
         subject = arguments.get("subject")
-        body = arguments.get("body")
+        body = arguments.get("htmlbody")
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         bcc_csv_file = arguments.get("bcc_csv_file")
@@ -263,7 +267,7 @@ class EmailHandler(BaseHandler):
                 return self._format_error(f"Error reading BCC CSV file: {str(e)}")
 
         all_bcc_recipients = bcc_recipients or []
-        max_bcc = settings.max_bcc_recipients
+        max_bcc = settings.max_bcc_batch_size
         total_bcc = len(all_bcc_recipients)
 
         if total_bcc > max_bcc:

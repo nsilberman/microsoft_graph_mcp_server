@@ -7,6 +7,10 @@ from typing import Any, Dict, Optional
 
 from .token_manager import TokenManager
 
+# Timeout for waiting for authentication completion (in seconds)
+# This gives users enough time to complete authentication in the browser
+AUTH_VERIFICATION_TIMEOUT = 30.0
+
 
 class DeviceFlowManager:
     """Manages device code flow authentication for Microsoft Graph API."""
@@ -28,6 +32,17 @@ class DeviceFlowManager:
 
             self.device_flow = flow
 
+            print("\n" + "=" * 70)
+            print("MICROSOFT GRAPH AUTHENTICATION")
+            print("=" * 70)
+            print(f"\nTo sign in, use a web browser to open the page:")
+            print(f"\n{flow['verification_uri']}")
+            print(f"\nAnd enter the code:")
+            print(f"\n{flow['user_code']}")
+            print("\n" + "=" * 70)
+            print("Please complete authentication in your browser, then call login again.")
+            print("=" * 70 + "\n")
+
             return {
                 "status": "pending",
                 "message": "Please complete authentication using the link and code below. After completing authentication, call login again to verify.",
@@ -37,6 +52,126 @@ class DeviceFlowManager:
                 "interval": flow.get("interval", 5),
             }
         except Exception as e:
+            raise Exception(f"Authentication failed: {str(e)}")
+
+    async def initiate_device_flow_only(self) -> Dict[str, Any]:
+        """Initiate device code flow without waiting for completion.
+
+        Returns:
+            Dict with authentication status and verification details
+        """
+        return await self.initiate_device_code()
+
+    async def initiate_and_wait_for_completion(
+        self, max_wait_time: int = 5, poll_interval: int = 1, progress_interval: int = 5
+    ) -> Dict[str, Any]:
+        """Initiate device code flow and automatically wait for authentication completion with progress updates.
+
+        Args:
+            max_wait_time: Maximum time to wait for authentication in seconds (default: 5)
+            poll_interval: How often to check for authentication completion in seconds (default: 1)
+            progress_interval: How often to show progress updates in seconds (default: 5)
+
+        Returns:
+            Dict with authentication status and details
+        """
+        try:
+            flow = self.client_app.initiate_device_flow(
+                scopes=["https://graph.microsoft.com/.default"]
+            )
+
+            if "error" in flow:
+                raise Exception(f"Failed to initiate device flow: {flow['error']}")
+
+            self.device_flow = flow
+
+            print("\n" + "=" * 70)
+            print("MICROSOFT GRAPH AUTHENTICATION")
+            print("=" * 70)
+            print(f"\nTo sign in, use a web browser to open the page:")
+            print(f"\n{flow['verification_uri']}")
+            print(f"\nAnd enter the code:")
+            print(f"\n{flow['user_code']}")
+            print("\n" + "=" * 70)
+            print(f"Waiting for authentication (timeout: {max_wait_time} seconds)...")
+            print("=" * 70 + "\n")
+
+            elapsed = 0
+            last_progress = 0
+            loop = asyncio.get_event_loop()
+
+            while elapsed < max_wait_time:
+                try:
+                    result = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            None,
+                            self.client_app.acquire_token_by_device_flow,
+                            flow,
+                        ),
+                        timeout=poll_interval,
+                    )
+
+                    if "access_token" in result:
+                        self.token_manager.update_token(
+                            access_token=result["access_token"],
+                            expires_in=result.get("expires_in", 3600),
+                            refresh_token=result.get("refresh_token"),
+                        )
+                        self.device_flow = None
+
+                        expiry_info = self.token_manager.get_token_expiry_info()
+                        expiry_datetime = datetime.datetime.fromtimestamp(
+                            self.token_manager.token_expiry
+                        )
+                        expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
+
+                        remaining_hours = expiry_info["remaining_hours"]
+                        remaining_minutes = expiry_info["remaining_minutes"]
+
+                        if remaining_hours > 0:
+                            time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                        else:
+                            time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+
+                        print("\n✓ Authentication successful!\n")
+
+                        return {
+                            "status": "success",
+                            "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
+                            "token_expiry": self.token_manager.token_expiry,
+                            "expiry_datetime": expiry_str,
+                            **expiry_info,
+                        }
+                    else:
+                        error = result.get("error", "")
+                        if error not in ["authorization_pending", "timeout"]:
+                            self.device_flow = None
+                            return {
+                                "status": "failed",
+                                "message": f"Authentication failed: {result.get('error_description', 'Unknown error')}",
+                            }
+                except asyncio.TimeoutError:
+                    pass
+
+                elapsed += poll_interval
+
+                if elapsed - last_progress >= progress_interval:
+                    remaining = max_wait_time - elapsed
+                    print(f"Still waiting for authentication... {remaining} seconds remaining")
+                    last_progress = elapsed
+
+            remaining = max_wait_time - elapsed
+            print(f"\nAuthentication timed out after {max_wait_time} seconds.")
+
+            return {
+                "status": "pending",
+                "message": f"Authentication timed out. Please complete authentication in the browser using the verification link and code, then call login again to verify.",
+                "verification_uri": flow.get("verification_uri", ""),
+                "user_code": flow.get("user_code", ""),
+                "expires_in": flow.get("expires_in", 900),
+            }
+        except Exception as e:
+            self.device_flow = None
             raise Exception(f"Authentication failed: {str(e)}")
 
     async def check_authentication_status(self) -> Dict[str, Any]:
@@ -133,7 +268,7 @@ class DeviceFlowManager:
                                 self.client_app.acquire_token_by_device_flow,
                                 self.device_flow,
                             ),
-                            timeout=3.0,
+                            timeout=AUTH_VERIFICATION_TIMEOUT,
                         )
                         return result
                     except asyncio.TimeoutError:

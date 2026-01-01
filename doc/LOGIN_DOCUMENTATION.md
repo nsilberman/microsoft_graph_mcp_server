@@ -40,7 +40,7 @@ When the user calls the `login` tool for the first time:
 
 After completing authentication in the browser, the user calls `login` again:
 
-1. The server checks if authentication is complete
+1. The server waits up to 30 seconds for authentication to complete
 2. If successful, Microsoft returns:
    - `access_token`: Token to call Microsoft Graph API
    - `refresh_token`: Token to get new access tokens when expired
@@ -59,6 +59,8 @@ After completing authentication in the browser, the user calls `login` again:
      "remaining_hours": 0
    }
    ```
+
+**Note**: The second `login` call waits up to 30 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `login` again after completing the authentication.
 
 ## Session Persistence
 
@@ -302,21 +304,52 @@ Server: {
 
 ### Key Components
 
-**GraphAuthManager** ([auth.py](microsoft_graph_mcp_server/auth.py))
+**GraphAuthManager** ([auth_modules/auth_manager.py](microsoft_graph_mcp_server/auth_modules/auth_manager.py))
 - Manages authentication state
 - Handles token acquisition and refresh
 - Saves/loads tokens from disk
 - Implements login, logout, and status check methods
 
+**DeviceFlowManager** ([auth_modules/device_flow.py](microsoft_graph_mcp_server/auth_modules/device_flow.py))
+- Manages device code flow authentication
+- Handles initiation and verification of device code authentication
+- Provides automatic waiting for authentication completion with configurable timeout
+
+**TokenManager** ([auth_modules/token_manager.py](microsoft_graph_mcp_server/auth_modules/token_manager.py))
+- Manages token storage and validation
+- Handles token expiry checking
+- Saves/loads tokens from disk
+
 **Key Methods:**
-- `login()`: Initiate or verify authentication
-- `check_login_status()`: Check current authentication state
-- `logout()`: Clear authentication state
-- `get_access_token()`: Get valid access token (auto-refreshes if needed)
-- `_save_tokens_to_disk()`: Save tokens to disk
-- `_load_tokens_from_disk()`: Load tokens from disk
-- `_delete_tokens_from_disk()`: Delete tokens from disk
-- `_refresh_token()`: Refresh access token using refresh token
+- `login()`: Initiate or verify authentication (in GraphAuthManager)
+- `check_login_status()`: Check current authentication state (in GraphAuthManager and DeviceFlowManager)
+- `logout()`: Clear authentication state (in GraphAuthManager)
+- `get_access_token()`: Get valid access token (auto-refreshes if needed) (in GraphAuthManager)
+- `initiate_device_code()`: Initiate device code flow and return verification info (in DeviceFlowManager)
+- `initiate_device_flow_only()`: Initiate device code flow without waiting (in DeviceFlowManager)
+- `initiate_and_wait_for_completion()`: Initiate and wait for authentication with timeout (in DeviceFlowManager)
+- `check_authentication_status()`: Check if authentication is complete with timeout (in DeviceFlowManager)
+- `_save_tokens_to_disk()`: Save tokens to disk (in TokenManager)
+- `_load_tokens_from_disk()`: Load tokens from disk (in TokenManager)
+- `_delete_tokens_from_disk()`: Delete tokens from disk (in TokenManager)
+- `_refresh_token()`: Refresh access token using refresh token (in GraphAuthManager)
+
+### Authentication Flow Implementation
+
+The authentication flow is implemented with a two-step process:
+
+1. **First login call**: Calls `initiate_device_flow_only()` which:
+   - Initiates device code flow with Microsoft Graph
+   - Returns verification URI and user code immediately
+   - Does not wait for authentication completion
+
+2. **Second login call**: Calls `check_authentication_status()` which:
+   - Waits up to 30 seconds (AUTH_VERIFICATION_TIMEOUT) for authentication to complete
+   - Polls Microsoft Graph for authentication status
+   - Returns success if authentication is complete
+   - Returns pending if authentication is still in progress
+
+This approach ensures users have enough time to complete authentication in the browser while providing a responsive experience.
 
 ### Token File Location
 - **Windows**: `C:\Users\<username>\.microsoft_graph_mcp_tokens.json`

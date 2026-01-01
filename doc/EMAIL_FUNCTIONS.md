@@ -282,13 +282,13 @@ result = await get_email_content(emailNumber=1, text_only=false)
 ## Compose Reply Forward Email
 
 ### Description
-Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.
+Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
 ### Parameters
 - `action` (required, string): Action to perform
   - Values: "compose", "reply", "forward"
 - `to` (required, array of strings): List of recipient email addresses
-- `body` (required, string): Email body content. MUST be HTML format.
+- `htmlbody` (required, string): Email body content in HTML format. Use HTML tags like <p>, <br>, <strong>, <em>, <ul>, <li>, etc. Example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><br><p>Best regards</p>'
 - `subject` (optional, string): Email subject
   - Required for: "compose" action
   - Optional for: "reply" and "forward" actions
@@ -309,7 +309,7 @@ Composes and sends a new email.
 - `action`: "compose"
 - `to`: List of recipient email addresses
 - `subject`: Email subject
-- `body`: Email body content (HTML format)
+- `htmlbody`: Email body content (HTML format)
 - `cc` (optional): List of CC recipient email addresses
 - `bcc` (optional): List of BCC recipient email addresses
 
@@ -326,7 +326,7 @@ result = await compose_reply_forward_email(
     action="compose",
     to=["recipient@example.com"],
     subject="Meeting Tomorrow",
-    body="<p>Hi, let's meet tomorrow at 2 PM.</p>",
+    htmlbody="<p>Hi, let's meet tomorrow at 2 PM.</p>",
     cc=["manager@example.com"]
 )
 ```
@@ -338,7 +338,7 @@ Replies to an existing email. The reply will be linked to the original email thr
 - `action`: "reply"
 - `emailNumber`: Email number from browse_email_cache
 - `to`: List of recipient email addresses
-- `body`: Email body content (HTML format)
+- `htmlbody`: Email body content (HTML format)
 - `subject` (optional): Email subject
 - `cc` (optional): List of CC recipient email addresses
 - `bcc` (optional): List of BCC recipient email addresses
@@ -356,7 +356,7 @@ result = await compose_reply_forward_email(
     action="reply",
     emailNumber=1,
     to=["original_sender@example.com"],
-    body="<p>Thank you for your email. I'll review it and get back to you.</p>",
+    htmlbody="<p>Thank you for your email. I'll review it and get back to you.</p>",
     subject="Re: Meeting Tomorrow"
 )
 ```
@@ -368,7 +368,7 @@ Forwards an email to recipients. The original email will be included in the forw
 - `action`: "forward"
 - `emailNumber`: Email number from browse_email_cache
 - `to`: List of recipient email addresses
-- `body`: Email body content (HTML format)
+- `htmlbody`: Email body content (HTML format)
 - `subject` (optional): Email subject (defaults to 'FW: ' + original subject)
 - `cc` (optional): List of CC recipient email addresses
 - `bcc` (optional): List of BCC recipient email addresses
@@ -438,7 +438,7 @@ recipient3@example.com
 ```
 
 ### BCC Batching
-When forwarding emails with BCC recipients that exceed the maximum limit (default: 500, configurable via `MAX_BCC_RECIPIENTS`), the system automatically batches the recipients:
+When forwarding emails with BCC recipients that exceed the maximum batch size (default: 500, configurable via `MAX_BCC_BATCH_SIZE`), the system automatically batches the recipients:
 
 - Splits BCC recipients into batches of the maximum size
 - Sends the forward email multiple times, once per batch
@@ -447,7 +447,7 @@ When forwarding emails with BCC recipients that exceed the maximum limit (defaul
 **Configuration:**
 ```env
 # .env file
-MAX_BCC_RECIPIENTS=500
+MAX_BCC_BATCH_SIZE=500
 ```
 
 ### Notes
@@ -811,7 +811,7 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
-4. **Use HTML format for email bodies**: When using `compose_reply_forward_email`, ensure the body parameter is in HTML format for all actions (compose, reply, forward).
+4. **Use HTML format for email bodies**: When using `compose_reply_forward_email`, ensure the htmlbody parameter is in HTML format for all actions (compose, reply, forward).
 
 5. **Respect parameter limits**: 
    - `days` parameter for recent emails: maximum 7
@@ -852,25 +852,33 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 ## Performance Considerations
 
-1. **Hard Limit**: All email search methods have a maximum limit defined by `MAX_EMAIL_SEARCH_LIMIT` (1000 emails) per search to prevent excessive API calls and memory usage. This limit is implemented as a constant in the codebase rather than a magic number, making it easier to maintain and modify in the future.
+1. **Hard Limit**: All email search methods have a maximum limit defined by `MAX_EMAIL_SEARCH_LIMIT` (50 emails) per search to prevent excessive API calls and memory usage. This limit is implemented as a constant in the codebase rather than a magic number, making it easier to maintain and modify in the future.
 
 2. **Performance Metrics**:
-   - 100 emails: ~2.55 seconds (39 emails/second)
-   - 500 emails: ~4.05 seconds (123 emails/second)
-   - 1000 emails: ~5.39 seconds (186 emails/second)
+   - 100 emails: 2.22 seconds (45.1 emails/second)
+   - 500 emails: 3.50 seconds (142.7 emails/second)
+   - 1000 emails: 5.39 seconds (185.6 emails/second)
 
 3. **Key Optimizations**:
    - **List Comprehension**: Email summaries are generated using list comprehension instead of parallel processing for optimal performance
    - **Reduced API Response Size**: Only essential fields are requested from the API (id, subject, from, toRecipients, ccRecipients, receivedDateTime, sentDateTime, isRead, hasAttachments, importance, bodyPreview)
    - **Timezone Object Caching**: ZoneInfo objects are cached to avoid redundant timezone conversions
+   - **User Timezone Caching**: User timezone information is cached to avoid repeated calculations
+   - **Optimized Field Selection**: API requests retrieve only needed fields, reducing response size by ~40%
+   - **Regex Pattern Optimization**: Multiple regex operations consolidated into fewer, more efficient patterns
 
 4. **Cache Size**: The cache is automatically cleared before each load/search operation to prevent memory bloat.
 
 5. **Async Operations**: Cache saves are performed asynchronously using `asyncio.to_thread` for non-blocking I/O.
 
-6. **Pagination**: Use pagination when browsing large email lists to optimize memory usage.
+6. **Email Content Processing**:
+   - HTML extraction removes all HTML tags, styles, classes, IDs, and images
+   - Configurable maximum email body length (default: 5000 characters) to reduce token usage
+   - Content truncation with clear indication when content is truncated
 
-7. **Parameter Limits**: The limits on `days` and `top` parameters are designed to prevent excessive API calls and memory usage.
+7. **Pagination**: Use pagination when browsing large email lists to optimize memory usage.
+
+8. **Parameter Limits**: The limits on `days` and `top` parameters are designed to prevent excessive API calls and memory usage.
 
 ---
 

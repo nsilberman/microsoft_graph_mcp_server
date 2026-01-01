@@ -60,7 +60,7 @@ class GraphAuthManager:
         return await self.device_flow_manager.check_login_status()
 
     async def login(self) -> Dict[str, Any]:
-        """Explicit login method for authentication."""
+        """Explicit login method for authentication with automatic waiting for completion."""
         if (
             self.token_manager.authenticated
             and self.token_manager.access_token
@@ -90,10 +90,16 @@ class GraphAuthManager:
                 **expiry_info,
             }
 
-        if self.device_flow_manager.device_flow is None:
-            return await self.device_flow_manager.initiate_device_code()
-        else:
-            return await self.device_flow_manager.check_authentication_status()
+        if self.device_flow_manager.device_flow is not None:
+            result = await self.device_flow_manager.check_authentication_status()
+            if result.get("status") == "success":
+                return result
+            elif result.get("status") == "pending":
+                return await self.device_flow_manager.initiate_and_wait_for_completion()
+            else:
+                return result
+
+        return await self.device_flow_manager.initiate_device_flow_only()
 
     async def _acquire_token(self) -> None:
         """Acquire a new access token using device code flow."""

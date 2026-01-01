@@ -31,9 +31,37 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 
 ## Installation
 
+### Using pip (Traditional)
+
 ```bash
 pip install -r requirements.txt
 ```
+
+### Using UVX (Recommended)
+
+Install the `uv` package manager:
+
+```bash
+pip install uv
+```
+
+Then run the server directly with UVX:
+
+```bash
+uvx --from . microsoft-graph-mcp-server
+```
+
+For detailed UVX usage instructions, see [UVX_USAGE.md](doc/UVX_USAGE.md).
+
+### Verify Installation
+
+To verify that the MCP server is properly configured, run:
+
+```bash
+python verify_setup.py
+```
+
+This will check that all dependencies are installed and the server can be instantiated correctly.
 
 ## Configuration
 
@@ -80,7 +108,24 @@ Edit the Claude Desktop configuration file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-Add the following configuration:
+#### Option 1: Using UVX (Recommended)
+
+Use an absolute path to your project directory:
+
+```json
+{
+  "mcpServers": {
+    "microsoft-graph": {
+      "command": "uvx",
+      "args": ["--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+    }
+  }
+}
+```
+
+**Important**: Use forward slashes (`/`) in paths, even on Windows. Replace `C:/Project/microsoft_graph_mcp_server` with your actual project path.
+
+#### Option 2: Using Python (Traditional)
 
 ```json
 {
@@ -116,7 +161,7 @@ Add the following configuration:
 - **search_emails** - Search emails by sender, recipient, subject, or body text. If no search criteria provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
-- **compose_reply_forward_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.
+- **compose_reply_forward_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
 #### Calendar Management
 - **browse_events** - Browse calendar events with pagination
@@ -131,6 +176,23 @@ Add the following configuration:
 
 ### Direct Run
 
+#### Using UVX (Recommended)
+
+```bash
+# Run from local directory
+uvx --from . microsoft-graph-mcp-server
+
+# Run from PyPI (when published)
+uvx microsoft-graph-mcp-server
+
+# Run with development dependencies
+uvx --with pytest --from . microsoft-graph-mcp-server
+```
+
+**Important Note**: When running the MCP server directly in a terminal, you may see JSON parsing errors. This is **normal behavior** - MCP servers communicate via stdio using JSON-RPC protocol and expect to be run by an MCP client like Claude Desktop. The server is working correctly; these errors occur because there's no MCP client connected to send proper JSON messages.
+
+#### Using Python (Traditional)
+
 ```bash
 # Start MCP Server
 python -m microsoft_graph_mcp_server.main
@@ -140,6 +202,30 @@ microsoft-graph-mcp-server
 ```
 
 ## Development
+
+### Using UVX (Recommended)
+
+```bash
+# Install development dependencies
+uv sync --dev
+
+# Run tests
+uv run pytest
+
+# Code formatting
+uv run black .
+uv run isort .
+
+# Type checking
+uv run mypy .
+
+# Run the server
+uv run python -m microsoft_graph_mcp_server.main
+# or
+uv run microsoft-graph-mcp-server
+```
+
+### Using pip (Traditional)
 
 ```bash
 # Install development dependencies
@@ -299,11 +385,13 @@ The optimizations ensure efficient handling of large email batches while maintai
 ## Documentation
 
 Additional documentation is available in the `doc/` folder:
+- [QUICK_START.md](doc/QUICK_START.md) - Quick start guide for UVX setup
 - [INSTALLATION.md](doc/INSTALLATION.md) - Detailed installation instructions
+- [UVX_USAGE.md](doc/UVX_USAGE.md) - UVX usage guide and configuration
+- [UVX_CONFIG_EXAMPLES.md](doc/UVX_CONFIG_EXAMPLES.md) - Claude Desktop configuration examples
 - [LOGIN_DOCUMENTATION.md](doc/LOGIN_DOCUMENTATION.md) - Authentication guide
 - [TEST_README.md](doc/TEST_README.md) - Testing guide
 - [INLINE_ATTACHMENTS.md](doc/INLINE_ATTACHMENTS.md) - Inline attachment handling documentation
-- [TODAYS_CHANGES.md](doc/TODAYS_CHANGES.md) - Detailed changelog of recent code changes
 - [CONTRIBUTING.md](doc/CONTRIBUTING.md) - Contribution guidelines
 
 ## License

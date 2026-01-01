@@ -20,18 +20,25 @@ class EmailClient(BaseGraphClient):
     def __init__(self):
         super().__init__()
         self._folder_cache: Dict[str, str] = {}
+        self._user_timezone_cache: Optional[str] = None
 
     async def get_user_timezone(self) -> str:
-        """Get user's timezone identifier. Uses server local timezone."""
+        """Get user's timezone identifier. Uses server local timezone with caching."""
+        if self._user_timezone_cache is not None:
+            return self._user_timezone_cache
+        
         try:
             local_tz = datetime.now().astimezone().tzinfo
             if local_tz:
                 tz_str = str(local_tz)
                 if tz_str and tz_str != "UTC":
-                    return date_handler.convert_to_iana_timezone(tz_str)
+                    self._user_timezone_cache = date_handler.convert_to_iana_timezone(tz_str)
+                    return self._user_timezone_cache
         except Exception:
             pass
-        return date_handler.convert_to_iana_timezone(settings.user_timezone)
+        
+        self._user_timezone_cache = date_handler.convert_to_iana_timezone(settings.user_timezone)
+        return self._user_timezone_cache
 
     async def get_messages(
         self, folder: str = "Inbox", top: int = 10, filter_query: Optional[str] = None
@@ -306,26 +313,21 @@ class EmailClient(BaseGraphClient):
         }
 
     def _extract_text_from_html(self, html_content: str) -> str:
-        """Extract plain text from HTML content."""
+        """Extract plain text from HTML content with aggressive cleanup (optimized)."""
         import re
 
+        text = html_content
+
         text = re.sub(
-            r"<head.*?>.*?</head>", "", html_content, flags=re.DOTALL | re.IGNORECASE
+            r"<(head|style|script).*?>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE
         )
-        text = re.sub(
-            r"<style.*?>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE
-        )
-        text = re.sub(
-            r"<script.*?>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE
-        )
+        text = re.sub(r'\s*(style|class|id|data-outlook-trace)="[^"]*"', "", text, flags=re.IGNORECASE)
+        text = re.sub(r'<(img|hr)[^>]*>', "", text, flags=re.IGNORECASE)
         text = re.sub(r"<[^>]+>", "", text)
-        text = re.sub(r"&nbsp;", " ", text)
-        text = re.sub(r"&amp;", "&", text)
-        text = re.sub(r"&lt;", "<", text)
-        text = re.sub(r"&gt;", ">", text)
-        text = re.sub(r"&quot;", '"', text)
-        text = re.sub(r"&#39;", "'", text)
+        text = re.sub(r"&(nbsp|amp|lt|gt|quot|#39);", lambda m: {"nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'"}[m.group(1)], text)
         text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"(\n\s*){3,}", "\n\n", text)
+        
         return text.strip()
 
     async def get_email_count(
@@ -346,10 +348,13 @@ class EmailClient(BaseGraphClient):
     async def get_email(
         self, email_id: str, emailNumber: int = 0, text_only: bool = True
     ) -> Dict[str, Any]:
-        """Get full email by ID."""
+        """Get full email by ID with optimized field selection."""
         user_timezone_str = await self.get_user_timezone()
 
-        params = {"$select": "*", "$expand": "attachments"}
+        params = {
+            "$select": "subject,from,toRecipients,ccRecipients,bccRecipients,body,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,isDraft,internetMessageId,conversationId,parentFolderId,flag",
+            "$expand": "attachments($select=name,size,contentType,isInline)"
+        }
 
         email = await self.get(f"/me/messages/{email_id}", params=params)
 
@@ -367,7 +372,7 @@ class EmailClient(BaseGraphClient):
         body_content = email.get("body", {}).get("content", "")
         body_type = email.get("body", {}).get("contentType", "Text")
 
-        if text_only and body_type == "HTML":
+        if text_only and body_type.lower() == "html":
             body_content = self._extract_text_from_html(body_content)
 
         received_datetime = email.get("receivedDateTime", "")
@@ -428,17 +433,34 @@ class EmailClient(BaseGraphClient):
         }
 
     async def search_emails(
-        self, query: str, folder: Optional[str] = None, top: int = 20
+        self,
+        query: Optional[str] = None,
+        search_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        folder: Optional[str] = None,
+        top: int = 20,
     ) -> Dict[str, Any]:
-        """Search emails by keywords. Note: Pagination with skip is not supported with search."""
+        """Search or list emails by keywords, sender, recipient, subject, or body with date filtering."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
             raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
         
         params = {
-            "$search": f'"{query}"',
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
         }
+
+        if query:
+            if search_type == "sender":
+                params["$search"] = f'"from:{query}"'
+            elif search_type == "recipient":
+                params["$search"] = f'"to:{query}"'
+            elif search_type == "subject":
+                params["$search"] = f'"subject:{query}"'
+            elif search_type == "body":
+                params["$search"] = f'"{query}"'
+            else:
+                params["$search"] = f'"{query}"'
 
         endpoint = "/me/messages"
         if folder:
@@ -449,6 +471,20 @@ class EmailClient(BaseGraphClient):
         emails = result.get("value", [])
         user_timezone_str = await self.get_user_timezone()
         user_tz = date_handler.get_user_timezone_object(user_timezone_str)
+
+        if start_date:
+            emails = [
+                email
+                for email in emails
+                if email.get("receivedDateTime", "") >= start_date
+            ]
+
+        if end_date:
+            emails = [
+                email
+                for email in emails
+                if email.get("receivedDateTime", "") <= end_date
+            ]
         
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)

@@ -50,9 +50,9 @@ class Settings(BaseSettings):
     )  # Maximum contacts to return in search results
 
     # Email forwarding settings
-    max_bcc_recipients: int = int(
-        os.getenv("MAX_BCC_RECIPIENTS", "500")
-    )  # Maximum BCC recipients per email
+    max_bcc_batch_size: int = int(
+        os.getenv("MAX_BCC_BATCH_SIZE", "500")
+    )  # Maximum BCC recipients per batch when forwarding emails
 
     class Config:
         env_file = ".env"
