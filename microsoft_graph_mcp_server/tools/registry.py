@@ -11,28 +11,16 @@ class ToolRegistry:
     def get_all_tools() -> List[types.Tool]:
         """Get all available tools."""
         return [
-            ToolRegistry.login(),
-            ToolRegistry.check_login_status(),
-            ToolRegistry.logout(),
+            ToolRegistry.auth(),
             ToolRegistry.get_user_info(),
             ToolRegistry.search_contacts(),
-            ToolRegistry.list_mail_folders(),
-            ToolRegistry.create_folder(),
-            ToolRegistry.delete_folder(),
-            ToolRegistry.rename_folder(),
-            ToolRegistry.get_folder_details(),
-            ToolRegistry.move_email_to_folder(),
-            ToolRegistry.copy_email_to_folder(),
-            ToolRegistry.move_all_emails_from_folder(),
+            ToolRegistry.mail_folder(),
+            ToolRegistry.move_email(),
             ToolRegistry.delete_email(),
-            ToolRegistry.move_folder(),
             ToolRegistry.list_recent_emails(),
-            ToolRegistry.load_emails_by_folder(),
-            ToolRegistry.clear_email_cache(),
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
-            ToolRegistry.send_message(),
             ToolRegistry.compose_email(),
             ToolRegistry.reply_email(),
             ToolRegistry.forward_email(),
@@ -44,42 +32,6 @@ class ToolRegistry:
             ToolRegistry.get_teams(),
             ToolRegistry.get_team_channels(),
         ]
-    
-    @staticmethod
-    def login() -> types.Tool:
-        """Login tool definition."""
-        return types.Tool(
-            name="login",
-            description="Authenticate with Microsoft Graph using device code flow. First call returns verification link and code. Open the link, enter the code, and sign in. Then call login again to verify authentication (this second call will timeout quickly if you haven't completed authentication yet). If already authenticated, returns remaining time until token expires. Run this first before using other tools.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        )
-    
-    @staticmethod
-    def check_login_status() -> types.Tool:
-        """Check login status tool definition."""
-        return types.Tool(
-            name="check_login_status",
-            description="Check current authentication status with Microsoft Graph. Shows if authenticated, not authenticated, or expired, along with token expiry time. Does not initiate authentication.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        )
-    
-    @staticmethod
-    def logout() -> types.Tool:
-        """Logout tool definition."""
-        return types.Tool(
-            name="logout",
-            description="Logout from Microsoft Graph and clear authentication state. Useful for security, testing, or when you want to switch accounts.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        )
     
     @staticmethod
     def get_user_info() -> types.Tool:
@@ -112,160 +64,91 @@ class ToolRegistry:
         )
     
     @staticmethod
-    def list_mail_folders() -> types.Tool:
-        """List mail folders tool definition."""
+    def auth() -> types.Tool:
+        """Auth tool definition."""
         return types.Tool(
-            name="list_mail_folders",
-            description="List all mail folders with their paths (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024').",
+            name="auth",
+            description="Manage authentication with Microsoft Graph. Supports login, check status, and logout operations.",
             inputSchema={
                 "type": "object",
-                "properties": {}
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["login", "check_status", "logout"],
+                        "description": "Action to perform: 'login' to authenticate, 'check_status' to check current authentication status, 'logout' to clear authentication"
+                    }
+                },
+                "required": ["action"]
             }
         )
     
     @staticmethod
-    def create_folder() -> types.Tool:
-        """Create folder tool definition."""
+    def mail_folder() -> types.Tool:
+        """Mail folder tool definition."""
         return types.Tool(
-            name="create_folder",
-            description="Create a new mail folder. Can create a top-level folder or a child folder under a parent folder.",
+            name="mail_folder",
+            description="Manage mail folders. Supports list, create, delete, rename, get_details, and move operations.",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["list", "create", "delete", "rename", "get_details", "move"],
+                        "description": "Action to perform: 'list' to list all mail folders, 'create' to create a new folder, 'delete' to delete a folder, 'rename' to rename a folder, 'get_details' to get folder information, 'move' to move a folder"
+                    },
+                    "folder_path": {
+                        "type": "string",
+                        "description": "Path of the folder (e.g., 'Inbox', 'Archive/2024'). Required for delete, rename, get_details, and move actions"
+                    },
                     "folder_name": {
                         "type": "string",
-                        "description": "Name of the folder to create"
+                        "description": "Name of the folder to create. Required for create action"
                     },
                     "parent_folder": {
                         "type": "string",
-                        "description": "Optional parent folder path (e.g., 'Inbox', 'Archive/2024'). If not provided, creates a top-level folder."
-                    }
-                },
-                "required": ["folder_name"]
-            }
-        )
-    
-    @staticmethod
-    def delete_folder() -> types.Tool:
-        """Delete folder tool definition."""
-        return types.Tool(
-            name="delete_folder",
-            description="Delete a mail folder by moving it to the Deleted Items folder. The folder and all its contents can be recovered from Deleted Items if needed.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder_path": {
-                        "type": "string",
-                        "description": "Path of the folder to delete (e.g., 'Inbox/Projects', 'Archive/Old')"
-                    }
-                },
-                "required": ["folder_path"]
-            }
-        )
-    
-    @staticmethod
-    def rename_folder() -> types.Tool:
-        """Rename folder tool definition."""
-        return types.Tool(
-            name="rename_folder",
-            description="Rename an existing mail folder.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder_path": {
-                        "type": "string",
-                        "description": "Path of the folder to rename (e.g., 'Inbox/OldName')"
+                        "description": "Optional parent folder path for create action (e.g., 'Inbox', 'Archive/2024'). If not provided, creates a top-level folder"
                     },
                     "new_name": {
                         "type": "string",
-                        "description": "New name for the folder"
-                    }
-                },
-                "required": ["folder_path", "new_name"]
-            }
-        )
-    
-    @staticmethod
-    def get_folder_details() -> types.Tool:
-        """Get folder details tool definition."""
-        return types.Tool(
-            name="get_folder_details",
-            description="Get detailed information about a specific folder including item counts, size, and hierarchy info.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder_path": {
+                        "description": "New name for the folder. Required for rename action"
+                    },
+                    "destination_parent": {
                         "type": "string",
-                        "description": "Path of the folder (e.g., 'Inbox', 'Archive/2024')"
+                        "description": "Path of the destination parent folder (e.g., 'Archive', 'Sent Items'). Required for move action"
                     }
                 },
-                "required": ["folder_path"]
+                "required": ["action"]
             }
         )
     
     @staticmethod
-    def move_email_to_folder() -> types.Tool:
-        """Move email to folder tool definition."""
+    def move_email() -> types.Tool:
+        """Move email tool definition."""
         return types.Tool(
-            name="move_email_to_folder",
-            description="Move an email from the cache to a different folder. Use email number from browse_email_cache.",
+            name="move_email",
+            description="Move emails to a different folder. Supports moving a single email or all emails from a folder.",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["single", "all"],
+                        "description": "Action to perform: 'single' to move a single email, 'all' to move all emails from a folder"
+                    },
                     "email_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'single' action"
                     },
-                    "destination_folder": {
-                        "type": "string",
-                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
-                    }
-                },
-                "required": ["email_number", "destination_folder"]
-            }
-        )
-    
-    @staticmethod
-    def copy_email_to_folder() -> types.Tool:
-        """Copy email to folder tool definition."""
-        return types.Tool(
-            name="copy_email_to_folder",
-            description="Copy an email from the cache to a different folder. The original email remains in its current location. Use email number from browse_email_cache.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "email_number": {
-                        "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
-                    },
-                    "destination_folder": {
-                        "type": "string",
-                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
-                    }
-                },
-                "required": ["email_number", "destination_folder"]
-            }
-        )
-    
-    @staticmethod
-    def move_all_emails_from_folder() -> types.Tool:
-        """Move all emails from folder tool definition."""
-        return types.Tool(
-            name="move_all_emails_from_folder",
-            description="Move all emails from one folder to another folder. This will move all emails in the source folder to the destination folder.",
-            inputSchema={
-                "type": "object",
-                "properties": {
                     "source_folder": {
                         "type": "string",
-                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024')"
+                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024'). Required for 'all' action"
                     },
                     "destination_folder": {
                         "type": "string",
-                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')"
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for both actions"
                     }
                 },
-                "required": ["source_folder", "destination_folder"]
+                "required": ["action", "destination_folder"]
             }
         )
     
@@ -288,28 +171,6 @@ class ToolRegistry:
         )
     
     @staticmethod
-    def move_folder() -> types.Tool:
-        """Move folder tool definition."""
-        return types.Tool(
-            name="move_folder",
-            description="Move a folder to a different parent folder in the hierarchy.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder_path": {
-                        "type": "string",
-                        "description": "Path of the folder to move (e.g., 'Inbox/Projects')"
-                    },
-                    "destination_parent": {
-                        "type": "string",
-                        "description": "Path of the destination parent folder (e.g., 'Archive', 'Sent Items')"
-                    }
-                },
-                "required": ["folder_path", "destination_parent"]
-            }
-        )
-    
-    @staticmethod
     def list_recent_emails() -> types.Tool:
         """List recent emails tool definition."""
         return types.Tool(
@@ -326,46 +187,6 @@ class ToolRegistry:
                         "maximum": 7
                     }
                 }
-            }
-        )
-    
-    @staticmethod
-    def load_emails_by_folder() -> types.Tool:
-        """Load emails by folder tool definition."""
-        return types.Tool(
-            name="load_emails_by_folder",
-            description="Load emails from a folder into cache. Can filter by days or limit by top number (mutually exclusive). Use 'days' to get emails from last N days, or 'top' to get the most recent N emails. Loads emails into cache for browsing.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "folder": {
-                        "type": "string",
-                        "description": "Mail folder path (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: Inbox",
-                        "default": "Inbox"
-                    },
-                    "days": {
-                        "type": "integer",
-                        "description": "Number of days to look back (e.g., 7 for last 7 days). Cannot be used with 'top'.",
-                        "minimum": 1
-                    },
-                    "top": {
-                        "type": "integer",
-                        "description": "Maximum number of emails to load (e.g., 50). Cannot be used with 'days'.",
-                        "minimum": 1
-                    }
-                }
-            }
-        )
-    
-    @staticmethod
-    def clear_email_cache() -> types.Tool:
-        """Clear email cache tool definition."""
-        return types.Tool(
-            name="clear_email_cache",
-            description="Clear the email browsing cache. This removes all cached emails from memory and disk. Use this to free up memory or start fresh.",
-            inputSchema={
-                "type": "object",
-                "properties": {}
             }
         )
     
@@ -445,36 +266,6 @@ class ToolRegistry:
                     }
                 },
                 "required": ["emailNumber"]
-            }
-        )
-    
-    @staticmethod
-    def send_message() -> types.Tool:
-        """Send message tool definition."""
-        return types.Tool(
-            name="send_message",
-            description="Send an email message",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "to": {
-                        "type": "string",
-                        "description": "Recipient email address"
-                    },
-                    "subject": {
-                        "type": "string",
-                        "description": "Email subject"
-                    },
-                    "body": {
-                        "type": "string",
-                        "description": "Email body content"
-                    },
-                    "cc": {
-                        "type": "string",
-                        "description": "CC recipient email address (optional)"
-                    }
-                },
-                "required": ["to", "subject", "body"]
             }
         )
     
@@ -567,7 +358,7 @@ class ToolRegistry:
         """Forward email tool definition."""
         return types.Tool(
             name="forward_email",
-            description="Forward an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches.",
+            description="Forward an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches. IMPORTANT: The body must be HTML format.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -586,7 +377,7 @@ class ToolRegistry:
                     },
                     "body": {
                         "type": "string",
-                        "description": "Email body content (optional, message to add before forwarded content)"
+                        "description": "Email body content. MUST be HTML format."
                     },
                     "cc": {
                         "type": "array",
@@ -601,12 +392,6 @@ class ToolRegistry:
                     "bcc_csv_file": {
                         "type": "string",
                         "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional)"
-                    },
-                    "body_content_type": {
-                        "type": "string",
-                        "enum": ["Text", "HTML"],
-                        "description": "Content type for the email body (default: Text)",
-                        "default": "Text"
                     }
                 },
                 "required": ["emailNumber", "to"]

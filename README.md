@@ -104,33 +104,23 @@ Add the following configuration:
 ### Available Tools
 
 #### Authentication Tools
-- **login** - Authenticate with Microsoft Graph using device code flow (run this tool first)
-- **check_login_status** - Check current authentication status and token expiry
-- **logout** - Logout from Microsoft Graph and clear authentication state
+- **auth** - Manage authentication with Microsoft Graph. Supports login, check status, and logout operations.
 
 #### User and Contact Management
 - **get_user_info** - Get current user information from Microsoft Graph
 - **search_contacts** - Search contacts and people relevant to you. Returns people you interact with most, including organization users and personal contacts. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.
 
 #### Email Management
-- **list_mail_folders** - List all mail folders with their paths (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024')
-- **get_folder_details** - Get detailed information about a specific folder including item counts
-- **create_folder** - Create a new mail folder with optional parent folder
-- **rename_folder** - Rename an existing mail folder
-- **move_folder** - Move a mail folder to a different parent folder
-- **delete_folder** - Delete a mail folder by moving it to Deleted Items (recoverable)
-- **move_all_emails_from_folder** - Move all emails from one folder to another using optimized batch operations (supports 1000+ emails in ~10 seconds)
+- **mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
+- **move_email** - Move emails to a different folder. Supports moving a single email or all emails from a folder
 - **list_recent_emails** - List recent emails from Inbox with optional days parameter (default: 1 day, maximum: 7 days)
-- **load_emails_by_folder** - Load emails from a folder into cache with filtering options (by days or top number)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
 - **search_emails** - Search emails by sender, recipient, subject, or body text with configurable date range
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
-- **send_message** - Send an email message
 - **delete_email** - Delete an email by moving it to Deleted Items (recoverable)
-- **clear_email_cache** - Clear the email browsing cache
 - **compose_email** - Compose and send a new email with support for multiple recipients, CC, and BCC
 - **reply_email** - Reply to an existing email with inline attachment support
-- **forward_batch_email** - Forward multiple emails as attachments to new recipients
+- **forward_email** - Forward an email to recipients with support for BCC batching (up to 500 recipients)
 
 #### Calendar Management
 - **browse_events** - Browse calendar events with pagination

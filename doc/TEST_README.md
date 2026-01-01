@@ -9,7 +9,7 @@ This directory contains test scripts for validating specific functionality of th
 - Python 3.8 or higher
 - Microsoft Graph API access
 - Valid Microsoft account credentials
-- Authentication completed (run `login` tool first)
+- Authentication completed (run `auth` tool with action="login" first)
 
 ## Running the Tests
 
@@ -18,11 +18,11 @@ This directory contains test scripts for validating specific functionality of th
 Before running tests, authenticate with Microsoft Graph:
 
 ```bash
-# Start the MCP server and run the login tool
+# Start the MCP server and run the auth tool
 python -m microsoft_graph_mcp_server.main
 ```
 
-Then use the `login` tool to complete device code flow authentication.
+Then use the `auth` tool with action="login" to complete device code flow authentication.
 
 ### Step 2: Run Individual Tests
 
@@ -40,14 +40,14 @@ python tests/test_performance.py
 
 ### test_move_all_emails_safe.py
 
-Tests the `move_all_emails_from_folder` functionality with isolated test data.
+Tests the `move_email` functionality with action="all" using isolated test data.
 
 **Purpose**: Validate bulk email movement without affecting real user data
 
 **Test Flow**:
 1. Creates temporary test folders (TestSource_{timestamp}, TestDest_{timestamp})
 2. Generates 10 test emails in the source folder
-3. Moves all emails from source to destination folder
+3. Moves all emails from source to destination folder using move_email with action="all"
 4. Verifies the move operation completed successfully
 5. Moves emails back to source folder
 6. Cleans up test emails (soft delete to Deleted Items)
@@ -61,7 +61,7 @@ Tests the `move_all_emails_from_folder` functionality with isolated test data.
 
 **Expected Output**:
 ```
-Testing move_all_emails_from_folder functionality with test emails...
+Testing move_email with action="all" functionality with test emails...
 
 Step 1: Creating test folders...
   ✓ Created folders: TestSource_1234567890 and TestDest_1234567890
@@ -164,8 +164,8 @@ All tests are designed to be safe and non-destructive:
 ### Authentication Errors
 
 If tests fail with authentication errors:
-1. Ensure you've completed the `login` tool authentication
-2. Check your token hasn't expired (run `check_login_status` tool)
+1. Ensure you've completed the `auth` tool with action="login" authentication
+2. Check your token hasn't expired (run `auth` tool with action="check_status")
 3. Re-authenticate if necessary
 
 ### Folder Creation Errors

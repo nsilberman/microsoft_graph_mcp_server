@@ -83,7 +83,6 @@ Waiting for authentication...
 - **get_user_info** - 获取当前用户信息
 - **list_users** - 列出组织中的用户
 - **get_messages** - 获取邮件
-- **send_message** - 发送邮件
 - **get_events** - 获取日历事件
 - **create_event** - 创建日历事件
 - **list_files** - 列出OneDrive文件和文件夹

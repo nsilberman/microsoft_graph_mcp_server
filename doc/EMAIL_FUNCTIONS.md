@@ -10,7 +10,8 @@ This document describes the email-related functions available in the Microsoft G
 4. [Browse Email Cache](#browse-email-cache)
 5. [Clear Email Cache](#clear-email-cache)
 6. [Get Email Content](#get-email-content)
-7. [List Mail Folders](#list-mail-folders)
+7. [Mail Folder Management](#mail-folder-management)
+8. [Move Email](#move-email)
 
 ---
 
@@ -60,82 +61,6 @@ result = await list_recent_emails(days=3)
 
 # List emails from the last 7 days (maximum)
 result = await list_recent_emails(days=7)
-```
-
-### Notes
-- Automatically clears the cache before loading new emails
-- Loads emails into cache for subsequent browsing
-- Use `browse_email_cache` to view the loaded emails
-
----
-
-## Load Emails by Folder
-
-### Description
-Loads emails from a specific folder into the cache. Can filter by days or limit by page size (mutually exclusive parameters).
-
-### Parameters
-- `folder` (optional, string): Mail folder name
-  - Default: "Inbox"
-- `days` (optional, integer): Number of days to look back
-  - Minimum: 1
-  - Maximum: 29 (cannot be 30 or more)
-- `top` (optional, integer): Maximum number of emails to load
-  - Minimum: 1
-  - Maximum: 99 (cannot be 100 or more)
-
-### Configuration
-The number of emails per page is controlled by the `PAGE_SIZE` environment variable:
-
-```env
-# .env file
-PAGE_SIZE=5
-```
-
-Default page size is 5 emails per page. This ensures consistent pagination across all browsing operations.
-
-### Constraints
-- Cannot specify both `days` and `top` parameters simultaneously
-- `days` must be less than 30
-- `top` must be less than 100
-
-### Returns
-```json
-{
-  "message": "Loaded X emails from FolderName",
-  "folder": "FolderName",
-  "filter_days": N,
-  "limit_top": M,
-  "count": X,
-  "timezone": "Asia/Shanghai",
-  "date_range": {
-    "from": "Fri 12/27/2025 09:36 PM",
-    "to": "Wed 12/24/2025 10:28 PM"
-  },
-  "hint": "Use browse_email_cache to view the loaded emails"
-}
-```
-
-### Return Fields
-- `message`: Confirmation message
-- `folder`: Folder loaded
-- `filter_days`: Days filter applied (if days parameter used)
-- `limit_top`: Top limit applied (if top parameter used)
-- `count`: Number of emails loaded
-- `timezone`: User's timezone for reference
-- `date_range`: Actual date range of emails loaded (from most recent to oldest)
-- `hint`: Instructions for viewing results
-
-### Example Usage
-```python
-# Load emails from last 7 days in Inbox
-result = await load_emails_by_folder(folder="Inbox", days=7)
-
-# Load most recent 50 emails from Sent Items
-result = await load_emails_by_folder(folder="Sent Items", top=50)
-
-# Load emails from last 14 days in Archive
-result = await load_emails_by_folder(folder="Archive", days=14)
 ```
 
 ### Notes
@@ -297,37 +222,9 @@ result = await browse_email_cache(page_number=2)
 ```
 
 ### Notes
-- Requires emails to be loaded into cache first (via list_recent_emails, load_emails_by_folder, or search_emails)
+- Requires emails to be loaded into cache first (via list_recent_emails or search_emails)
 - Automatically manages browsing state with disk cache for persistence
 - Use the `number` field to reference specific emails
-
----
-
-## Clear Email Cache
-
-### Description
-Clears the email browsing cache. This removes all cached emails from memory and disk.
-
-### Parameters
-None
-
-### Returns
-```json
-{
-  "message": "Email cache cleared successfully",
-  "status": "success"
-}
-```
-
-### Example Usage
-```python
-result = await clear_email_cache()
-```
-
-### Notes
-- Removes all cached emails from memory
-- Deletes cache file from disk
-- Useful for freeing up memory or starting fresh
 
 ---
 
@@ -402,16 +299,34 @@ result = await get_email_content(emailNumber=1, text_only=false)
 
 ---
 
-## List Mail Folders
+## Mail Folder Management
 
 ### Description
-Lists all mail folders with hierarchy including child folders, total item count, and unread item count.
+Manage mail folders with support for list, create, delete, rename, get_details, and move operations.
 
 ### Parameters
-None
+- `action` (required, string): Action to perform
+  - Values: "list", "create", "delete", "rename", "get_details", "move"
+- `folder_path` (optional, string): Path of the folder (e.g., 'Inbox', 'Archive/2024')
+  - Required for: delete, rename, get_details, move actions
+- `folder_name` (optional, string): Name of the folder to create
+  - Required for: create action
+- `parent_folder` (optional, string): Optional parent folder path for create action (e.g., 'Inbox', 'Archive/2024')
+  - If not provided, creates a top-level folder
+- `new_name` (optional, string): New name for the folder
+  - Required for: rename action
+- `destination_parent` (optional, string): Path of the destination parent folder (e.g., 'Archive', 'Sent Items')
+  - Required for: move action
 
-### Returns
-Array of folder objects:
+### Actions
+
+#### List Folders (action="list")
+Lists all mail folders with hierarchy including child folders, total item count, and unread item count.
+
+**Parameters:**
+- `action`: "list"
+
+**Returns:**
 ```json
 [
   {
@@ -425,15 +340,202 @@ Array of folder objects:
 ]
 ```
 
-### Example Usage
+**Example Usage:**
 ```python
-result = await list_mail_folders()
+result = await mail_folder(action="list")
+```
+
+#### Create Folder (action="create")
+Creates a new mail folder.
+
+**Parameters:**
+- `action`: "create"
+- `folder_name`: Name of the folder to create
+- `parent_folder` (optional): Parent folder path
+
+**Returns:**
+```json
+{
+  "id": "new-folder-id",
+  "displayName": "New Folder",
+  "parentFolderId": "parent-folder-id"
+}
+```
+
+**Example Usage:**
+```python
+# Create top-level folder
+result = await mail_folder(action="create", folder_name="Projects")
+
+# Create folder under Inbox
+result = await mail_folder(action="create", folder_name="2024", parent_folder="Inbox")
+```
+
+#### Delete Folder (action="delete")
+Deletes a mail folder.
+
+**Parameters:**
+- `action`: "delete"
+- `folder_path`: Path of the folder to delete
+
+**Returns:**
+```json
+{
+  "message": "Folder deleted successfully"
+}
+```
+
+**Example Usage:**
+```python
+result = await mail_folder(action="delete", folder_path="Archive/2023")
+```
+
+#### Rename Folder (action="rename")
+Renames a mail folder.
+
+**Parameters:**
+- `action`: "rename"
+- `folder_path`: Path of the folder to rename
+- `new_name`: New name for the folder
+
+**Returns:**
+```json
+{
+  "id": "folder-id",
+  "displayName": "New Folder Name"
+}
+```
+
+**Example Usage:**
+```python
+result = await mail_folder(action="rename", folder_path="Archive/OldName", new_name="NewName")
+```
+
+#### Get Folder Details (action="get_details")
+Gets detailed information about a mail folder.
+
+**Parameters:**
+- `action`: "get_details"
+- `folder_path`: Path of the folder
+
+**Returns:**
+```json
+{
+  "id": "folder-id",
+  "displayName": "Inbox",
+  "parentFolderId": null,
+  "childFolderCount": 2,
+  "totalItemCount": 150,
+  "unreadItemCount": 5
+}
+```
+
+**Example Usage:**
+```python
+result = await mail_folder(action="get_details", folder_path="Inbox")
+```
+
+#### Move Folder (action="move")
+Moves a mail folder to a different parent folder.
+
+**Parameters:**
+- `action`: "move"
+- `folder_path`: Path of the folder to move
+- `destination_parent`: Path of the destination parent folder
+
+**Returns:**
+```json
+{
+  "id": "folder-id",
+  "displayName": "Moved Folder",
+  "parentFolderId": "new-parent-folder-id"
+}
+```
+
+**Example Usage:**
+```python
+result = await mail_folder(action="move", folder_path="Inbox/Projects", destination_parent="Archive")
 ```
 
 ### Notes
-- Returns all folders in the mailbox
+- Returns all folders in the mailbox for list action
 - Includes folder hierarchy information
 - Shows total and unread item counts
+- Folder paths use '/' separator for nested folders
+
+---
+
+## Move Email
+
+### Description
+Move emails to a different folder. Supports moving a single email or all emails from a folder.
+
+### Parameters
+- `action` (required, string): Action to perform
+  - Values: "single", "all"
+- `email_number` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+  - Required for: "single" action
+- `source_folder` (optional, string): Source folder path (e.g., 'Inbox', 'Archive/2024')
+  - Required for: "all" action
+- `destination_folder` (required, string): Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')
+
+### Actions
+
+#### Move Single Email (action="single")
+Moves a single email to a different folder.
+
+**Parameters:**
+- `action`: "single"
+- `email_number`: Email number from browse_email_cache
+- `destination_folder`: Destination folder path
+
+**Returns:**
+```json
+{
+  "message": "Email moved successfully",
+  "email_id": "email-id"
+}
+```
+
+**Example Usage:**
+```python
+result = await move_email(
+    action="single",
+    email_number=1,
+    destination_folder="Archive/2024"
+)
+```
+
+#### Move All Emails from Folder (action="all")
+Moves all emails from a source folder to a destination folder.
+
+**Parameters:**
+- `action`: "all"
+- `source_folder`: Source folder path
+- `destination_folder`: Destination folder path
+
+**Returns:**
+```json
+{
+  "message": "Moved X emails from SourceFolder to DestinationFolder",
+  "count": X
+}
+```
+
+**Example Usage:**
+```python
+result = await move_email(
+    action="all",
+    source_folder="Inbox",
+    destination_folder="Archive/2024"
+)
+```
+
+### Notes
+- Requires valid email number from cache for "single" action
+- Use `browse_email_cache` to get email numbers
+- "all" action moves all emails from source folder
+- Destination folder must exist (use mail_folder to create if needed)
 
 ---
 
@@ -442,7 +544,6 @@ result = await list_mail_folders()
 ### Automatic Cache Clearing
 The cache is automatically cleared before the following operations:
 - `list_recent_emails`
-- `load_emails_by_folder`
 - `search_emails`
 
 ### Async Cache Performance
@@ -463,9 +564,7 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 2. **Specify folder for targeted searches**: Use the `folder` parameter in `search_emails` to narrow down search results.
 
-3. **Clear cache when needed**: Use `clear_email_cache` to free up memory or start fresh.
-
-4. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
+3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
 5. **Respect parameter limits**: 
    - `days` parameter: maximum 29 (not 30)
@@ -478,25 +577,13 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 ### Common Errors
 
-**"Cannot specify both 'days' and 'top' parameters simultaneously"**
-- Occurs when both parameters are provided to `load_emails_by_folder`
-- Solution: Use only one parameter at a time
-
-**"Days parameter must be less than 30"**
-- Occurs when `days` >= 30 is provided
-- Solution: Use a value less than 30
-
-**"Top parameter must be less than 100"**
-- Occurs when `top` >= 100 is provided
-- Solution: Use a value less than 100
-
 **"Days parameter must be 7 or less"**
 - Occurs when `days` > 7 is provided to `list_recent_emails`
 - Solution: Use a value between 1 and 7
 
 **"No emails in cache"**
 - Occurs when trying to browse cache without loading emails first
-- Solution: Use `list_recent_emails`, `load_emails_by_folder`, or `search_emails` first
+- Solution: Use `list_recent_emails` or `search_emails` first
 
 ---
 

@@ -10,7 +10,7 @@ The Microsoft Graph MCP Server provides robust email sorting and pagination feat
 
 Emails are always sorted by received date in **descending order** (newest first). This applies to:
 
-- API responses from `load_emails_by_folder`
+- API responses from `list_recent_emails`
 - Cached emails retrieved via `email_cache.get_cached_emails()`
 - Browsing results from `browse_email_cache`
 
@@ -250,7 +250,6 @@ PAGE_SIZE=20
 The email cache persists to disk, so you can:
 - Load emails once
 - Browse multiple pages without re-fetching
-- Clear cache when needed with `clear_email_cache`
 
 ## Troubleshooting
 

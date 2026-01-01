@@ -116,15 +116,22 @@ The authentication state is persisted to disk in the file:
 
 ## Available Tools
 
-### login
-Authenticate with Microsoft Graph using device code flow.
+### auth
+Manage authentication with Microsoft Graph using device code flow. Supports login, status check, and logout actions.
+
+**Actions:**
+- `login`: Authenticate with Microsoft Graph using device code flow
+- `check_status`: Check current authentication status without initiating authentication
+- `logout`: Logout from Microsoft Graph and clear authentication state
 
 **Usage:**
-- First call: Returns verification link and code
+- First call with action="login": Returns verification link and code
 - Complete authentication in browser
-- Second call: Verifies authentication and saves tokens
+- Second call with action="login": Verifies authentication and saves tokens
+- Call with action="check_status": Check if authenticated
+- Call with action="logout": Clear authentication state
 
-**Response when already authenticated:**
+**Response when already authenticated (action="login"):**
 ```json
 {
   "status": "already_authenticated",
@@ -137,10 +144,7 @@ Authenticate with Microsoft Graph using device code flow.
 }
 ```
 
-### check_login_status
-Check current authentication status without initiating authentication.
-
-**Response when authenticated:**
+**Response when authenticated (action="check_status"):**
 ```json
 {
   "status": "authenticated",
@@ -153,26 +157,23 @@ Check current authentication status without initiating authentication.
 }
 ```
 
-**Response when not authenticated:**
+**Response when not authenticated (action="check_status"):**
 ```json
 {
   "status": "not_authenticated",
-  "message": "Not authenticated with Microsoft Graph. Please call the login tool first."
+  "message": "Not authenticated with Microsoft Graph. Please call the auth tool with action='login' first."
 }
 ```
 
-**Response when expired:**
+**Response when expired (action="check_status"):**
 ```json
 {
   "status": "expired",
-  "message": "Authentication token has expired. Please call the login tool to re-authenticate."
+  "message": "Authentication token has expired. Please call the auth tool with action='login' to re-authenticate."
 }
 ```
 
-### logout
-Logout from Microsoft Graph and clear authentication state.
-
-**Response:**
+**Response (action="logout"):**
 ```json
 {
   "status": "logged_out",
@@ -212,7 +213,7 @@ Logout from Microsoft Graph and clear authentication state.
 - Contains sensitive authentication credentials
 
 ### Best Practices
-- **Logout**: Always call `logout` when done to clear tokens from disk
+- **Logout**: Always call `auth` with action="logout" when done to clear tokens from disk
 - **Shared Computers**: Be cautious on shared computers - logout after use
 - **Token Expiry**: Tokens automatically refresh, but logout clears everything
 - **Revocation**: If tokens are compromised, logout and re-authenticate
@@ -263,7 +264,7 @@ To use a custom Azure app registration:
 
 ### First-time Login
 ```
-User: login
+User: auth with action="login"
 Server: {
   "status": "pending",
   "verification_uri": "https://microsoft.com/devicelogin",
@@ -272,7 +273,7 @@ Server: {
 
 [User opens browser, enters code, signs in]
 
-User: login
+User: auth with action="login"
 Server: {
   "status": "success",
   "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00"
@@ -281,7 +282,7 @@ Server: {
 
 ### Check Login Status
 ```
-User: check_login_status
+User: auth with action="check_status"
 Server: {
   "status": "authenticated",
   "message": "Authenticated with Microsoft Graph. Token expires in 45 minutes at 2025-12-26 15:30:00"
@@ -290,7 +291,7 @@ Server: {
 
 ### Logout
 ```
-User: logout
+User: auth with action="logout"
 Server: {
   "status": "logged_out",
   "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared."
