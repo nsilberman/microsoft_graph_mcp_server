@@ -148,14 +148,26 @@ class EmailHandler(BaseHandler):
         email_content = await graph_client.get_email(email_id, emailNumber, text_only=text_only)
         return self._format_response(email_content["content"])
     
-    async def handle_compose_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle compose_email tool."""
+    async def handle_compose_reply_forward_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle compose_reply_forward_email tool with compose, reply, and forward actions."""
+        action = arguments.get("action")
+        
+        if action == "compose":
+            return await self._handle_compose_email(arguments)
+        elif action == "reply":
+            return await self._handle_reply_email(arguments)
+        elif action == "forward":
+            return await self._handle_forward_email(arguments)
+        else:
+            return self._format_error(f"Invalid action: {action}. Must be 'compose', 'reply', or 'forward'.")
+    
+    async def _handle_compose_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle compose email action."""
         to_recipients = arguments["to"]
         subject = arguments["subject"]
         body = arguments["body"]
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
-        body_content_type = arguments.get("body_content_type", "Text")
         
         result = await graph_client.send_email(
             to_recipients=to_recipients,
@@ -163,12 +175,12 @@ class EmailHandler(BaseHandler):
             body=body,
             cc_recipients=cc_recipients,
             bcc_recipients=bcc_recipients,
-            body_content_type=body_content_type
+            body_content_type="HTML"
         )
         return self._format_response(f"Email composed and sent successfully: {result}")
     
-    async def handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle reply_email tool."""
+    async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle reply email action."""
         emailNumber = arguments["emailNumber"]
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
@@ -194,8 +206,8 @@ class EmailHandler(BaseHandler):
         )
         return self._format_response(f"Reply email sent successfully: {result}")
     
-    async def handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle forward_email tool."""
+    async def _handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle forward email action."""
         email_number = arguments["emailNumber"]
         to_recipients = arguments["to"]
         subject = arguments.get("subject")

@@ -117,9 +117,7 @@ Add the following configuration:
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
 - **delete_email** - Delete an email by moving it to Deleted Items (recoverable)
-- **compose_email** - Compose and send a new email with support for multiple recipients, CC, and BCC
-- **reply_email** - Reply to an existing email with inline attachment support
-- **forward_email** - Forward an email to recipients with support for BCC batching (up to 500 recipients)
+- **compose_reply_forward_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.
 
 #### Calendar Management
 - **browse_events** - Browse calendar events with pagination

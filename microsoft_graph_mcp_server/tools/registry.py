@@ -19,9 +19,7 @@ class ToolRegistry:
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
-            ToolRegistry.compose_email(),
-            ToolRegistry.reply_email(),
-            ToolRegistry.forward_email(),
+            ToolRegistry.compose_reply_forward_email(),
             ToolRegistry.browse_events(),
             ToolRegistry.get_event(),
             ToolRegistry.search_events(),
@@ -270,60 +268,18 @@ class ToolRegistry:
         )
     
     @staticmethod
-    def compose_email() -> types.Tool:
-        """Compose email tool definition."""
+    def compose_reply_forward_email() -> types.Tool:
+        """Compose, reply, or forward email tool definition."""
         return types.Tool(
-            name="compose_email",
-            description="Compose and send a new email. Supports multiple recipients, CC, and BCC.",
+            name="compose_reply_forward_email",
+            description="Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "to": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of recipient email addresses"
-                    },
-                    "subject": {
+                    "action": {
                         "type": "string",
-                        "description": "Email subject"
-                    },
-                    "body": {
-                        "type": "string",
-                        "description": "Email body content"
-                    },
-                    "cc": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of CC recipient email addresses (optional)"
-                    },
-                    "bcc": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of BCC recipient email addresses (optional)"
-                    },
-                    "body_content_type": {
-                        "type": "string",
-                        "enum": ["Text", "HTML"],
-                        "description": "Content type for the email body (default: HTML)",
-                        "default": "HTML"
-                    }
-                },
-                "required": ["to", "subject", "body"]
-            }
-        )
-    
-    @staticmethod
-    def reply_email() -> types.Tool:
-        """Reply email tool definition."""
-        return types.Tool(
-            name="reply_email",
-            description="Reply to an existing email. The reply will be linked to the original email thread and will include inline attachments from the original email. IMPORTANT: The body must be HTML format.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "emailNumber": {
-                        "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                        "enum": ["compose", "reply", "forward"],
+                        "description": "Action to perform: 'compose' for new email, 'reply' to reply to existing email, 'forward' to forward existing email"
                     },
                     "to": {
                         "type": "array",
@@ -332,52 +288,15 @@ class ToolRegistry:
                     },
                     "subject": {
                         "type": "string",
-                        "description": "Email subject"
+                        "description": "Email subject (required for compose, optional for reply/forward)"
                     },
                     "body": {
                         "type": "string",
                         "description": "Email body content. MUST be HTML format."
                     },
-                    "cc": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of CC recipient email addresses (optional)"
-                    },
-                    "bcc": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of BCC recipient email addresses (optional)"
-                    }
-                },
-                    "required": ["emailNumber", "to", "body"]
-            }
-        )
-    
-    @staticmethod
-    def forward_email() -> types.Tool:
-        """Forward email tool definition."""
-        return types.Tool(
-            name="forward_email",
-            description="Forward an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. You can add a message before the forwarded content. BCC recipients can be provided via a CSV file with a single 'Email' or 'email' column. If BCC recipients exceed the limit (default 500), they will be sent in batches. IMPORTANT: The body must be HTML format.",
-            inputSchema={
-                "type": "object",
-                "properties": {
                     "emailNumber": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
-                    },
-                    "to": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of recipient email addresses"
-                    },
-                    "subject": {
-                        "type": "string",
-                        "description": "Email subject (optional, defaults to 'FW: ' + original subject)"
-                    },
-                    "body": {
-                        "type": "string",
-                        "description": "Email body content. MUST be HTML format."
+                        "description": "Email number from browse_email_cache (required for reply/forward, e.g., 1, 2, 3)"
                     },
                     "cc": {
                         "type": "array",
@@ -391,10 +310,10 @@ class ToolRegistry:
                     },
                     "bcc_csv_file": {
                         "type": "string",
-                        "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional)"
+                        "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)"
                     }
                 },
-                "required": ["emailNumber", "to"]
+                "required": ["action", "to", "body"]
             }
         )
     

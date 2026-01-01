@@ -7,23 +7,36 @@ This document describes the email-related functions available in the Microsoft G
 1. [Search Emails](#search-emails)
 2. [Browse Email Cache](#browse-email-cache)
 3. [Get Email Content](#get-email-content)
-4. [Manage Mail Folder](#manage-mail-folder)
-5. [Move Email](#move-email)
+4. [Compose Reply Forward Email](#compose-reply-forward-email)
+5. [Manage Mail Folder](#manage-mail-folder)
+6. [Move Email](#move-email)
 
 ---
 
-## List Recent Emails
+## Search Emails
 
 ### Description
-Lists recent emails from the Inbox folder with a configurable time range. This is a convenience function that loads emails from the last N days (default: 1 day, maximum: 7 days) into the cache for browsing.
+Unified search tool for emails. Search by sender, recipient, subject, or body text with configurable date range filtering. If no search_type and query are provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days).
 
 ### Parameters
-- `days` (optional, integer): Number of days to look back
-  - Default: 1
-  - Minimum: 1
-  - Maximum: 7
+- `search_type` (optional, string): Type of search to perform
+  - Values: "sender", "recipient", "subject", "body"
+  - If not provided, lists recent emails from Inbox
+- `query` (optional, string): Search query
+  - For sender: sender name or email address
+  - For recipient: recipient name or email address
+  - For subject: subject text
+  - For body: body text content
+  - Required when search_type is provided
+- `folder` (optional, string): Folder to search (default: "Inbox" for recent emails, null for searches)
+- `days` (optional, integer): Number of days to search back
+  - Default: 1 for recent emails, 90 for searches (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+  - Maximum: 7 for recent emails
+  - Set to `null` to search all emails (not recommended for large mailboxes)
 
 ### Returns
+
+#### For Recent Emails (no search_type and query):
 ```json
 {
   "message": "Loaded X recent emails from Inbox (last N day(s))",
@@ -39,53 +52,7 @@ Lists recent emails from the Inbox folder with a configurable time range. This i
 }
 ```
 
-### Return Fields
-- `message`: Confirmation message
-- `folder`: Folder loaded (always "Inbox")
-- `days`: Number of days looked back
-- `count`: Number of emails loaded
-- `timezone`: User's timezone for reference
-- `date_range`: Actual date range of emails loaded (from most recent to oldest)
-- `hint`: Instructions for viewing results
-
-### Example Usage
-```python
-# List emails from the last day (default)
-result = await list_recent_emails()
-
-# List emails from the last 3 days
-result = await list_recent_emails(days=3)
-
-# List emails from the last 7 days (maximum)
-result = await list_recent_emails(days=7)
-```
-
-### Notes
-- Automatically clears the cache before loading new emails
-- Loads emails into cache for subsequent browsing
-- Use `browse_email_cache` to view the loaded emails
-
----
-
-## Search Emails
-
-### Description
-Unified search tool for emails. Search by sender, recipient, subject, or body text with configurable date range filtering.
-
-### Parameters
-- `search_type` (required, string): Type of search to perform
-  - Values: "sender", "recipient", "subject", "body"
-- `query` (required, string): Search query
-  - For sender: sender name or email address
-  - For recipient: recipient name or email address
-  - For subject: subject text
-  - For body: body text content
-- `folder` (optional, string): Folder to search (default: all folders)
-- `days` (optional, integer): Number of days to search back
-  - Default: 90 (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
-  - Set to `null` to search all emails (not recommended for large mailboxes)
-
-### Returns
+#### For Search Results:
 ```json
 {
   "search_type": "sender",
@@ -103,16 +70,31 @@ Unified search tool for emails. Search by sender, recipient, subject, or body te
 ```
 
 ### Return Fields
-- `search_type`: Type of search performed
-- `query`: Search query used
-- `folder`: Folder searched (or null for all folders)
+- `message`: Confirmation message (for recent emails)
+- `search_type`: Type of search performed (for searches)
+- `query`: Search query used (for searches)
+- `folder`: Folder loaded or searched
 - `count`: Number of emails found
 - `timezone`: User's timezone for reference
 - `date_range`: Actual date range of emails returned (from most recent to oldest)
-- `filter_date_range`: Filter applied to the search (e.g., "last 90 days")
+- `filter_date_range`: Filter applied to the search (for searches)
 - `hint`: Instructions for viewing results
 
 ### Example Usage
+
+#### List Recent Emails:
+```python
+# List emails from the last day (default)
+result = await search_emails()
+
+# List emails from the last 3 days
+result = await search_emails(days=3)
+
+# List emails from the last 7 days (maximum)
+result = await search_emails(days=7)
+```
+
+#### Search Emails:
 ```python
 # Search by sender in Inbox (default 90 days)
 result = await search_emails(search_type="sender", query="john@example.com", folder="Inbox")
@@ -136,11 +118,12 @@ DEFAULT_SEARCH_DAYS=90
 ```
 
 ### Notes
-- Automatically clears the cache before performing search
-- Loads search results into cache for browsing
-- Use `browse_email_cache` to view the search results
+- Automatically clears the cache before performing search or loading recent emails
+- Loads search results or recent emails into cache for browsing
+- Use `browse_email_cache` to view the results
 - Date range filtering makes searches more efficient and predictable
 - Setting `days` to `null` will search all emails (may be slow for large mailboxes)
+- When no search_type and query are provided, lists recent emails from Inbox with a maximum of 7 days
 
 ---
 
@@ -293,6 +276,187 @@ result = await get_email_content(emailNumber=1, text_only=false)
 - Requires valid email number from cache
 - Returns only user-facing content (system metadata is excluded)
 - Use `text_only=false` to include attachments and embedded images
+
+---
+
+## Compose Reply Forward Email
+
+### Description
+Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. IMPORTANT: The body must be HTML format for all actions.
+
+### Parameters
+- `action` (required, string): Action to perform
+  - Values: "compose", "reply", "forward"
+- `to` (required, array of strings): List of recipient email addresses
+- `body` (required, string): Email body content. MUST be HTML format.
+- `subject` (optional, string): Email subject
+  - Required for: "compose" action
+  - Optional for: "reply" and "forward" actions
+- `emailNumber` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+  - Required for: "reply" and "forward" actions
+- `cc` (optional, array of strings): List of CC recipient email addresses
+- `bcc` (optional, array of strings): List of BCC recipient email addresses
+- `bcc_csv_file` (optional, string): Path to CSV file containing BCC recipients
+  - CSV must have a single column with header 'Email' or 'email'
+  - Only available for: "forward" action
+
+### Actions
+
+#### Compose Email (action="compose")
+Composes and sends a new email.
+
+**Parameters:**
+- `action`: "compose"
+- `to`: List of recipient email addresses
+- `subject`: Email subject
+- `body`: Email body content (HTML format)
+- `cc` (optional): List of CC recipient email addresses
+- `bcc` (optional): List of BCC recipient email addresses
+
+**Returns:**
+```json
+{
+  "message": "Email composed and sent successfully: {result}"
+}
+```
+
+**Example Usage:**
+```python
+result = await compose_reply_forward_email(
+    action="compose",
+    to=["recipient@example.com"],
+    subject="Meeting Tomorrow",
+    body="<p>Hi, let's meet tomorrow at 2 PM.</p>",
+    cc=["manager@example.com"]
+)
+```
+
+#### Reply to Email (action="reply")
+Replies to an existing email. The reply will be linked to the original email thread and will include inline attachments from the original email.
+
+**Parameters:**
+- `action`: "reply"
+- `emailNumber`: Email number from browse_email_cache
+- `to`: List of recipient email addresses
+- `body`: Email body content (HTML format)
+- `subject` (optional): Email subject
+- `cc` (optional): List of CC recipient email addresses
+- `bcc` (optional): List of BCC recipient email addresses
+
+**Returns:**
+```json
+{
+  "message": "Reply email sent successfully: {result}"
+}
+```
+
+**Example Usage:**
+```python
+result = await compose_reply_forward_email(
+    action="reply",
+    emailNumber=1,
+    to=["original_sender@example.com"],
+    body="<p>Thank you for your email. I'll review it and get back to you.</p>",
+    subject="Re: Meeting Tomorrow"
+)
+```
+
+#### Forward Email (action="forward")
+Forwards an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. Supports BCC recipients via CSV file with automatic batching for large recipient lists.
+
+**Parameters:**
+- `action`: "forward"
+- `emailNumber`: Email number from browse_email_cache
+- `to`: List of recipient email addresses
+- `body`: Email body content (HTML format)
+- `subject` (optional): Email subject (defaults to 'FW: ' + original subject)
+- `cc` (optional): List of CC recipient email addresses
+- `bcc` (optional): List of BCC recipient email addresses
+- `bcc_csv_file` (optional): Path to CSV file containing BCC recipients
+
+**Returns:**
+```json
+{
+  "message": "Email forwarded successfully: {result}"
+}
+```
+
+**For Large BCC Lists (with batching):**
+```json
+{
+  "message": "Email forwarded successfully in N batches (total X BCC recipients): {results}"
+}
+```
+
+**Example Usage:**
+```python
+# Basic forward
+result = await compose_reply_forward_email(
+    action="forward",
+    emailNumber=1,
+    to=["new_recipient@example.com"],
+    body="<p>Please review the forwarded email.</p>"
+)
+
+# Forward with custom subject and CC
+result = await compose_reply_forward_email(
+    action="forward",
+    emailNumber=1,
+    to=["new_recipient@example.com"],
+    subject="FW: Important - Please Review",
+    body="<p>Please review the forwarded email and provide feedback.</p>",
+    cc=["manager@example.com"]
+)
+
+# Forward with BCC recipients from CSV file
+result = await compose_reply_forward_email(
+    action="forward",
+    emailNumber=1,
+    to=["main_recipient@example.com"],
+    body="<p>FYI - please review.</p>",
+    bcc_csv_file="recipients.csv"
+)
+
+# Forward with BCC recipients from array
+result = await compose_reply_forward_email(
+    action="forward",
+    emailNumber=1,
+    to=["main_recipient@example.com"],
+    body="<p>FYI - please review.</p>",
+    bcc=["bcc1@example.com", "bcc2@example.com"]
+)
+```
+
+### BCC CSV File Format
+The CSV file must have a single column with header 'Email' or 'email':
+
+```csv
+Email
+recipient1@example.com
+recipient2@example.com
+recipient3@example.com
+```
+
+### BCC Batching
+When forwarding emails with BCC recipients that exceed the maximum limit (default: 500, configurable via `MAX_BCC_RECIPIENTS`), the system automatically batches the recipients:
+
+- Splits BCC recipients into batches of the maximum size
+- Sends the forward email multiple times, once per batch
+- Returns a summary of all batches sent
+
+**Configuration:**
+```env
+# .env file
+MAX_BCC_RECIPIENTS=500
+```
+
+### Notes
+- The body parameter must be in HTML format for all actions
+- For reply and forward actions, use `browse_email_cache` to get the email number
+- The original email is included in the forwarded message
+- BCC recipients can be provided via array or CSV file
+- Large BCC lists are automatically batched to stay within API limits
+- The subject for forward actions defaults to 'FW: ' + original subject if not provided
 
 ---
 
@@ -557,16 +721,18 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 ## Best Practices
 
-1. **Use list_recent_emails for quick access**: For viewing recent emails, use `list_recent_emails` with the default 1-day parameter.
+1. **Use search_emails for quick access**: For viewing recent emails, use `search_emails` with the default 1-day parameter (no search_type and query).
 
 2. **Specify folder for targeted searches**: Use the `folder` parameter in `search_emails` to narrow down search results.
 
 3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
+4. **Use HTML format for email bodies**: When using `compose_reply_forward_email`, ensure the body parameter is in HTML format for all actions (compose, reply, forward).
+
 5. **Respect parameter limits**: 
-   - `days` parameter: maximum 29 (not 30)
+   - `days` parameter for recent emails: maximum 7
+   - `days` parameter for searches: configurable via `DEFAULT_SEARCH_DAYS` environment variable
    - `top` parameter: maximum 99 (not 100)
-   - `list_recent_emails` days: maximum 7
 
 ---
 
@@ -575,12 +741,28 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 ### Common Errors
 
 **"Days parameter must be 7 or less"**
-- Occurs when `days` > 7 is provided to `list_recent_emails`
-- Solution: Use a value between 1 and 7
+- Occurs when `days` > 7 is provided to `search_emails` for recent emails
+- Solution: Use a value between 1 and 7 for recent emails
 
 **"No emails in cache"**
 - Occurs when trying to browse cache without loading emails first
-- Solution: Use `list_recent_emails` or `search_emails` first
+- Solution: Use `search_emails` first (with or without search_type and query)
+
+**"Invalid action: X. Must be 'compose', 'reply', or 'forward'."**
+- Occurs when an invalid action is provided to `compose_reply_forward_email`
+- Solution: Use one of the valid actions: "compose", "reply", or "forward"
+
+**"Error: Email number X is out of range"**
+- Occurs when an invalid email number is provided to `compose_reply_forward_email` for reply or forward actions
+- Solution: Use a valid email number from `browse_email_cache` (between 1 and total count)
+
+**"Error: No valid email ID found"**
+- Occurs when the email cache doesn't contain a valid email ID
+- Solution: Check the cache with `browse_email_cache` and try again
+
+**"Error reading BCC CSV file: X"**
+- Occurs when there's an error reading the BCC CSV file
+- Solution: Ensure the CSV file exists and has the correct format (single column with header 'Email' or 'email')
 
 ---
 
@@ -604,12 +786,14 @@ Run the test suite to verify email functionality:
 python tests/test_new_email_functions.py
 ```
 
-This will test all new email functions including:
-- List recent emails with various day parameters
-- Search emails with folder parameter
+This will test all email functions including:
+- Search emails with various parameters (recent emails and searches)
 - Cache clearing functionality
 - Async cache save performance
-- Clear email cache tool
-- List mail folders
+- Browse email cache
+- Get email content
+- Compose, reply, and forward emails
+- Manage mail folders
+- Move emails
 
 All tests should pass successfully.
