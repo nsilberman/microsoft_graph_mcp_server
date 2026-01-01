@@ -19,13 +19,13 @@ Use an absolute path to your project directory:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+      "args": ["C:/Project/microsoft_graph_mcp_server"]
     }
   }
 }
 ```
 
-**Important**: Use forward slashes (`/`) in paths, even on Windows. Do NOT use relative paths like `"."` as they won't work with Claude Desktop.
+**Important**: Use forward slashes (`/`) in paths, even on Windows. Replace `C:/Project/microsoft_graph_mcp_server` with your actual project path.
 
 ### Example 2: UVX with Development Dependencies
 
@@ -34,7 +34,7 @@ Use an absolute path to your project directory:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--with", "pytest", "--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+      "args": ["--with", "pytest", "C:/Project/microsoft_graph_mcp_server"]
     }
   }
 }
@@ -47,13 +47,13 @@ Use an absolute path to your project directory:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--python", "3.11", "--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+      "args": ["--python", "3.11", "C:/Project/microsoft_graph_mcp_server"]
     }
   }
 }
 ```
 
-### Example 5: Traditional Python Configuration (Fallback)
+### Example 4: Traditional Python Configuration (Fallback)
 
 ```json
 {
@@ -66,14 +66,14 @@ Use an absolute path to your project directory:
 }
 ```
 
-### Example 4: Multiple MCP Servers
+### Example 5: Multiple MCP Servers
 
 ```json
 {
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+      "args": ["C:/Project/microsoft_graph_mcp_server"]
     },
     "filesystem": {
       "command": "npx",
@@ -81,13 +81,13 @@ Use an absolute path to your project directory:
     },
     "brave-search": {
       "command": "uvx",
-      "args": ["--from", "mcp-brave-search", "mcp-brave-search"]
+      "args": ["mcp-brave-search"]
     }
   }
 }
 ```
 
-### Example 5: UVX with Environment Variables
+### Example 6: UVX with Environment Variables
 
 Note: Environment variables should be set in your system environment, not in the config file.
 
@@ -96,7 +96,7 @@ Note: Environment variables should be set in your system environment, not in the
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"],
+      "args": ["C:/Project/microsoft_graph_mcp_server"],
       "env": {
         "USER_TIMEZONE": "America/New_York",
         "DEFAULT_SEARCH_DAYS": "90"
@@ -110,7 +110,7 @@ Note: Environment variables should be set in your system environment, not in the
 
 ### Basic Options
 
-- `--from <path>`: Specify the package source (local path or PyPI package name)
+- `<path>`: Specify the package source (local path or PyPI package name)
 - `--python <version>`: Use specific Python version (e.g., 3.11)
 - `--with <package>`: Include additional packages
 - `--no-cache`: Disable caching
@@ -133,14 +133,14 @@ Note: Environment variables should be set in your system environment, not in the
 
 ### JSON Parsing Errors When Running in Terminal
 
-If you see errors like this when running `uvx --from . microsoft-graph-mcp-server` in a terminal:
+If you see errors like this when running `uvx .` in a terminal:
 
 ```
 Received exception from stream: 1 validation error for JSONRPCMessage
 Invalid JSON: EOF while parsing a value at line 2 column 0
 ```
 
-**This is normal behavior!** MCP servers communicate via stdio using JSON-RPC protocol and expect to be run by an MCP client like Claude Desktop. When run directly in a terminal, there's no client sending proper JSON messages, so the server reports JSON parsing errors.
+**This is normal behavior!** MCP servers communicate via stdio using JSON-RPC protocol and expect to be run by an MCP client like Claude Desktop. When run directly in a terminal, there's no client sending proper JSON messages, so server reports JSON parsing errors.
 
 **Solution**: Use the server with Claude Desktop (see examples above) or another MCP client. The server is working correctly - it just needs to be run by an MCP client to function properly.
 
@@ -161,7 +161,7 @@ On Windows, you may need to add the UVX path to your PATH or use the full path:
   "mcpServers": {
     "microsoft-graph": {
       "command": "C:\\Users\\<username>\\.local\\bin\\uvx.exe",
-      "args": ["--from", ".", "microsoft-graph-mcp-server"]
+      "args": ["."]
     }
   }
 }
@@ -177,7 +177,7 @@ Use forward slashes in paths, even on Windows:
 
 ```json
 {
-  "args": ["--from", "C:/Project/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+  "args": ["C:/Project/microsoft_graph_mcp_server"]
 }
 ```
 

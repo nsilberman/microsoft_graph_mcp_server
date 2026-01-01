@@ -20,7 +20,7 @@ cd microsoft_graph_mcp_server
 pip install uv
 
 # Run the server directly (UVX will automatically install dependencies)
-uvx --from . microsoft-graph-mcp-server
+uvx .
 ```
 
 ### Method 2: Using Traditional pip Installation
@@ -60,11 +60,13 @@ Edit the Claude Desktop configuration file:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--from", ".", "microsoft-graph-mcp-server"]
+      "args": ["C:/Project/microsoft_graph_mcp_server"]
     }
   }
 }
 ```
+
+**Important**: Use forward slashes (`/`) in paths, even on Windows. Replace `C:/Project/microsoft_graph_mcp_server` with your actual project path.
 
 ### Option 2: Using Python (Traditional)
 
@@ -179,13 +181,13 @@ export TENANT_ID="organizations"
 
 ```bash
 # Run from local directory
-uvx --from . microsoft-graph-mcp-server
+uvx .
 
 # Run from PyPI (when package is published)
 uvx microsoft-graph-mcp-server
 
 # Run with development dependencies
-uvx --with pytest --from . microsoft-graph-mcp-server
+uvx --with pytest .
 ```
 
 **Important Note**: When running the MCP server directly in a terminal, you may see JSON parsing errors. This is **normal behavior** - MCP servers communicate via stdio using the JSON-RPC protocol and expect to be run by an MCP client (like Claude Desktop). The server is working correctly; these errors occur because there is no MCP client connected to send proper JSON messages. To properly test the server, use it with Claude Desktop or another MCP client.
@@ -219,7 +221,7 @@ microsoft-graph-mcp-server
 
 4. **JSON Parsing Errors When Running in Terminal**:
    
-   If you see the following error when running `uvx --from . microsoft-graph-mcp-server` in a terminal:
+   If you see the following error when running `uvx .` in a terminal:
    
    ```
    Received exception from stream: 1 validation error for JSONRPCMessage

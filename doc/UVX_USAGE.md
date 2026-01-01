@@ -25,7 +25,7 @@ pip install uv
 Run the MCP server directly from the local project directory:
 
 ```bash
-uvx --from . microsoft-graph-mcp-server
+uvx .
 ```
 
 This will:
@@ -48,7 +48,7 @@ uvx microsoft-graph-mcp-server
 To run with development dependencies (for testing or debugging):
 
 ```bash
-uvx --with pytest --with pytest-asyncio --from . microsoft-graph-mcp-server
+uvx --with pytest --with pytest-asyncio .
 ```
 
 ### With Specific Python Version
@@ -56,7 +56,7 @@ uvx --with pytest --with pytest-asyncio --from . microsoft-graph-mcp-server
 To use a specific Python version:
 
 ```bash
-uvx --python 3.11 --from . microsoft-graph-mcp-server
+uvx --python 3.11 .
 ```
 
 ## Configuration in Claude Desktop
@@ -98,7 +98,7 @@ Update your Claude Desktop configuration file to use UVX:
 ### Run with specific dependency versions
 
 ```bash
-uvx --from "mcp>=1.0.0,<2.0.0" --from . microsoft-graph-mcp-server
+uvx --from "mcp>=1.0.0,<2.0.0" .
 ```
 
 ### Run with additional packages
@@ -122,14 +122,14 @@ USER_TIMEZONE=America/New_York uvx --from . microsoft-graph-mcp-server
 ### Clear cache and reinstall
 
 ```bash
-uvx --clear-cache --from . microsoft-graph-mcp-server
+uvx --clear-cache .
 ```
 
 ## Troubleshooting
 
 ### JSON Parsing Errors When Running in Terminal
 
-If you see errors like this when running `uvx --from . microsoft-graph-mcp-server`:
+If you see errors like this when running `uvx .`:
 
 ```
 Received exception from stream: 1 validation error for JSONRPCMessage
@@ -182,7 +182,7 @@ uv python list
 uv python install 3.11
 
 # Use a specific version
-uvx --python 3.11 --from . microsoft-graph-mcp-server
+uvx --python 3.11 .
 ```
 
 ## Development Workflow with UVX
@@ -234,7 +234,7 @@ python -m microsoft_graph_mcp_server.main
 ### With UVX
 
 ```bash
-uvx --from . microsoft-graph-mcp-server
+uvx .
 ```
 
 **Benefits:**

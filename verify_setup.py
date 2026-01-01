@@ -65,7 +65,7 @@ def main():
     print("3. Use the Microsoft Graph tools in Claude")
     print("\nConfiguration for Claude Desktop:")
     print('  "command": "uvx"')
-    print('  "args": ["--from", ".", "microsoft-graph-mcp-server"]')
+    print('  "args": ["C:/Path/To/microsoft_graph_mcp_server"]')
     print("\n" + "=" * 60)
     
     return True

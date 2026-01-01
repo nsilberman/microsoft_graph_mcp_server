@@ -46,7 +46,7 @@ Add this configuration:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["--from", "C:/Path/To/microsoft_graph_mcp_server", "microsoft-graph-mcp-server"]
+      "args": ["C:/Path/To/microsoft_graph_mcp_server"]
     }
   }
 }
@@ -87,7 +87,7 @@ Once authenticated, you can use all Microsoft Graph tools:
 
 ### Issue: JSON Parsing Errors in Terminal
 
-**Symptom**: When running `uvx --from . microsoft-graph-mcp-server` in a terminal, you see JSON parsing errors.
+**Symptom**: When running `uvx .` in a terminal, you see JSON parsing errors.
 
 **Solution**: This is **normal behavior**. MCP servers communicate via stdio and expect to be run by an MCP client like Claude Desktop. The server is working correctly. Use it with Claude Desktop instead of running it directly in a terminal.
 
