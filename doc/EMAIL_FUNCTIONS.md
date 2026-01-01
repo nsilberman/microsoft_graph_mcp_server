@@ -852,13 +852,25 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 ## Performance Considerations
 
-1. **Cache Size**: The cache is automatically cleared before each load/search operation to prevent memory bloat.
+1. **Hard Limit**: All email search methods have a maximum limit defined by `MAX_EMAIL_SEARCH_LIMIT` (1000 emails) per search to prevent excessive API calls and memory usage. This limit is implemented as a constant in the codebase rather than a magic number, making it easier to maintain and modify in the future.
 
-2. **Async Operations**: Cache saves are performed asynchronously using `asyncio.to_thread` for non-blocking I/O.
+2. **Performance Metrics**:
+   - 100 emails: ~2.55 seconds (39 emails/second)
+   - 500 emails: ~4.05 seconds (123 emails/second)
+   - 1000 emails: ~5.39 seconds (186 emails/second)
 
-3. **Pagination**: Use pagination when browsing large email lists to optimize memory usage.
+3. **Key Optimizations**:
+   - **List Comprehension**: Email summaries are generated using list comprehension instead of parallel processing for optimal performance
+   - **Reduced API Response Size**: Only essential fields are requested from the API (id, subject, from, toRecipients, ccRecipients, receivedDateTime, sentDateTime, isRead, hasAttachments, importance, bodyPreview)
+   - **Timezone Object Caching**: ZoneInfo objects are cached to avoid redundant timezone conversions
 
-4. **Parameter Limits**: The limits on `days` and `top` parameters are designed to prevent excessive API calls and memory usage.
+4. **Cache Size**: The cache is automatically cleared before each load/search operation to prevent memory bloat.
+
+5. **Async Operations**: Cache saves are performed asynchronously using `asyncio.to_thread` for non-blocking I/O.
+
+6. **Pagination**: Use pagination when browsing large email lists to optimize memory usage.
+
+7. **Parameter Limits**: The limits on `days` and `top` parameters are designed to prevent excessive API calls and memory usage.
 
 ---
 

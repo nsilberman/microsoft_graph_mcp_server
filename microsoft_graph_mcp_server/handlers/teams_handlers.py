@@ -15,7 +15,9 @@ class TeamsHandler(BaseHandler):
         teams = await graph_client.get_teams()
         return self._format_response(teams)
 
-    async def handle_get_team_channels(self, arguments: dict) -> list[types.TextContent]:
+    async def handle_get_team_channels(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
         """Handle get_team_channels tool."""
         team_id = arguments["team_id"]
         channels = await graph_client.get_team_channels(team_id)

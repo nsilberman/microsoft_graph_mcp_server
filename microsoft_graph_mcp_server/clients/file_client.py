@@ -23,17 +23,17 @@ class FileClient(BaseGraphClient):
         access_token = await auth_manager.get_access_token()
         headers = {
             "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/octet-stream"
+            "Content-Type": "application/octet-stream",
         }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.put(
-                f"{self.base_url}{endpoint}",
-                content=file_content,
-                headers=headers
+                f"{self.base_url}{endpoint}", content=file_content, headers=headers
             )
 
             if response.status_code == 200:
                 return response.json()
             else:
-                raise Exception(f"File upload failed: {response.status_code} - {response.text}")
+                raise Exception(
+                    f"File upload failed: {response.status_code} - {response.text}"
+                )

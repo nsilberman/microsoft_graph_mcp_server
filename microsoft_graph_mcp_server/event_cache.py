@@ -1,4 +1,4 @@
-"""Email browsing cache management module."""
+"""Event browsing cache management module."""
 
 import asyncio
 import json
@@ -7,14 +7,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .auth import auth_manager
 
+class EventBrowsingCache:
+    """Manages event browsing state with disk persistence."""
 
-class EmailBrowsingCache:
-    """Manages email browsing state with disk persistence."""
-
-    CACHE_VERSION = "2.0"
-    CACHE_EXPIRY_HOURS = 1
+    CACHE_VERSION = "1.0"
+    CACHE_EXPIRY_HOURS = 8
     CACHE_MAX_AGE_HOURS = 24
 
     def __init__(self):
@@ -24,7 +22,7 @@ class EmailBrowsingCache:
     def _get_cache_file_path(self) -> Path:
         """Get the cache file path in user's home directory."""
         home_dir = Path.home()
-        return home_dir / ".microsoft_graph_mcp_browsing.json"
+        return home_dir / ".microsoft_graph_mcp_events.json"
 
     def _load_cache(self) -> Dict[str, Any]:
         """Load cache from disk or create new cache."""
@@ -50,21 +48,19 @@ class EmailBrowsingCache:
         return {
             "version": self.CACHE_VERSION,
             "last_updated": now.isoformat() + "Z",
-            "mode": "list",
-            "list_state": {
-                "folder": "Inbox",
+            "mode": "browse",
+            "browse_state": {
+                "start_date": None,
+                "end_date": None,
                 "top": 20,
-                "filter": None,
-                "days": None,
                 "total_count": 0,
                 "metadata": [],
             },
             "search_state": {
                 "query": None,
-                "folder": None,
+                "start_date": None,
+                "end_date": None,
                 "top": 20,
-                "days": 90,
-                "search_type": None,
                 "total_count": 0,
                 "metadata": [],
             },
@@ -93,7 +89,7 @@ class EmailBrowsingCache:
             return False
 
     def _is_cache_expired(self) -> bool:
-        """Check if cache has expired (> 1 hour)."""
+        """Check if cache has expired (> 8 hours)."""
         try:
             expires_at = datetime.fromisoformat(
                 self.cache["metadata"]["expires_at"].replace("Z", "")
@@ -123,10 +119,10 @@ class EmailBrowsingCache:
         except IOError:
             pass
 
-    async def invalidate_list_state(self):
-        """Invalidate list state (e.g., when folder or filter changes)."""
-        self.cache["list_state"]["total_count"] = 0
-        self.cache["list_state"]["metadata"] = []
+    async def invalidate_browse_state(self):
+        """Invalidate browse state (e.g., when date range changes)."""
+        self.cache["browse_state"]["total_count"] = 0
+        self.cache["browse_state"]["metadata"] = []
         await self._save_cache()
 
     async def invalidate_search_state(self):
@@ -136,7 +132,7 @@ class EmailBrowsingCache:
         await self._save_cache()
 
     async def set_mode(self, mode: str):
-        """Set browsing mode ('list' or 'search')."""
+        """Set browsing mode ('browse' or 'search')."""
         if self.cache["mode"] != mode:
             self.cache["mode"] = mode
             await self._save_cache()
@@ -145,35 +141,29 @@ class EmailBrowsingCache:
         """Get current browsing mode."""
         return self.cache["mode"]
 
-    async def update_list_state(
+    async def update_browse_state(
         self,
-        folder: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
         top: Optional[int] = None,
-        filter_query: Optional[str] = None,
-        days: Optional[int] = None,
         total_count: Optional[int] = None,
         metadata: Optional[List[Dict[str, Any]]] = None,
     ):
-        """Update list state parameters."""
-        state = self.cache["list_state"]
+        """Update browse state parameters."""
+        state = self.cache["browse_state"]
 
-        if folder is not None and folder != state["folder"]:
-            state["folder"] = folder
+        if start_date != state["start_date"]:
+            state["start_date"] = start_date
+            state["total_count"] = 0
+            state["metadata"] = []
+
+        if end_date != state["end_date"]:
+            state["end_date"] = end_date
             state["total_count"] = 0
             state["metadata"] = []
 
         if top is not None and top != state["top"]:
             state["top"] = top
-
-        if filter_query != state["filter"]:
-            state["filter"] = filter_query
-            state["total_count"] = 0
-            state["metadata"] = []
-
-        if days != state["days"]:
-            state["days"] = days
-            state["total_count"] = 0
-            state["metadata"] = []
 
         if total_count is not None:
             state["total_count"] = total_count
@@ -186,10 +176,9 @@ class EmailBrowsingCache:
     async def update_search_state(
         self,
         query: str,
-        folder: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
         top: Optional[int] = None,
-        days: Optional[int] = None,
-        search_type: Optional[str] = None,
         total_count: Optional[int] = None,
         metadata: Optional[List[Dict[str, Any]]] = None,
     ):
@@ -201,23 +190,18 @@ class EmailBrowsingCache:
             state["total_count"] = 0
             state["metadata"] = []
 
-        if folder != state["folder"]:
-            state["folder"] = folder
+        if start_date != state["start_date"]:
+            state["start_date"] = start_date
+            state["total_count"] = 0
+            state["metadata"] = []
+
+        if end_date != state["end_date"]:
+            state["end_date"] = end_date
             state["total_count"] = 0
             state["metadata"] = []
 
         if top is not None and top != state["top"]:
             state["top"] = top
-
-        if days is not None and days != state["days"]:
-            state["days"] = days
-            state["total_count"] = 0
-            state["metadata"] = []
-
-        if search_type != state["search_type"]:
-            state["search_type"] = search_type
-            state["total_count"] = 0
-            state["metadata"] = []
 
         if total_count is not None:
             state["total_count"] = total_count
@@ -227,30 +211,33 @@ class EmailBrowsingCache:
 
         await self._save_cache()
 
-    def get_list_state(self) -> Dict[str, Any]:
-        """Get current list state."""
-        return self.cache["list_state"].copy()
+    def get_browse_state(self) -> Dict[str, Any]:
+        """Get current browse state."""
+        return self.cache["browse_state"].copy()
 
     def get_search_state(self) -> Dict[str, Any]:
         """Get current search state."""
         return self.cache["search_state"].copy()
 
-    def get_cached_emails(self) -> List[Dict[str, Any]]:
-        """Get cached emails from current mode, sorted by receivedDateTime (newest first)."""
-        if self.cache["mode"] == "list":
-            metadata = self.cache["list_state"]["metadata"].copy()
+    def get_cached_events(self) -> List[Dict[str, Any]]:
+        """Get cached events from current mode, sorted by start time (latest first)."""
+        if self.cache["mode"] == "browse":
+            metadata = self.cache["browse_state"]["metadata"].copy()
         else:
             metadata = self.cache["search_state"]["metadata"].copy()
 
-        return sorted(
-            metadata, key=lambda x: x.get("receivedDateTimeOriginal", ""), reverse=True
-        )
+        sorted_events = sorted(metadata, key=lambda x: x.get("start_datetime", ""), reverse=True)
+        
+        for idx, event in enumerate(sorted_events):
+            event["number"] = idx + 1
+        
+        return sorted_events
 
     def should_refresh_total_count(self) -> bool:
         """Check if total_count needs to be refreshed."""
         state = (
-            self.cache["list_state"]
-            if self.cache["mode"] == "list"
+            self.cache["browse_state"]
+            if self.cache["mode"] == "browse"
             else self.cache["search_state"]
         )
         return state["total_count"] == 0 or self._is_cache_expired()
@@ -269,10 +256,10 @@ class EmailBrowsingCache:
             "last_updated": self.cache["last_updated"],
             "expires_at": self.cache["metadata"]["expires_at"],
             "is_expired": self._is_cache_expired(),
-            "list_state": self.cache["list_state"],
+            "browse_state": self.cache["browse_state"],
             "search_state": self.cache["search_state"],
         }
 
 
 # Global cache instance
-email_cache = EmailBrowsingCache()
+event_cache = EventBrowsingCache()

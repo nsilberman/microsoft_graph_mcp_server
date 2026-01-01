@@ -23,7 +23,9 @@ class UserClient(BaseGraphClient):
             pass
         return date_handler.convert_to_iana_timezone(settings.user_timezone)
 
-    async def get_users(self, filter_query: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_users(
+        self, filter_query: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Get list of users in organization."""
         params = {}
         if filter_query:
@@ -38,10 +40,7 @@ class UserClient(BaseGraphClient):
 
     async def search_contacts(self, query: str, top: int = 10) -> List[Dict[str, Any]]:
         """Search contacts and people relevant to the user."""
-        params = {
-            "$search": f'"{query}"',
-            "$top": top
-        }
+        params = {"$search": f'"{query}"', "$top": top}
 
         result = await self.get("/me/people", params=params)
         return result.get("value", [])

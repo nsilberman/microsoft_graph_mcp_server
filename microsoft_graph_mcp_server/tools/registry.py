@@ -6,7 +6,7 @@ from typing import List
 
 class ToolRegistry:
     """Central registry for all MCP tool definitions."""
-    
+
     @staticmethod
     def get_all_tools() -> List[types.Tool]:
         """Get all available tools."""
@@ -20,26 +20,23 @@ class ToolRegistry:
             ToolRegistry.get_email_content(),
             ToolRegistry.compose_reply_forward_email(),
             ToolRegistry.browse_events(),
-            ToolRegistry.get_event(),
+            ToolRegistry.get_event_detail(),
             ToolRegistry.search_events(),
             ToolRegistry.create_event(),
             ToolRegistry.list_files(),
             ToolRegistry.get_teams(),
             ToolRegistry.get_team_channels(),
         ]
-    
+
     @staticmethod
     def get_user_info() -> types.Tool:
         """Get user info tool definition."""
         return types.Tool(
             name="get_user_info",
             description="Get current user information from Microsoft Graph",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            inputSchema={"type": "object", "properties": {}},
         )
-    
+
     @staticmethod
     def search_contacts() -> types.Tool:
         """Search contacts tool definition."""
@@ -51,13 +48,13 @@ class ToolRegistry:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (name or email)"
+                        "description": "Search query (name or email)",
                     }
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         )
-    
+
     @staticmethod
     def auth() -> types.Tool:
         """Auth tool definition."""
@@ -70,13 +67,13 @@ class ToolRegistry:
                     "action": {
                         "type": "string",
                         "enum": ["login", "check_status", "logout"],
-                        "description": "Action to perform: 'login' to authenticate, 'check_status' to check current authentication status, 'logout' to clear authentication"
+                        "description": "Action to perform: 'login' to authenticate, 'check_status' to check current authentication status, 'logout' to clear authentication",
                     }
                 },
-                "required": ["action"]
-            }
+                "required": ["action"],
+            },
         )
-    
+
     @staticmethod
     def manage_mail_folder() -> types.Tool:
         """Mail folder tool definition."""
@@ -88,34 +85,41 @@ class ToolRegistry:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["list", "create", "delete", "rename", "get_details", "move"],
-                        "description": "Action to perform: 'list' to list all mail folders, 'create' to create a new folder, 'delete' to delete a folder, 'rename' to rename a folder, 'get_details' to get folder information, 'move' to move a folder"
+                        "enum": [
+                            "list",
+                            "create",
+                            "delete",
+                            "rename",
+                            "get_details",
+                            "move",
+                        ],
+                        "description": "Action to perform: 'list' to list all mail folders, 'create' to create a new folder, 'delete' to delete a folder, 'rename' to rename a folder, 'get_details' to get folder information, 'move' to move a folder",
                     },
                     "folder_path": {
                         "type": "string",
-                        "description": "Path of the folder (e.g., 'Inbox', 'Archive/2024'). Required for delete, rename, get_details, and move actions"
+                        "description": "Path of the folder (e.g., 'Inbox', 'Archive/2024'). Required for delete, rename, get_details, and move actions",
                     },
                     "folder_name": {
                         "type": "string",
-                        "description": "Name of the folder to create. Required for create action"
+                        "description": "Name of the folder to create. Required for create action",
                     },
                     "parent_folder": {
                         "type": "string",
-                        "description": "Optional parent folder path for create action (e.g., 'Inbox', 'Archive/2024'). If not provided, creates a top-level folder"
+                        "description": "Optional parent folder path for create action (e.g., 'Inbox', 'Archive/2024'). If not provided, creates a top-level folder",
                     },
                     "new_name": {
                         "type": "string",
-                        "description": "New name for the folder. Required for rename action"
+                        "description": "New name for the folder. Required for rename action",
                     },
                     "destination_parent": {
                         "type": "string",
-                        "description": "Path of the destination parent folder (e.g., 'Archive', 'Sent Items'). Required for move action"
-                    }
+                        "description": "Path of the destination parent folder (e.g., 'Archive', 'Sent Items'). Required for move action",
+                    },
                 },
-                "required": ["action"]
-            }
+                "required": ["action"],
+            },
         )
-    
+
     @staticmethod
     def move_delete_emails() -> types.Tool:
         """Move and delete emails tool definition."""
@@ -127,31 +131,37 @@ class ToolRegistry:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["move_single", "move_all", "delete_single", "delete_multiple", "delete_all"],
-                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder"
+                        "enum": [
+                            "move_single",
+                            "move_all",
+                            "delete_single",
+                            "delete_multiple",
+                            "delete_all",
+                        ],
+                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder",
                     },
                     "email_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single' and 'delete_single' actions"
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single' and 'delete_single' actions",
                     },
                     "email_numbers": {
                         "type": "array",
                         "items": {"type": "integer"},
-                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple' action"
+                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple' action",
                     },
                     "source_folder": {
                         "type": "string",
-                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024'). Required for 'move_all' and 'delete_all' actions"
+                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024'). Required for 'move_all' and 'delete_all' actions",
                     },
                     "destination_folder": {
                         "type": "string",
-                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for 'move_single' and 'move_all' actions"
-                    }
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for 'move_single' and 'move_all' actions",
+                    },
                 },
-                "required": ["action"]
-            }
+                "required": ["action"],
+            },
         )
-    
+
     @staticmethod
     def list_recent_emails() -> types.Tool:
         """List recent emails tool definition."""
@@ -166,12 +176,12 @@ class ToolRegistry:
                         "description": "Number of days to look back (default: 1, maximum: 7)",
                         "default": 1,
                         "minimum": 1,
-                        "maximum": 7
+                        "maximum": 7,
                     }
-                }
-            }
+                },
+            },
         )
-    
+
     @staticmethod
     def browse_email_cache() -> types.Tool:
         """Browse email cache tool definition."""
@@ -184,52 +194,65 @@ class ToolRegistry:
                     "page_number": {
                         "type": "integer",
                         "description": "Page number to view (starts at 1)",
-                        "minimum": 1
+                        "minimum": 1,
                     },
                     "mode": {
                         "type": "string",
                         "enum": ["user", "llm"],
-                        "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)"
-                    }
+                        "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
+                    },
                 },
-                "required": ["page_number", "mode"]
-            }
+                "required": ["page_number", "mode"],
+            },
         )
-    
+
     @staticmethod
     def search_emails() -> types.Tool:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="Unified search tool for emails. Search by sender, recipient, subject, or body text. If no search_type and query are provided, lists recent emails from Inbox. Returns email numbers found in cache. Use browse_email_cache to view the results.",
+            description="Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
+                    },
                     "search_type": {
                         "type": "string",
                         "enum": ["sender", "recipient", "subject", "body"],
-                        "description": "Type of search to perform (optional). If not provided, lists recent emails from Inbox"
-                    },
-                    "query": {
-                        "type": "string",
-                        "description": "Search query (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided"
+                        "description": "Type of search to perform (optional). If not provided, does general keyword search",
                     },
                     "folder": {
                         "type": "string",
                         "description": "Optional folder path to search (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: Inbox",
-                        "default": "Inbox"
+                        "default": "Inbox",
+                    },
+                    "start_date": {
+                        "type": "string",
+                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30') (optional)",
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59') (optional)",
+                    },
+                    "time_range": {
+                        "type": "string",
+                        "enum": ["today", "tomorrow", "this_week", "next_week", "this_month", "next_month"],
+                        "description": "Time range type (optional, in your local timezone). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
                     },
                     "days": {
                         "type": "integer",
-                        "description": "Number of days to look back (default: 1, maximum: 7). Used for both recent emails list and advanced search",
+                        "description": "Number of days to look back (default: 1, maximum: 7). Used when no time range or date parameters are provided",
                         "default": 1,
                         "minimum": 1,
-                        "maximum": 7
-                    }
-                }
-            }
+                        "maximum": 7,
+                    },
+                },
+            },
         )
-    
+
     @staticmethod
     def get_email_content() -> types.Tool:
         """Get email content tool definition."""
@@ -241,18 +264,18 @@ class ToolRegistry:
                 "properties": {
                     "emailNumber": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)",
                     },
                     "text_only": {
                         "type": "boolean",
                         "description": "If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.",
-                        "default": True
-                    }
+                        "default": True,
+                    },
                 },
-                "required": ["emailNumber"]
-            }
+                "required": ["emailNumber"],
+            },
         )
-    
+
     @staticmethod
     def compose_reply_forward_email() -> types.Tool:
         """Compose, reply, or forward email tool definition."""
@@ -265,115 +288,114 @@ class ToolRegistry:
                     "action": {
                         "type": "string",
                         "enum": ["compose", "reply", "forward"],
-                        "description": "Action to perform: 'compose' for new email, 'reply' to reply to existing email, 'forward' to forward existing email"
+                        "description": "Action to perform: 'compose' for new email, 'reply' to reply to existing email, 'forward' to forward existing email",
                     },
                     "to": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of recipient email addresses"
+                        "description": "List of recipient email addresses",
                     },
                     "subject": {
                         "type": "string",
-                        "description": "Email subject (required for compose, optional for reply/forward)"
+                        "description": "Email subject (required for compose, optional for reply/forward)",
                     },
                     "body": {
                         "type": "string",
-                        "description": "Email body content. MUST be HTML format."
+                        "description": "Email body content. MUST be HTML format.",
                     },
                     "emailNumber": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (required for reply/forward, e.g., 1, 2, 3)"
+                        "description": "Email number from browse_email_cache (required for reply/forward, e.g., 1, 2, 3)",
                     },
                     "cc": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of CC recipient email addresses (optional)"
+                        "description": "List of CC recipient email addresses (optional)",
                     },
                     "bcc": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of BCC recipient email addresses (optional)"
+                        "description": "List of BCC recipient email addresses (optional)",
                     },
                     "bcc_csv_file": {
                         "type": "string",
-                        "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)"
-                    }
+                        "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)",
+                    },
                 },
-                "required": ["action", "to", "body"]
-            }
+                "required": ["action", "to", "body"],
+            },
         )
-    
+
     @staticmethod
     def browse_events() -> types.Tool:
         """Browse events tool definition."""
         return types.Tool(
             name="browse_events",
-            description="Browse calendar events with pagination. Returns summary information (id, subject, start, end, location, organizer, attendees, isAllDay, showAs, importance). Use page_number to navigate.",
+            description="Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "page_number": {
                         "type": "integer",
                         "description": "Page number to view (starts at 1)",
-                        "minimum": 1
+                        "minimum": 1,
                     },
-                    "start_date": {
+                    "mode": {
                         "type": "string",
-                        "description": "Start date in ISO format (e.g., '2024-01-01') (optional)"
+                        "enum": ["user", "llm"],
+                        "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
+                        "default": "user",
                     },
-                    "end_date": {
-                        "type": "string",
-                        "description": "End date in ISO format (e.g., '2024-12-31') (optional)"
-                    }
                 },
-                "required": ["page_number"]
-            }
+                "required": ["page_number"],
+            },
         )
-    
+
     @staticmethod
-    def get_event() -> types.Tool:
-        """Get event tool definition."""
+    def get_event_detail() -> types.Tool:
+        """Get event detail tool definition."""
         return types.Tool(
-            name="get_event",
-            description="Get a specific calendar event by ID",
+            name="get_event_detail",
+            description="Get detailed information for a specific calendar event by its cache number",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "event_id": {
-                        "type": "string",
-                        "description": "Event ID"
-                    }
+                    "event_id": {"type": "string", "description": "Event cache number (e.g., '1', '2', '3')"}
                 },
-                "required": ["event_id"]
-            }
+                "required": ["event_id"],
+            },
         )
-    
+
     @staticmethod
     def search_events() -> types.Tool:
         """Search events tool definition."""
         return types.Tool(
             name="search_events",
-            description="Search calendar events by keywords. Returns matching events with summary information.",
+            description="Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (keywords in subject, location, or organizer)"
+                        "description": "Search query (keywords in subject, location, or organizer). Optional - if not provided, lists events within the time range",
                     },
                     "start_date": {
                         "type": "string",
-                        "description": "Start date in ISO format (e.g., '2024-01-01') (optional)"
+                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30') (optional)",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in ISO format (e.g., '2024-12-31') (optional)"
-                    }
+                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59') (optional)",
+                    },
+                    "time_range": {
+                        "type": "string",
+                        "enum": ["today", "tomorrow", "this_week", "next_week", "this_month", "next_month"],
+                        "description": "Time range type (optional, in your local timezone). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
+                    },
                 },
-                "required": ["query"]
-            }
+            },
         )
-    
+
     @staticmethod
     def create_event() -> types.Tool:
         """Create event tool definition."""
@@ -383,24 +405,21 @@ class ToolRegistry:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "subject": {
-                        "type": "string",
-                        "description": "Event subject"
-                    },
+                    "subject": {"type": "string", "description": "Event subject"},
                     "start": {
                         "type": "object",
                         "description": "Start time with dateTime and timeZone",
                         "properties": {
                             "dateTime": {
                                 "type": "string",
-                                "description": "Start date and time in ISO format"
+                                "description": "Start date and time in ISO format",
                             },
                             "timeZone": {
                                 "type": "string",
-                                "description": "Time zone (e.g., 'UTC', 'America/New_York')"
-                            }
+                                "description": "Time zone (e.g., 'UTC', 'America/New_York')",
+                            },
                         },
-                        "required": ["dateTime", "timeZone"]
+                        "required": ["dateTime", "timeZone"],
                     },
                     "end": {
                         "type": "object",
@@ -408,18 +427,18 @@ class ToolRegistry:
                         "properties": {
                             "dateTime": {
                                 "type": "string",
-                                "description": "End date and time in ISO format"
+                                "description": "End date and time in ISO format",
                             },
                             "timeZone": {
                                 "type": "string",
-                                "description": "Time zone (e.g., 'UTC', 'America/New_York')"
-                            }
+                                "description": "Time zone (e.g., 'UTC', 'America/New_York')",
+                            },
                         },
-                        "required": ["dateTime", "timeZone"]
+                        "required": ["dateTime", "timeZone"],
                     },
                     "location": {
                         "type": "string",
-                        "description": "Event location (optional)"
+                        "description": "Event location (optional)",
                     },
                     "body": {
                         "type": "object",
@@ -428,14 +447,14 @@ class ToolRegistry:
                             "contentType": {
                                 "type": "string",
                                 "enum": ["Text", "HTML"],
-                                "description": "Content type"
+                                "description": "Content type",
                             },
                             "content": {
                                 "type": "string",
-                                "description": "Body content"
-                            }
+                                "description": "Body content",
+                            },
                         },
-                        "required": ["contentType", "content"]
+                        "required": ["contentType", "content"],
                     },
                     "attendees": {
                         "type": "array",
@@ -447,24 +466,24 @@ class ToolRegistry:
                                     "properties": {
                                         "address": {
                                             "type": "string",
-                                            "description": "Email address"
+                                            "description": "Email address",
                                         },
                                         "name": {
                                             "type": "string",
-                                            "description": "Display name"
-                                        }
+                                            "description": "Display name",
+                                        },
                                     },
-                                    "required": ["address"]
+                                    "required": ["address"],
                                 }
-                            }
+                            },
                         },
-                        "description": "List of attendees (optional)"
-                    }
+                        "description": "List of attendees (optional)",
+                    },
                 },
-                "required": ["subject", "start", "end"]
-            }
+                "required": ["subject", "start", "end"],
+            },
         )
-    
+
     @staticmethod
     def list_files() -> types.Tool:
         """List files tool definition."""
@@ -477,24 +496,21 @@ class ToolRegistry:
                     "folder_path": {
                         "type": "string",
                         "description": "Folder path in OneDrive (e.g., '/Documents', '/Projects'). Default: root folder",
-                        "default": ""
+                        "default": "",
                     }
-                }
-            }
+                },
+            },
         )
-    
+
     @staticmethod
     def get_teams() -> types.Tool:
         """Get teams tool definition."""
         return types.Tool(
             name="get_teams",
             description="Get list of Teams that you are a member of",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
+            inputSchema={"type": "object", "properties": {}},
         )
-    
+
     @staticmethod
     def get_team_channels() -> types.Tool:
         """Get team channels tool definition."""
@@ -503,12 +519,7 @@ class ToolRegistry:
             description="Get channels for a specific Team",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "team_id": {
-                        "type": "string",
-                        "description": "Team ID"
-                    }
-                },
-                "required": ["team_id"]
-            }
+                "properties": {"team_id": {"type": "string", "description": "Team ID"}},
+                "required": ["team_id"],
+            },
         )

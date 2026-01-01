@@ -34,6 +34,9 @@ python tests/test_move_all_emails_safe.py
 
 # Test performance characteristics
 python tests/test_performance.py
+
+# Test email search performance
+python tests/test_search_performance.py
 ```
 
 ## Test Files
@@ -142,12 +145,88 @@ Performance test completed!
 - 200-400 emails: ~4-6 seconds
 - 1000 emails: ~8-10 seconds
 
+### test_search_performance.py
+
+Tests email search performance with various batch sizes and validates hard limit implementation.
+
+**Purpose**: Validate email search performance scaling and ensure hard limit enforcement (max `MAX_EMAIL_SEARCH_LIMIT` emails)
+
+**Test Flow**:
+1. Initializes GraphClient
+2. Tests search performance with multiple batch sizes: 100, 500, `MAX_EMAIL_SEARCH_LIMIT` emails
+3. For each test size:
+   - Measures time to search emails in Inbox folder
+   - Records email count and processing time
+   - Calculates average time per email and emails per second
+4. Validates hard limit enforcement by attempting to search with `MAX_EMAIL_SEARCH_LIMIT + 1` emails (should fail)
+5. Verifies that ValueError is raised correctly
+
+**Performance Metrics**:
+- Execution time for each test size
+- Average time per email
+- Emails processed per second
+- Hard limit validation
+
+**Expected Output**:
+```
+Testing email search performance...
+============================================================
+
+============================================================
+Testing search with top=100...
+============================================================
+  ✓ Found 100 emails
+  ✓ Time taken: 2.55 seconds
+  ✓ Average: 0.025 seconds per email
+  ✓ Rate: 39.2 emails/second
+
+============================================================
+Testing search with top=500...
+============================================================
+  ✓ Found 500 emails
+  ✓ Time taken: 4.05 seconds
+  ✓ Average: 0.008 seconds per email
+  ✓ Rate: 123.5 emails/second
+
+============================================================
+Testing search with top=1000...
+============================================================
+  ✓ Found 1000 emails
+  ✓ Time taken: 5.39 seconds
+  ✓ Average: 0.005 seconds per email
+  ✓ Rate: 185.5 emails/second
+
+============================================================
+Testing hard limit validation...
+============================================================
+
+Attempting to search with top=1001 (should fail)...
+  ✓ Correctly raised ValueError: Maximum number of emails per search is 1000
+
+============================================================
+All performance tests completed successfully!
+============================================================
+```
+
+**Expected Performance**:
+- 100 emails: ~2.5-3.0 seconds (35-40 emails/second)
+- 500 emails: ~4.0-4.5 seconds (110-125 emails/second)
+- 1000 emails: ~5.0-5.5 seconds (180-190 emails/second)
+
+**Key Features**:
+- Tests real-world email search performance
+- Validates hard limit enforcement (max `MAX_EMAIL_SEARCH_LIMIT` emails)
+- Measures performance scaling with larger batches
+- No test data creation required (uses existing emails)
+- Safe operation (read-only, no data modification)
+
 ## Test Coverage
 
 | Test File | Functionality Tested | Email Count | Safety Level |
 |-----------|---------------------|-------------|--------------|
 | test_move_all_emails_safe.py | Bulk email movement | 10 | High (isolated test data) |
 | test_performance.py | Performance scaling | 10, 20, 50, 100 | High (isolated test data) |
+| test_search_performance.py | Email search performance | 100, 500, 1000 | High (read-only, real data) |
 
 ## Safety Considerations
 
@@ -192,7 +271,9 @@ If cleanup fails:
 
 ## Known Limitations
 
-1. **Test Data Size**: Performance tests are limited to 100 emails to avoid excessive API usage
+1. **Test Data Size**: 
+   - Performance tests (test_performance.py) are limited to 100 emails to avoid excessive API usage
+   - Search performance tests (test_search_performance.py) can test up to 1000 emails using real data
 2. **Folder Depth**: Tests only create one level of subfolders under Inbox
 3. **Email Content**: Test emails are simple drafts with minimal content
 4. **Concurrent Tests**: Tests should not be run simultaneously as they may conflict
