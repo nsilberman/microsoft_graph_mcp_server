@@ -64,11 +64,8 @@ class MicrosoftGraphMCPServer:
                 elif name == "manage_mail_folder":
                     return await self.email_handler.handle_manage_mail_folder(arguments)
                 
-                elif name == "move_email":
-                    return await self.email_handler.handle_move_email(arguments)
-                
-                elif name == "delete_email":
-                    return await self.email_handler.handle_delete_email(arguments)
+                elif name == "move_delete_emails":
+                    return await self.email_handler.handle_move_delete_emails(arguments)
                 
                 elif name == "browse_email_cache":
                     return await self.email_handler.handle_browse_email_cache(arguments)

@@ -9,7 +9,7 @@ This document describes the email-related functions available in the Microsoft G
 3. [Get Email Content](#get-email-content)
 4. [Compose Reply Forward Email](#compose-reply-forward-email)
 5. [Manage Mail Folder](#manage-mail-folder)
-6. [Move Email](#move-email)
+6. [Move Delete Emails](#move-delete-emails)
 
 ---
 
@@ -626,27 +626,30 @@ result = await manage_mail_folder(action="move", folder_path="Inbox/Projects", d
 
 ---
 
-## Move Email
+## Move Delete Emails
 
 ### Description
-Move emails to a different folder. Supports moving a single email or all emails from a folder.
+Move or delete emails. Supports moving a single email, moving all emails from a folder, deleting a single email, deleting multiple emails, or deleting all emails from a folder.
 
 ### Parameters
 - `action` (required, string): Action to perform
-  - Values: "single", "all"
+  - Values: "move_single", "move_all", "delete_single", "delete_multiple", "delete_all"
 - `email_number` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
-  - Required for: "single" action
+  - Required for: "move_single" and "delete_single" actions
+- `email_numbers` (optional, array of integers): List of email numbers from browse_email_cache (e.g., [1, 2, 3])
+  - Required for: "delete_multiple" action
 - `source_folder` (optional, string): Source folder path (e.g., 'Inbox', 'Archive/2024')
-  - Required for: "all" action
-- `destination_folder` (required, string): Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')
+  - Required for: "move_all" and "delete_all" actions
+- `destination_folder` (optional, string): Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')
+  - Required for: "move_single" and "move_all" actions
 
 ### Actions
 
-#### Move Single Email (action="single")
+#### Move Single Email (action="move_single")
 Moves a single email to a different folder.
 
 **Parameters:**
-- `action`: "single"
+- `action`: "move_single"
 - `email_number`: Email number from browse_email_cache
 - `destination_folder`: Destination folder path
 
@@ -660,43 +663,124 @@ Moves a single email to a different folder.
 
 **Example Usage:**
 ```python
-result = await move_email(
-    action="single",
+result = await move_delete_emails(
+    action="move_single",
     email_number=1,
     destination_folder="Archive/2024"
 )
 ```
 
-#### Move All Emails from Folder (action="all")
+#### Move All Emails from Folder (action="move_all")
 Moves all emails from a source folder to a destination folder.
 
 **Parameters:**
-- `action`: "all"
+- `action`: "move_all"
 - `source_folder`: Source folder path
 - `destination_folder`: Destination folder path
 
 **Returns:**
 ```json
 {
+  "status": "success",
   "message": "Moved X emails from SourceFolder to DestinationFolder",
-  "count": X
+  "moved_count": X,
+  "failed_count": 0,
+  "errors": null
 }
 ```
 
 **Example Usage:**
 ```python
-result = await move_email(
-    action="all",
+result = await move_delete_emails(
+    action="move_all",
     source_folder="Inbox",
     destination_folder="Archive/2024"
 )
 ```
 
+#### Delete Single Email (action="delete_single")
+Deletes a single email by moving it to Deleted Items (recoverable).
+
+**Parameters:**
+- `action`: "delete_single"
+- `email_number`: Email number from browse_email_cache
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Email moved to Deleted Items"
+}
+```
+
+**Example Usage:**
+```python
+result = await move_delete_emails(
+    action="delete_single",
+    email_number=1
+)
+```
+
+#### Delete Multiple Emails (action="delete_multiple")
+Deletes multiple emails by moving them to Deleted Items (recoverable).
+
+**Parameters:**
+- `action`: "delete_multiple"
+- `email_numbers`: List of email numbers from browse_email_cache
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Deleted X emails",
+  "deleted_count": X,
+  "failed_count": 0,
+  "errors": null
+}
+```
+
+**Example Usage:**
+```python
+result = await move_delete_emails(
+    action="delete_multiple",
+    email_numbers=[1, 2, 3]
+)
+```
+
+#### Delete All Emails from Folder (action="delete_all")
+Deletes all emails from a folder by moving them to Deleted Items (recoverable).
+
+**Parameters:**
+- `action`: "delete_all"
+- `source_folder`: Source folder path
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Deleted X emails from SourceFolder",
+  "deleted_count": X,
+  "failed_count": 0,
+  "errors": null
+}
+```
+
+**Example Usage:**
+```python
+result = await move_delete_emails(
+    action="delete_all",
+    source_folder="Inbox"
+)
+```
+
 ### Notes
-- Requires valid email number from cache for "single" action
+- Requires valid email number(s) from cache for "move_single", "delete_single", and "delete_multiple" actions
 - Use `browse_email_cache` to get email numbers
-- "all" action moves all emails from source folder
-- Destination folder must exist (use manage_mail_folder to create if needed)
+- "move_all" and "delete_all" actions operate on all emails in the source folder
+- Destination folder must exist for move actions (use manage_mail_folder to create if needed)
+- Deleted emails are moved to Deleted Items folder and can be recovered
+- Batch operations use batch processing for efficiency (20 emails per batch)
+- All operations return status, count, and error information for tracking
 
 ---
 

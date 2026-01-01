@@ -14,8 +14,7 @@ class ToolRegistry:
             ToolRegistry.auth(),
             ToolRegistry.search_contacts(),
             ToolRegistry.manage_mail_folder(),
-            ToolRegistry.move_email(),
-            ToolRegistry.delete_email(),
+            ToolRegistry.move_delete_emails(),
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
@@ -118,51 +117,38 @@ class ToolRegistry:
         )
     
     @staticmethod
-    def move_email() -> types.Tool:
-        """Move email tool definition."""
+    def move_delete_emails() -> types.Tool:
+        """Move and delete emails tool definition."""
         return types.Tool(
-            name="move_email",
-            description="Move emails to a different folder. Supports moving a single email or all emails from a folder.",
+            name="move_delete_emails",
+            description="Move or delete emails. Supports moving a single email, moving all emails from a folder, deleting a single email, deleting multiple emails, or deleting all emails from a folder.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["single", "all"],
-                        "description": "Action to perform: 'single' to move a single email, 'all' to move all emails from a folder"
+                        "enum": ["move_single", "move_all", "delete_single", "delete_multiple", "delete_all"],
+                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder"
                     },
                     "email_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'single' action"
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single' and 'delete_single' actions"
+                    },
+                    "email_numbers": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple' action"
                     },
                     "source_folder": {
                         "type": "string",
-                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024'). Required for 'all' action"
+                        "description": "Source folder path (e.g., 'Inbox', 'Archive/2024'). Required for 'move_all' and 'delete_all' actions"
                     },
                     "destination_folder": {
                         "type": "string",
-                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for both actions"
+                        "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for 'move_single' and 'move_all' actions"
                     }
                 },
-                "required": ["action", "destination_folder"]
-            }
-        )
-    
-    @staticmethod
-    def delete_email() -> types.Tool:
-        """Delete email tool definition."""
-        return types.Tool(
-            name="delete_email",
-            description="Delete an email by moving it to the Deleted Items folder. The email can be recovered from Deleted Items if needed. Use email number from browse_email_cache.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "email_number": {
-                        "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)"
-                    }
-                },
-                "required": ["email_number"]
+                "required": ["action"]
             }
         )
     

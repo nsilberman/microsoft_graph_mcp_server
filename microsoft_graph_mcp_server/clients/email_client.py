@@ -1209,6 +1209,193 @@ Subject: {original_subject}
         await asyncio.sleep(2.0)
         return {"status": "success", "message": "Email moved to Deleted Items"}
 
+    async def batch_delete_emails(self, email_ids: List[str]) -> Dict[str, Any]:
+        """Delete multiple emails using batch operations.
+
+        Args:
+            email_ids: List of email IDs to delete
+
+        Returns:
+            Result with deleted count and any errors
+        """
+        deleted_items_id = await self._get_folder_id_by_path("Deleted Items")
+        
+        batch_size = 20
+        deleted_count = 0
+        failed_count = 0
+        errors = []
+        
+        async def process_batch(batch_ids: list, batch_idx: int) -> tuple:
+            """Process a batch of emails and return (deleted_count, failed_count, errors)."""
+            batch_deleted = 0
+            batch_failed = 0
+            batch_errors = []
+            requests = []
+            
+            for idx, email_id in enumerate(batch_ids):
+                request_id = f"req_{batch_idx * batch_size + idx}"
+                requests.append({
+                    "id": request_id,
+                    "method": "POST",
+                    "url": f"/me/messages/{email_id}/move",
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "body": {
+                        "destinationId": deleted_items_id
+                    }
+                })
+            
+            if not requests:
+                return (0, 0, [])
+            
+            batch_data = {
+                "requests": requests
+            }
+            
+            try:
+                batch_result = await self.post("/$batch", data=batch_data)
+                responses = batch_result.get("responses", [])
+                
+                for response in responses:
+                    status = response.get("status", 0)
+                    request_id = response.get("id", "")
+                    
+                    if 200 <= status < 300:
+                        batch_deleted += 1
+                    else:
+                        batch_failed += 1
+                        body = response.get("body", {})
+                        error_msg = body.get("error", {}).get("message", f"HTTP {status}")
+                        batch_errors.append(f"Request {request_id}: {error_msg}")
+            except Exception as e:
+                batch_failed += len(requests)
+                batch_errors.append(f"Batch {batch_idx + 1} failed: {str(e)}")
+            
+            return (batch_deleted, batch_failed, batch_errors)
+        
+        batches = [email_ids[i:i + batch_size] for i in range(0, len(email_ids), batch_size)]
+        batch_tasks = [process_batch(batch, idx) for idx, batch in enumerate(batches)]
+        batch_results = await asyncio.gather(*batch_tasks)
+        
+        for batch_deleted, batch_failed, batch_errors in batch_results:
+            deleted_count += batch_deleted
+            failed_count += batch_failed
+            errors.extend(batch_errors)
+        
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} emails",
+            "deleted_count": deleted_count,
+            "failed_count": failed_count,
+            "errors": errors if errors else None
+        }
+
+    async def delete_all_emails_from_folder(self, folder_path: str) -> Dict[str, Any]:
+        """Delete all emails from a folder using batch operations.
+
+        Args:
+            folder_path: Path of the folder to clear (e.g., 'Inbox', 'Archive/2024')
+
+        Returns:
+            Result with deleted count and any errors
+        """
+        folder_id = await self._get_folder_id_by_path(folder_path)
+        deleted_items_id = await self._get_folder_id_by_path("Deleted Items")
+        
+        params = {
+            "$select": "id",
+            "$top": 1000
+        }
+        
+        result = await self.get(f"/me/mailFolders/{folder_id}/messages", params=params)
+        emails = result.get("value", [])
+        
+        if not emails:
+            return {
+                "status": "success",
+                "message": f"Deleted 0 emails from '{folder_path}'",
+                "deleted_count": 0,
+                "failed_count": 0,
+                "errors": None
+            }
+        
+        batch_size = 20
+        deleted_count = 0
+        failed_count = 0
+        errors = []
+        
+        async def process_batch(batch_emails: list, batch_idx: int) -> tuple:
+            """Process a batch of emails and return (deleted_count, failed_count, errors)."""
+            batch_deleted = 0
+            batch_failed = 0
+            batch_errors = []
+            requests = []
+            
+            for idx, email in enumerate(batch_emails):
+                email_id = email.get("id")
+                if not email_id:
+                    batch_failed += 1
+                    continue
+                
+                request_id = f"req_{batch_idx * batch_size + idx}"
+                requests.append({
+                    "id": request_id,
+                    "method": "POST",
+                    "url": f"/me/messages/{email_id}/move",
+                    "headers": {
+                        "Content-Type": "application/json"
+                    },
+                    "body": {
+                        "destinationId": deleted_items_id
+                    }
+                })
+            
+            if not requests:
+                return (0, 0, [])
+            
+            batch_data = {
+                "requests": requests
+            }
+            
+            try:
+                batch_result = await self.post("/$batch", data=batch_data)
+                responses = batch_result.get("responses", [])
+                
+                for response in responses:
+                    status = response.get("status", 0)
+                    request_id = response.get("id", "")
+                    
+                    if 200 <= status < 300:
+                        batch_deleted += 1
+                    else:
+                        batch_failed += 1
+                        body = response.get("body", {})
+                        error_msg = body.get("error", {}).get("message", f"HTTP {status}")
+                        batch_errors.append(f"Request {request_id}: {error_msg}")
+            except Exception as e:
+                batch_failed += len(requests)
+                batch_errors.append(f"Batch {batch_idx + 1} failed: {str(e)}")
+            
+            return (batch_deleted, batch_failed, batch_errors)
+        
+        batches = [emails[i:i + batch_size] for i in range(0, len(emails), batch_size)]
+        batch_tasks = [process_batch(batch, idx) for idx, batch in enumerate(batches)]
+        batch_results = await asyncio.gather(*batch_tasks)
+        
+        for batch_deleted, batch_failed, batch_errors in batch_results:
+            deleted_count += batch_deleted
+            failed_count += batch_failed
+            errors.extend(batch_errors)
+        
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted_count} emails from '{folder_path}'",
+            "deleted_count": deleted_count,
+            "failed_count": failed_count,
+            "errors": errors if errors else None
+        }
+
     async def move_folder(self, folder_path: str, destination_parent: str) -> Dict[str, Any]:
         """Move a folder to a different parent folder.
 

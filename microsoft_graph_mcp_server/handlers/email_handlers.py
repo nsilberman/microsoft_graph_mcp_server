@@ -414,33 +414,95 @@ class EmailHandler(BaseHandler):
         })
     
     
-    async def handle_delete_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle delete_email tool."""
+    async def handle_move_delete_emails(self, arguments: dict) -> list[types.TextContent]:
+        """Handle move_delete_emails tool with multiple actions."""
+        action = arguments.get("action")
+        
+        if action == "move_single":
+            return await self._handle_move_single_email(arguments)
+        elif action == "move_all":
+            return await self._handle_move_all_emails(arguments)
+        elif action == "delete_single":
+            return await self._handle_delete_single_email(arguments)
+        elif action == "delete_multiple":
+            return await self._handle_delete_multiple_emails(arguments)
+        elif action == "delete_all":
+            return await self._handle_delete_all_emails(arguments)
+        else:
+            return self._format_error(f"Invalid action: {action}. Must be 'move_single', 'move_all', 'delete_single', 'delete_multiple', or 'delete_all'.")
+    
+    async def _handle_delete_single_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete single email action."""
         email_number = arguments["email_number"]
         
-        email = self.email_cache.get_email_by_number(email_number)
-        if not email:
-            return self._format_response({
-                "error": f"Email number {email_number} not found in current list"
-            })
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
         
-        email_id = email["id"]
+        if total_count == 0:
+            return self._format_error("Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first.")
+        
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count}).")
+        
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+        
+        if not email_id:
+            return self._format_error("Error: No valid email ID found. Please check the cache and try again.")
+        
         result = await graph_client.delete_email(email_id)
         
-        self.email_cache.remove_email(email_id)
+        email_cache.remove_email(email_id)
         
         return self._format_response(result)
     
-    async def handle_move_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle move_email tool with single and all actions."""
-        action = arguments.get("action")
+    async def _handle_delete_multiple_emails(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete multiple emails action."""
+        email_numbers = arguments["email_numbers"]
         
-        if action == "single":
-            return await self._handle_move_single_email(arguments)
-        elif action == "all":
-            return await self._handle_move_all_emails(arguments)
-        else:
-            return self._format_error(f"Invalid action: {action}. Must be 'single' or 'all'.")
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+        
+        if total_count == 0:
+            return self._format_error("Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first.")
+        
+        email_ids = []
+        invalid_numbers = []
+        
+        for email_number in email_numbers:
+            if email_number < 1 or email_number > total_count:
+                invalid_numbers.append(email_number)
+                continue
+            
+            email = cached_emails[email_number - 1]
+            email_id = email.get("id")
+            
+            if not email_id:
+                invalid_numbers.append(email_number)
+                continue
+            
+            email_ids.append(email_id)
+        
+        if invalid_numbers:
+            return self._format_error(f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count}).")
+        
+        if not email_ids:
+            return self._format_error("Error: No valid email IDs found. Please check the cache and try again.")
+        
+        result = await graph_client.batch_delete_emails(email_ids)
+        
+        for email_id in email_ids:
+            email_cache.remove_email(email_id)
+        
+        return self._format_response(result)
+    
+    async def _handle_delete_all_emails(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete all emails from folder action."""
+        source_folder = arguments["source_folder"]
+        
+        result = await graph_client.delete_all_emails_from_folder(source_folder)
+        
+        return self._format_response(result)
     
     async def _handle_move_single_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle move single email action."""
