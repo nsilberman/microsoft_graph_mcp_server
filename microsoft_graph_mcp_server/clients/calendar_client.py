@@ -24,7 +24,7 @@ class CalendarClient(BaseGraphClient):
         params = {
             "$top": top,
             "$skip": skip,
-            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance",
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,onlineMeeting",
         }
 
         if start_date and end_date:
@@ -42,6 +42,33 @@ class CalendarClient(BaseGraphClient):
         for event in events:
             start_datetime = event.get("start", {}).get("dateTime", "")
             end_datetime = event.get("end", {}).get("dateTime", "")
+
+            online_meeting = event.get("onlineMeeting", {})
+            meeting_type = "none"
+            has_meeting = False
+            
+            if online_meeting:
+                has_meeting = True
+                if online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl"):
+                    meeting_type = "teams"
+            
+            if not has_meeting:
+                location_display = event.get("location", {}).get("displayName", "")
+                if "zoom.us" in location_display.lower():
+                    meeting_type = "zoom"
+                    has_meeting = True
+                elif "meet.google.com" in location_display.lower():
+                    meeting_type = "google_meet"
+                    has_meeting = True
+                elif "teams.microsoft.com" in location_display.lower():
+                    meeting_type = "teams"
+                    has_meeting = True
+                elif "webex.com" in location_display.lower():
+                    meeting_type = "webex"
+                    has_meeting = True
+                elif "http" in location_display:
+                    meeting_type = "other"
+                    has_meeting = True
 
             summary = {
                 "id": event.get("id"),
@@ -65,6 +92,8 @@ class CalendarClient(BaseGraphClient):
                 "isAllDay": event.get("isAllDay", False),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
+                "meetingType": meeting_type,
+                "hasMeeting": has_meeting,
             }
             summaries.append(summary)
 
@@ -121,7 +150,7 @@ class CalendarClient(BaseGraphClient):
 
         params = {
             "$top": top,
-            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity",
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting",
         }
 
         if start_date and end_date:
@@ -141,6 +170,33 @@ class CalendarClient(BaseGraphClient):
         for idx, event in enumerate(events):
             start_datetime = event.get("start", {}).get("dateTime", "")
             end_datetime = event.get("end", {}).get("dateTime", "")
+
+            online_meeting = event.get("onlineMeeting", {})
+            meeting_type = "none"
+            has_meeting = False
+            
+            if online_meeting:
+                has_meeting = True
+                if online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl"):
+                    meeting_type = "teams"
+            
+            if not has_meeting:
+                location_display = event.get("location", {}).get("displayName", "")
+                if "zoom.us" in location_display.lower():
+                    meeting_type = "zoom"
+                    has_meeting = True
+                elif "meet.google.com" in location_display.lower():
+                    meeting_type = "google_meet"
+                    has_meeting = True
+                elif "teams.microsoft.com" in location_display.lower():
+                    meeting_type = "teams"
+                    has_meeting = True
+                elif "webex.com" in location_display.lower():
+                    meeting_type = "webex"
+                    has_meeting = True
+                elif "http" in location_display:
+                    meeting_type = "other"
+                    has_meeting = True
 
             summary = {
                 "number": idx + 1,
@@ -174,6 +230,8 @@ class CalendarClient(BaseGraphClient):
                     "time": event.get("responseStatus", {}).get("time"),
                 },
                 "sensitivity": event.get("sensitivity", "normal"),
+                "meetingType": meeting_type,
+                "hasMeeting": has_meeting,
             }
             summaries.append(summary)
 

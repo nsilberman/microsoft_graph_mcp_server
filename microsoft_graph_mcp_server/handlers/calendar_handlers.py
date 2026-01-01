@@ -1,6 +1,8 @@
 """Calendar handlers for MCP tools."""
 
 import json
+import re
+import urllib.parse
 from mcp import types
 
 from .base import BaseHandler
@@ -13,6 +15,129 @@ from ..clients.calendar_client import MAX_EVENT_SEARCH_LIMIT
 
 class CalendarHandler(BaseHandler):
     """Handler for calendar-related tools."""
+
+    def _normalize_teams_url(self, url: str) -> str:
+        """Normalize Teams URL to ensure it opens in new Teams experience.
+
+        Args:
+            url: The Teams URL to normalize
+
+        Returns:
+            Normalized URL that works with new Teams
+        """
+        url = url.strip()
+        
+        if "teams.microsoft.com" in url:
+            parsed_url = urllib.parse.urlparse(url)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            
+            if "context" in query_params:
+                return url
+            
+            new_params = {}
+            for key, values in query_params.items():
+                if key in ["anon", "p", "subject", "startTime", "duration"]:
+                    new_params[key] = values[0]
+            
+            new_params["allowNewTeams"] = "true"
+            
+            new_query = urllib.parse.urlencode(new_params)
+            
+            if new_query:
+                normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}?{new_query}"
+            else:
+                normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+            
+            return normalized_url
+        
+        return url
+
+    def _extract_meeting_info(self, event: dict) -> dict:
+        """Extract meeting information from event, including Teams and other meeting links.
+
+        Args:
+            event: Full event object from Graph API
+
+        Returns:
+            Dictionary with meeting information including:
+            - type: Meeting type (teams, zoom, google_meet, other, none)
+            - joinUrl: Join URL if available
+            - onlineMeeting: Full onlineMeeting object if available
+            - locationMeetingUrl: Meeting URL extracted from location field
+            - bodyMeetingUrl: Meeting URL extracted from body content
+        """
+        meeting_info = {
+            "type": "none",
+            "joinUrl": None,
+            "onlineMeeting": None,
+            "locationMeetingUrl": None,
+            "bodyMeetingUrl": None
+        }
+
+        online_meeting = event.get("onlineMeeting", {})
+        if online_meeting:
+            meeting_info["onlineMeeting"] = online_meeting
+            join_url = online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl")
+            if join_url:
+                join_url = join_url.strip().strip('`').strip()
+                join_url = self._normalize_teams_url(join_url)
+                meeting_info["type"] = "teams"
+                meeting_info["joinUrl"] = join_url
+
+        location = event.get("location", {})
+        location_display = location.get("displayName", "")
+
+        if location_display and not meeting_info["joinUrl"]:
+            url_patterns = {
+                "zoom": r"https?://(?:[\w-]+\.)?zoom\.us/\S+",
+                "google_meet": r"https?://meet\.google\.com/[a-z0-9-]+",
+                "teams": r"https?://teams\.microsoft\.com/\S+",
+                "webex": r"https?://[\w-]*webex\.com/\S+",
+                "skype": r"https?://join\.skype\.com/\S+",
+                "generic": r"https?://\S+"
+            }
+
+            for meet_type, pattern in url_patterns.items():
+                match = re.search(pattern, location_display, re.IGNORECASE)
+                if match:
+                    url = match.group(0).strip().strip('`').strip()
+                    if meet_type == "teams":
+                        url = self._normalize_teams_url(url)
+                    meeting_info["locationMeetingUrl"] = url
+                    if meet_type == "generic":
+                        meeting_info["type"] = "other"
+                    else:
+                        meeting_info["type"] = meet_type
+                        meeting_info["joinUrl"] = url
+                    break
+
+        if not meeting_info["joinUrl"]:
+            body = event.get("body", {})
+            body_content = body.get("content", "")
+            content_type = body.get("contentType", "")
+
+            if body_content and content_type == "html":
+                body_url_patterns = {
+                    "teams": r'https?://teams\.microsoft\.com/l/meetup-join/[^\s"<>]+',
+                    "zoom": r'https?://(?:[\w-]+\.)?zoom\.us/[j|s|w][^\s"<>]*',
+                    "google_meet": r'https?://meet\.google\.com/[a-z0-9-]+',
+                    "webex": r'https?://[\w-]*webex\.com/[^\s"<>]+',
+                    "skype": r'https?://join\.skype\.com/[^\s"<>]+',
+                    "generic": r'https?://[^\s"<>]+'
+                }
+
+                for meet_type, pattern in body_url_patterns.items():
+                    match = re.search(pattern, body_content, re.IGNORECASE)
+                    if match:
+                        url = match.group(0).strip().strip('`').strip()
+                        if meet_type == "teams":
+                            url = self._normalize_teams_url(url)
+                        meeting_info["bodyMeetingUrl"] = url
+                        meeting_info["type"] = meet_type if meet_type != "generic" else "other"
+                        meeting_info["joinUrl"] = url
+                        break
+
+        return meeting_info
 
     async def handle_browse_events(self, arguments: dict) -> list[types.TextContent]:
         """Handle browse_events tool."""
@@ -53,6 +178,8 @@ class CalendarHandler(BaseHandler):
                 "recurrence": event.get("recurrence", False),
                 "responseStatus": event.get("responseStatus", {}),
                 "sensitivity": event.get("sensitivity", "normal"),
+                "meetingType": event.get("meetingType", "none"),
+                "hasMeeting": event.get("hasMeeting", False),
             }
             filtered_events.append(filtered_event)
         
@@ -81,6 +208,8 @@ class CalendarHandler(BaseHandler):
                 if event_id:
                     full_event = await graph_client.get_event(event_id)
                     
+                    meeting_info = self._extract_meeting_info(full_event)
+                    
                     readable_event = {
                         "subject": full_event.get("subject", ""),
                         "start": full_event.get("start", {}),
@@ -97,6 +226,7 @@ class CalendarHandler(BaseHandler):
                         "type": full_event.get("type", "singleInstance"),
                         "createdDateTime": full_event.get("createdDateTime", ""),
                         "lastModifiedDateTime": full_event.get("lastModifiedDateTime", ""),
+                        "meetingInfo": meeting_info,
                     }
                     
                     return self._format_response(readable_event)
