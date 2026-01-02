@@ -58,13 +58,62 @@ class GraphAuthManager:
             "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared.",
         }
 
-    async def check_login_status(self, device_code: Optional[str] = None) -> Dict[str, Any]:
-        """Check the current login status.
+    async def check_status(self) -> Dict[str, Any]:
+        """Check current authentication status (read-only).
+
+        Returns information about authentication state and token expiry without
+        triggering any actions. Useful for debugging and monitoring.
+
+        Returns:
+            Dict with status information including:
+            - authenticated: boolean indicating if authenticated
+            - token_expires_at: ISO timestamp of token expiry (if authenticated)
+            - time_remaining: dict with remaining time in seconds/minutes/hours
+            - refresh_available: boolean indicating if refresh token is available
+        """
+        logger.info("AuthManager: check_status called (read-only)")
+
+        if not self.token_manager.authenticated or not self.token_manager.access_token:
+            return {
+                "status": "not_authenticated",
+                "authenticated": False,
+                "message": "Not authenticated with Microsoft Graph. Please call the login tool first.",
+            }
+
+        expiry_info = self.token_manager.get_token_expiry_info()
+
+        if expiry_info["remaining_seconds"] <= 0:
+            return {
+                "status": "token_expired",
+                "authenticated": False,
+                "message": "Authentication token has expired. Please call the login tool again.",
+            }
+
+        return {
+            "status": "authenticated",
+            "authenticated": True,
+            "message": "Successfully authenticated with Microsoft Graph.",
+            "token_expires_at": time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.token_manager.token_expiry)
+            ),
+            "time_remaining": {
+                "seconds": expiry_info["remaining_seconds"],
+                "minutes": expiry_info["remaining_minutes"],
+                "hours": expiry_info["remaining_hours"],
+            },
+            "refresh_available": self.token_manager.refresh_token is not None,
+        }
+
+    async def complete_login(self, device_code: Optional[str] = None) -> Dict[str, Any]:
+        """Complete the login process by checking authentication status.
+
+        This method waits for the user to complete browser authentication and
+        finalizes the login process by acquiring the access token.
 
         Args:
             device_code: Optional device_code to load device flow from disk
         """
-        logger.info(f"AuthManager: check_login_status called with device_code: {device_code[:20] if device_code else 'None'}...")
+        logger.info(f"AuthManager: complete_login called with device_code: {device_code[:20] if device_code else 'None'}...")
         return await self.device_flow_manager.check_login_status(device_code)
 
     async def login(self) -> Dict[str, Any]:

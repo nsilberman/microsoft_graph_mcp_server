@@ -23,7 +23,7 @@ When the user calls the `login` tool for the first time:
    ```json
    {
      "status": "pending",
-     "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call check_status to verify your authentication status and complete the login process.",
+     "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call complete_login to verify your authentication status and complete the login process.",
      "verification_uri": "https://microsoft.com/devicelogin",
      "user_code": "ABC12345",
      "expires_in": 900,
@@ -31,7 +31,7 @@ When the user calls the `login` tool for the first time:
    }
    ```
 
-**Important**: The `device_code` is automatically saved to disk during login. You don't need to manually track it. When you call `check_status`, the server will automatically load the latest device_code from disk.
+**Important**: The `device_code` is automatically saved to disk during login. You don't need to manually track it. When you call `complete_login`, the server will automatically load the latest device_code from disk.
 
 ### Step 2: User Completes Authentication
 
@@ -40,9 +40,9 @@ When the user calls the `login` tool for the first time:
 3. User signs in with their Microsoft account credentials
 4. User grants permissions to access Microsoft Graph
 
-### Step 3: Verify Authentication
+### Step 3: Complete Authentication
 
-After completing authentication in the browser, the user calls `check_status`:
+After completing authentication in the browser, the user calls `complete_login`:
 
 1. The server automatically loads the latest device_code from disk (if not provided)
 2. The server loads the device flow from disk using the device_code
@@ -67,7 +67,7 @@ After completing authentication in the browser, the user calls `check_status`:
    }
    ```
 
-**Note**: The `check_status` call waits up to 3 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `check_status` again after completing the authentication. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
+**Note**: The `complete_login` call waits up to 3 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `complete_login` again after completing the authentication. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
 
 ## Session Persistence
 
@@ -142,17 +142,19 @@ The authentication state is persisted to disk in three files:
 ## Available Tools
 
 ### auth
-Manage authentication with Microsoft Graph using device code flow. Supports login, status check, and logout actions.
+Manage authentication with Microsoft Graph using device code flow. Supports login, complete_login, check_status, and logout actions.
 
 **Actions:**
 - `login`: Authenticate with Microsoft Graph using device code flow. Automatically saves device_code to disk for automatic retrieval.
-- `check_status`: Check current authentication status. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
+- `complete_login`: Complete the login process after browser authentication. Waits for authentication to complete and finalizes the login by acquiring the access token. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
+- `check_status`: Check current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
 - `logout`: Logout from Microsoft Graph and clear authentication state
 
 **Usage:**
 - Call with action="login": Returns verification link and user_code. Device_code is automatically saved to disk.
 - Complete authentication in browser using the verification_uri and user_code
-- Call with action="check_status": Verifies authentication and saves tokens. Device_code is automatically loaded from disk if not provided.
+- Call with action="complete_login": Verifies authentication and saves tokens. Device_code is automatically loaded from disk if not provided.
+- Call with action="check_status": Checks authentication state and token expiry without triggering actions (read-only).
 - Call with action="logout": Clear authentication state
 
 **Response when already authenticated (action="login"):**
@@ -168,11 +170,11 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 }
 ```
 
-**Response when authenticated (action="check_status"):**
+**Response when authenticated (action="complete_login"):**
 ```json
 {
-  "status": "authenticated",
-  "message": "Authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00",
+  "status": "success",
+  "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00",
   "token_expiry": 1735216200,
   "expiry_datetime": "2025-12-26 15:30:00",
   "remaining_seconds": 3599,
@@ -181,19 +183,37 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 }
 ```
 
+**Response when authenticated (action="check_status"):**
+```json
+{
+  "status": "authenticated",
+  "authenticated": true,
+  "message": "Successfully authenticated with Microsoft Graph.",
+  "token_expires_at": "2025-12-26T15:30:00Z",
+  "time_remaining": {
+    "seconds": 3599,
+    "minutes": 59,
+    "hours": 0
+  },
+  "refresh_available": true
+}
+```
+
 **Response when not authenticated (action="check_status"):**
 ```json
 {
   "status": "not_authenticated",
-  "message": "Not authenticated with Microsoft Graph. Please call the auth tool with action='login' first."
+  "authenticated": false,
+  "message": "Not authenticated with Microsoft Graph. Please call the login tool first."
 }
 ```
 
 **Response when expired (action="check_status"):**
 ```json
 {
-  "status": "expired",
-  "message": "Authentication token has expired. Please call the auth tool with action='login' to re-authenticate."
+  "status": "token_expired",
+  "authenticated": false,
+  "message": "Authentication token has expired. Please call the login tool again."
 }
 ```
 
@@ -291,7 +311,7 @@ To use a custom Azure app registration:
 User: auth with action="login"
 Server: {
   "status": "pending",
-  "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call check_status to verify your authentication status and complete the login process.",
+  "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call complete_login to verify your authentication status and complete the login process.",
   "verification_uri": "https://microsoft.com/devicelogin",
   "user_code": "ABC12345",
   "expires_in": 900,
@@ -300,19 +320,27 @@ Server: {
 
 [User opens browser, enters user_code, signs in]
 
-User: auth with action="check_status"
+User: auth with action="complete_login"
 Server: {
   "status": "success",
   "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00"
 }
 ```
 
-### Check Login Status
+### Check Authentication Status
 ```
 User: auth with action="check_status"
 Server: {
   "status": "authenticated",
-  "message": "Authenticated with Microsoft Graph. Token expires in 45 minutes at 2025-12-26 15:30:00"
+  "authenticated": true,
+  "message": "Successfully authenticated with Microsoft Graph.",
+  "token_expires_at": "2025-12-26T15:30:00Z",
+  "time_remaining": {
+    "seconds": 2700,
+    "minutes": 45,
+    "hours": 0
+  },
+  "refresh_available": true
 }
 ```
 
@@ -347,7 +375,8 @@ Server: {
 
 **Key Methods:**
 - `login()`: Initiate or verify authentication (in GraphAuthManager)
-- `check_login_status()`: Check current authentication state (in GraphAuthManager and DeviceFlowManager). Automatically loads the latest device_code from disk if not provided.
+- `complete_login()`: Complete the login process after browser authentication (in GraphAuthManager). Automatically loads the latest device_code from disk if not provided.
+- `check_status()`: Check current authentication state and token expiry without triggering actions (read-only) (in GraphAuthManager)
 - `logout()`: Clear authentication state (in GraphAuthManager)
 - `get_access_token()`: Get valid access token (auto-refreshes if needed) (in GraphAuthManager)
 - `initiate_device_code()`: Initiate device code flow and return verification info (in DeviceFlowManager)
@@ -372,7 +401,7 @@ The authentication flow is implemented with a two-step process:
    - Saves device flow to disk using device_code as the key
    - Does not wait for authentication completion
 
-2. **Second check_status call**: Calls `check_login_status()` which:
+2. **Second complete_login call**: Calls `complete_login()` which:
    - Automatically loads the latest device_code from disk (if not provided)
    - Loads the device flow from disk using the device_code
    - Waits up to 3 seconds for authentication to complete
@@ -381,7 +410,16 @@ The authentication flow is implemented with a two-step process:
    - Returns pending if authentication is still in progress
    - Deletes the device flow from disk on success or failure
 
-This approach ensures users have enough time to complete authentication in the browser while providing a responsive experience. The device_code is automatically saved during login and loaded during check_status, making it transparent to the user.
+This approach ensures users have enough time to complete authentication in the browser while providing a responsive experience. The device_code is automatically saved during login and loaded during complete_login, making it transparent to the user.
+
+3. **Optional check_status call**: Calls `check_status()` which:
+   - Checks current authentication state without triggering any actions (read-only)
+   - Returns authentication status (authenticated, not_authenticated, token_expired)
+   - Provides token expiry information including:
+     - Token expiration timestamp
+     - Remaining time in seconds, minutes, and hours
+     - Refresh token availability
+   - Useful for debugging and monitoring authentication state
 
 ### Token File Location
 - **Windows**: 

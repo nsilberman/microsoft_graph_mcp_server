@@ -60,18 +60,18 @@ class ToolRegistry:
         """Auth tool definition."""
         return types.Tool(
             name="auth",
-            description="Manage authentication with Microsoft Graph. Supports login, check status, and logout operations. When using 'check_status' action, the device_code is automatically loaded from the latest login session. You can optionally provide a specific device_code to check a different session.",
+            description="Manage authentication with Microsoft Graph. Supports four actions: 'login' initiates device code flow and returns verification URL and user code, 'complete_login' waits for browser authentication to complete and finalizes the login process (MUST be called after login), 'check_status' checks current authentication state and token expiry without triggering actions (useful for debugging), 'logout' clears authentication tokens.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["login", "check_status", "logout"],
-                        "description": "Action to perform: 'login' to authenticate, 'check_status' to check current authentication status, 'logout' to clear authentication",
+                        "enum": ["login", "complete_login", "check_status", "logout"],
+                        "description": "Action to perform: 'login' to initiate authentication and get verification URL/code, 'complete_login' to complete the login process after browser authentication (MUST call this after login), 'check_status' to check current authentication state and token expiry (read-only, no actions), 'logout' to clear authentication",
                     },
                     "device_code": {
                         "type": "string",
-                        "description": "Device code returned from the login action. Optional for 'check_status' - if not provided, will automatically use the latest device_code from the login session.",
+                        "description": "Device code returned from the login action. Optional for 'complete_login' - if not provided, will automatically use the latest device_code from the login session. Not used for other actions.",
                     }
                 },
                 "required": ["action"],

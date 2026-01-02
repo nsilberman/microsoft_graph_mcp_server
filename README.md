@@ -74,12 +74,14 @@ This server uses device code flow for interactive authentication, without the ne
 2. Open your browser and visit the provided verification URL
 3. Enter the displayed user code
 4. Sign in with your Microsoft account
-5. **IMPORTANT**: Call `check_status` to verify your authentication status and complete the login process
+5. **IMPORTANT**: Call `complete_login` to verify your authentication status and complete the login process
+6. (Optional) Call `check_status` anytime to check your authentication state and token expiry
 
 **Notes:**
-- The device_code is automatically saved during login and loaded during check_status - you don't need to manually handle it
+- The device_code is automatically saved during login and loaded during complete_login - you don't need to manually handle it
 - Previous authentication tokens are cleared when you initiate a new login
-- You must call `check_status` after completing browser authentication to verify your status
+- You must call `complete_login` after completing browser authentication to verify your status
+- Use `check_status` to monitor token expiry and authentication state without triggering actions
 
 ### Optional Configuration
 
@@ -151,15 +153,17 @@ Use an absolute path to your project directory:
 
 1. **Call the `login` tool** - This will trigger device code flow authentication and provide a verification URL and user code
 2. **Complete authentication in your browser** - Open the provided URL and enter the user code, then sign in with your Microsoft account
-3. **Call `check_status`** - **Mandatory step** to verify your authentication status and complete the login process
+3. **Call `complete_login`** - **Mandatory step** to verify your authentication status and complete the login process
 4. **Use other tools** - After successful authentication, all tools can be used normally
+5. **(Optional) Call `check_status`** - Check your authentication state and token expiry anytime without triggering actions
 
 ### Available Tools
 
 #### Authentication Tools
-- **auth** - Manage authentication with Microsoft Graph. Supports three actions:
+- **auth** - Manage authentication with Microsoft Graph. Supports four actions:
   - `login`: Initiates device code flow authentication. Returns a verification URL and user code to complete authentication in your browser. Previous tokens are cleared on new login.
-  - `check_status`: Verifies authentication status after completing browser authentication. **Mandatory step** - must be called after login to complete the authentication process. The device_code is automatically loaded from the latest login session.
+  - `complete_login`: Completes the login process after browser authentication. **Mandatory step** - must be called after login to verify authentication status and finalize the login. The device_code is automatically loaded from the latest login session.
+  - `check_status`: Checks current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
   - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management
