@@ -139,6 +139,22 @@ class CalendarHandler(BaseHandler):
 
         return meeting_info
 
+    def _extract_text_from_html(self, html_content: str) -> str:
+        """Extract plain text from HTML content with aggressive cleanup (optimized)."""
+        text = html_content
+
+        text = re.sub(
+            r"<(head|style|script).*?>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE
+        )
+        text = re.sub(r'\s*(style|class|id|data-outlook-trace)="[^"]*"', "", text, flags=re.IGNORECASE)
+        text = re.sub(r'<(img|hr)[^>]*>', "", text, flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", "", text)
+        text = re.sub(r"&(nbsp|amp|lt|gt|quot|#39);", lambda m: {"nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'"}[m.group(1)], text)
+        text = re.sub(r"\s+", " ", text)
+        text = re.sub(r"(\n\s*){3,}", "\n\n", text)
+        
+        return text.strip()
+
     async def handle_browse_events(self, arguments: dict) -> list[types.TextContent]:
         """Handle browse_events tool."""
         page_number = arguments["page_number"]
@@ -210,6 +226,13 @@ class CalendarHandler(BaseHandler):
                     
                     meeting_info = self._extract_meeting_info(full_event)
                     
+                    body = full_event.get("body", {})
+                    body_content = body.get("content", "")
+                    body_type = body.get("contentType", "Text")
+                    
+                    if body_type.lower() == "html" and body_content:
+                        body_content = self._extract_text_from_html(body_content)
+                    
                     readable_event = {
                         "subject": full_event.get("subject", ""),
                         "start": full_event.get("start", {}),
@@ -221,7 +244,10 @@ class CalendarHandler(BaseHandler):
                         "showAs": full_event.get("showAs", ""),
                         "importance": full_event.get("importance", "normal"),
                         "sensitivity": full_event.get("sensitivity", "normal"),
-                        "body": full_event.get("body", {}),
+                        "body": {
+                            "contentType": body_type,
+                            "content": body_content
+                        },
                         "responseStatus": full_event.get("responseStatus", {}),
                         "type": full_event.get("type", "singleInstance"),
                         "createdDateTime": full_event.get("createdDateTime", ""),
