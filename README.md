@@ -69,10 +69,17 @@ This will check that all dependencies are installed and the server can be instan
 
 This server uses device code flow for interactive authentication, without the need for Azure app registration or client secrets.
 
-On first run, you will see a device code that requires:
-1. Open your browser and visit `https://microsoft.com/devicelogin`
-2. Enter the displayed device code
-3. Sign in with your Microsoft account
+**Authentication Process:**
+1. Call the `login` tool to initiate authentication
+2. Open your browser and visit the provided verification URL
+3. Enter the displayed user code
+4. Sign in with your Microsoft account
+5. **IMPORTANT**: Call `check_status` to verify your authentication status and complete the login process
+
+**Notes:**
+- The device_code is automatically saved during login and loaded during check_status - you don't need to manually handle it
+- Previous authentication tokens are cleared when you initiate a new login
+- You must call `check_status` after completing browser authentication to verify your status
 
 ### Optional Configuration
 
@@ -142,14 +149,18 @@ Use an absolute path to your project directory:
 
 ### Usage Steps
 
-1. **First, run the `login` tool** - This will trigger device code flow authentication
-2. **Complete authentication as prompted** - Open your browser and enter the device code
-3. **Use other tools** - After successful authentication, all tools can be used normally
+1. **Call the `login` tool** - This will trigger device code flow authentication and provide a verification URL and user code
+2. **Complete authentication in your browser** - Open the provided URL and enter the user code, then sign in with your Microsoft account
+3. **Call `check_status`** - **Mandatory step** to verify your authentication status and complete the login process
+4. **Use other tools** - After successful authentication, all tools can be used normally
 
 ### Available Tools
 
 #### Authentication Tools
-- **auth** - Manage authentication with Microsoft Graph. Supports login, check status, and logout operations.
+- **auth** - Manage authentication with Microsoft Graph. Supports three actions:
+  - `login`: Initiates device code flow authentication. Returns a verification URL and user code to complete authentication in your browser. Previous tokens are cleared on new login.
+  - `check_status`: Verifies authentication status after completing browser authentication. **Mandatory step** - must be called after login to complete the authentication process. The device_code is automatically loaded from the latest login session.
+  - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management
 - **get_user_info** - Get current user information from Microsoft Graph
