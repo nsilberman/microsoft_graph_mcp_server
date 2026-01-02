@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 from mcp.server import Server
@@ -22,11 +23,19 @@ from .tools import ToolRegistry
 from .config import settings
 from .utils import read_bcc_from_csv
 
+logger = logging.getLogger(__name__)
+
 
 class MicrosoftGraphMCPServer:
     """MCP Server for Microsoft Graph API integration."""
 
     def __init__(self):
+        logger.info("=" * 70)
+        logger.info("MicrosoftGraphMCPServer.__init__() called")
+        logger.info(f"Server name: {settings.server_name}")
+        logger.info(f"Server version: {settings.server_version}")
+        logger.info("=" * 70)
+        
         self.server = Server("microsoft-graph-mcp-server")
         self.auth_handler = AuthHandler()
         self.user_handler = UserHandler()
@@ -35,6 +44,8 @@ class MicrosoftGraphMCPServer:
         self.file_handler = FileHandler()
         self.teams_handler = TeamsHandler()
         self._register_handlers()
+        
+        logger.info("Handlers registered successfully")
 
     def _register_handlers(self):
         """Register MCP tool handlers."""
@@ -53,8 +64,11 @@ class MicrosoftGraphMCPServer:
             if arguments is None:
                 arguments = {}
 
+            logger.info(f"Server: Tool called - {name} with args: {arguments}")
+
             try:
                 if name == "auth":
+                    logger.info(f"Server: Routing to auth_handler with action: {arguments.get('action')}")
                     return await self.auth_handler.handle_auth(arguments)
 
                 elif name == "search_contacts":
@@ -113,16 +127,25 @@ class MicrosoftGraphMCPServer:
 
     async def run(self):
         """Run the MCP server."""
-        async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            await self.server.run(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name=settings.server_name,
-                    server_version=settings.server_version,
-                    capabilities=self.server.get_capabilities(
-                        notification_options=NotificationOptions(),
-                        experimental_capabilities={},
+        logger.info("=" * 70)
+        logger.info("MicrosoftGraphMCPServer.run() called - Starting MCP server")
+        logger.info("=" * 70)
+        
+        try:
+            async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+                logger.info("stdio_server acquired, starting server.run()...")
+                await self.server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name=settings.server_name,
+                        server_version=settings.server_version,
+                        capabilities=self.server.get_capabilities(
+                            notification_options=NotificationOptions(),
+                            experimental_capabilities={},
+                        ),
                     ),
-                ),
-            )
+                )
+        except Exception as e:
+            logger.error(f"Error in server.run(): {e}", exc_info=True)
+            raise

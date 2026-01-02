@@ -13,21 +13,25 @@ When the user calls the `login` tool for the first time:
 1. The server initiates a device code flow with Microsoft Graph
 2. Microsoft returns:
    - `verification_uri`: The URL to open in a browser
-   - `user_code`: A code to enter on the verification page
+   - `user_code`: A code to enter on the verification page (human-readable)
+   - `device_code`: A server-side code used for session tracking (automatically saved to disk)
    - `expires_in`: How long the code is valid (900 seconds / 15 minutes)
    - `interval`: How often to check authentication status (5 seconds)
 
-3. The user receives this response:
+3. The server saves the device_code to disk for automatic retrieval during check_status
+4. The user receives this response:
    ```json
    {
      "status": "pending",
-     "message": "Please complete authentication using the link and code below. After completing authentication, call login again to verify.",
+     "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call check_status to verify your authentication status and complete the login process.",
      "verification_uri": "https://microsoft.com/devicelogin",
      "user_code": "ABC12345",
      "expires_in": 900,
      "interval": 5
    }
    ```
+
+**Important**: The `device_code` is automatically saved to disk during login. You don't need to manually track it. When you call `check_status`, the server will automatically load the latest device_code from disk.
 
 ### Step 2: User Completes Authentication
 
@@ -38,16 +42,19 @@ When the user calls the `login` tool for the first time:
 
 ### Step 3: Verify Authentication
 
-After completing authentication in the browser, the user calls `login` again:
+After completing authentication in the browser, the user calls `check_status`:
 
-1. The server waits up to 30 seconds for authentication to complete
-2. If successful, Microsoft returns:
+1. The server automatically loads the latest device_code from disk (if not provided)
+2. The server loads the device flow from disk using the device_code
+3. The server waits up to 3 seconds for authentication to complete
+4. If successful, Microsoft returns:
    - `access_token`: Token to call Microsoft Graph API
    - `refresh_token`: Token to get new access tokens when expired
    - `expires_in`: How long the access token is valid (typically 3600 seconds / 1 hour)
 
-3. The server saves tokens to disk: `~/.microsoft_graph_mcp_tokens.json`
-4. The user receives this response:
+5. The server saves tokens to disk: `~/.microsoft_graph_mcp_tokens.json`
+6. The server deletes the device flow from disk: `~/.microsoft_graph_mcp_device_flows.json`
+7. The user receives this response:
    ```json
    {
      "status": "success",
@@ -60,21 +67,37 @@ After completing authentication in the browser, the user calls `login` again:
    }
    ```
 
-**Note**: The second `login` call waits up to 30 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `login` again after completing the authentication.
+**Note**: The `check_status` call waits up to 3 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `check_status` again after completing the authentication. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
 
 ## Session Persistence
 
 ### How It Works
 
-The authentication state is persisted to disk in the file:
-- **Location**: `~/.microsoft_graph_mcp_tokens.json` (in user's home directory)
-- **Format**: JSON file containing:
+The authentication state is persisted to disk in three files:
+- **Token file**: `~/.microsoft_graph_mcp_tokens.json` (in user's home directory)
+- **Device flow file**: `~/.microsoft_graph_mcp_device_flows.json` (in user's home directory)
+- **Latest device code file**: `~/.microsoft_graph_mcp_latest_device_code.json` (in user's home directory)
+
+**Token file format**:
   ```json
   {
     "access_token": "eyJ0eXAiOiJKV1QiLCJub25jZSI6...",
     "refresh_token": "0.ARoA6Wg...",
     "token_expiry": 1735216200.123,
     "authenticated": true
+  }
+  ```
+
+**Device flow file format**:
+  ```json
+  {
+    "0.ARoA6Wg...": {
+      "user_code": "ABC12345",
+      "device_code": "0.ARoA6Wg...",
+      "verification_uri": "https://microsoft.com/devicelogin",
+      "expires_in": 900,
+      "interval": 5
+    }
   }
   ```
 
@@ -122,15 +145,14 @@ The authentication state is persisted to disk in the file:
 Manage authentication with Microsoft Graph using device code flow. Supports login, status check, and logout actions.
 
 **Actions:**
-- `login`: Authenticate with Microsoft Graph using device code flow
-- `check_status`: Check current authentication status without initiating authentication
+- `login`: Authenticate with Microsoft Graph using device code flow. Automatically saves device_code to disk for automatic retrieval.
+- `check_status`: Check current authentication status. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
 - `logout`: Logout from Microsoft Graph and clear authentication state
 
 **Usage:**
-- First call with action="login": Returns verification link and code
-- Complete authentication in browser
-- Second call with action="login": Verifies authentication and saves tokens
-- Call with action="check_status": Check if authenticated
+- Call with action="login": Returns verification link and user_code. Device_code is automatically saved to disk.
+- Complete authentication in browser using the verification_uri and user_code
+- Call with action="check_status": Verifies authentication and saves tokens. Device_code is automatically loaded from disk if not provided.
 - Call with action="logout": Clear authentication state
 
 **Response when already authenticated (action="login"):**
@@ -269,13 +291,16 @@ To use a custom Azure app registration:
 User: auth with action="login"
 Server: {
   "status": "pending",
+  "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call check_status to verify your authentication status and complete the login process.",
   "verification_uri": "https://microsoft.com/devicelogin",
-  "user_code": "ABC12345"
+  "user_code": "ABC12345",
+  "expires_in": 900,
+  "interval": 5
 }
 
-[User opens browser, enters code, signs in]
+[User opens browser, enters user_code, signs in]
 
-User: auth with action="login"
+User: auth with action="check_status"
 Server: {
   "status": "success",
   "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00"
@@ -322,17 +347,19 @@ Server: {
 
 **Key Methods:**
 - `login()`: Initiate or verify authentication (in GraphAuthManager)
-- `check_login_status()`: Check current authentication state (in GraphAuthManager and DeviceFlowManager)
+- `check_login_status()`: Check current authentication state (in GraphAuthManager and DeviceFlowManager). Automatically loads the latest device_code from disk if not provided.
 - `logout()`: Clear authentication state (in GraphAuthManager)
 - `get_access_token()`: Get valid access token (auto-refreshes if needed) (in GraphAuthManager)
 - `initiate_device_code()`: Initiate device code flow and return verification info (in DeviceFlowManager)
-- `initiate_device_flow_only()`: Initiate device code flow without waiting (in DeviceFlowManager)
+- `initiate_device_flow_only()`: Initiate device code flow without waiting (in DeviceFlowManager). Saves device_code to disk for automatic retrieval.
 - `initiate_and_wait_for_completion()`: Initiate and wait for authentication with timeout (in DeviceFlowManager)
 - `check_authentication_status()`: Check if authentication is complete with timeout (in DeviceFlowManager)
 - `_save_tokens_to_disk()`: Save tokens to disk (in TokenManager)
 - `_load_tokens_from_disk()`: Load tokens from disk (in TokenManager)
 - `_delete_tokens_from_disk()`: Delete tokens from disk (in TokenManager)
 - `_refresh_token()`: Refresh access token using refresh token (in GraphAuthManager)
+- `save_latest_device_code()`: Save the latest device_code to disk (in TokenManager)
+- `get_latest_device_code()`: Get the latest device_code from disk (in TokenManager)
 
 ### Authentication Flow Implementation
 
@@ -340,20 +367,29 @@ The authentication flow is implemented with a two-step process:
 
 1. **First login call**: Calls `initiate_device_flow_only()` which:
    - Initiates device code flow with Microsoft Graph
-   - Returns verification URI and user code immediately
+   - Returns verification URI and user_code immediately
+   - Saves device_code to disk for automatic retrieval
+   - Saves device flow to disk using device_code as the key
    - Does not wait for authentication completion
 
-2. **Second login call**: Calls `check_authentication_status()` which:
-   - Waits up to 30 seconds (AUTH_VERIFICATION_TIMEOUT) for authentication to complete
+2. **Second check_status call**: Calls `check_login_status()` which:
+   - Automatically loads the latest device_code from disk (if not provided)
+   - Loads the device flow from disk using the device_code
+   - Waits up to 3 seconds for authentication to complete
    - Polls Microsoft Graph for authentication status
    - Returns success if authentication is complete
    - Returns pending if authentication is still in progress
+   - Deletes the device flow from disk on success or failure
 
-This approach ensures users have enough time to complete authentication in the browser while providing a responsive experience.
+This approach ensures users have enough time to complete authentication in the browser while providing a responsive experience. The device_code is automatically saved during login and loaded during check_status, making it transparent to the user.
 
 ### Token File Location
-- **Windows**: `C:\Users\<username>\.microsoft_graph_mcp_tokens.json`
-- **macOS/Linux**: `/home/<username>/.microsoft_graph_mcp_tokens.json`
+- **Windows**: 
+  - `C:\Users\<username>\.microsoft_graph_mcp_tokens.json`
+  - `C:\Users\<username>\.microsoft_graph_mcp_device_flows.json`
+- **macOS/Linux**: 
+  - `/home/<username>/.microsoft_graph_mcp_tokens.json`
+  - `/home/<username>/.microsoft_graph_mcp_device_flows.json`
 
 ## Notes
 

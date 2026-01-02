@@ -60,7 +60,7 @@ class ToolRegistry:
         """Auth tool definition."""
         return types.Tool(
             name="auth",
-            description="Manage authentication with Microsoft Graph. Supports login, check status, and logout operations.",
+            description="Manage authentication with Microsoft Graph. Supports login, check status, and logout operations. When using 'check_status' action, the device_code is automatically loaded from the latest login session. You can optionally provide a specific device_code to check a different session.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -68,6 +68,10 @@ class ToolRegistry:
                         "type": "string",
                         "enum": ["login", "check_status", "logout"],
                         "description": "Action to perform: 'login' to authenticate, 'check_status' to check current authentication status, 'logout' to clear authentication",
+                    },
+                    "device_code": {
+                        "type": "string",
+                        "description": "Device code returned from the login action. Optional for 'check_status' - if not provided, will automatically use the latest device_code from the login session.",
                     }
                 },
                 "required": ["action"],

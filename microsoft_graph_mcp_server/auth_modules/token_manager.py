@@ -4,12 +4,14 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ..config import settings
 
 
 TOKEN_FILE = Path.home() / ".microsoft_graph_mcp_tokens.json"
+DEVICE_FLOW_FILE = Path.home() / ".microsoft_graph_mcp_device_flows.json"
+LATEST_DEVICE_CODE_FILE = Path.home() / ".microsoft_graph_mcp_latest_device_code.json"
 
 
 class TokenManager:
@@ -40,6 +42,10 @@ class TokenManager:
     def load_tokens_from_disk(self) -> None:
         """Load authentication tokens from disk."""
         if not TOKEN_FILE.exists():
+            self.access_token = None
+            self.token_expiry = 0
+            self.refresh_token = None
+            self.authenticated = False
             return
 
         try:
@@ -108,3 +114,106 @@ class TokenManager:
             "remaining_minutes": remaining_minutes,
             "remaining_hours": remaining_hours,
         }
+
+    def save_device_flow(self, device_code: str, device_flow: Dict[str, Any]) -> None:
+        """Save device flow to disk using device_code as key."""
+        try:
+            flows = {}
+            if DEVICE_FLOW_FILE.exists():
+                with open(DEVICE_FLOW_FILE, "r") as f:
+                    flows = json.load(f)
+            
+            flows[device_code] = device_flow
+            with open(DEVICE_FLOW_FILE, "w") as f:
+                json.dump(flows, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to save device flow to disk: {e}")
+
+    def load_device_flow(self, device_code: str) -> Optional[Dict[str, Any]]:
+        """Load device flow from disk using device_code as key."""
+        if not DEVICE_FLOW_FILE.exists():
+            return None
+
+        try:
+            with open(DEVICE_FLOW_FILE, "r") as f:
+                flows = json.load(f)
+            
+            return flows.get(device_code)
+        except Exception as e:
+            print(f"Warning: Failed to load device flow from disk: {e}")
+            return None
+
+    def delete_device_flow(self, device_code: str) -> None:
+        """Delete device flow from disk using device_code as key."""
+        try:
+            if DEVICE_FLOW_FILE.exists():
+                with open(DEVICE_FLOW_FILE, "r") as f:
+                    flows = json.load(f)
+                
+                if device_code in flows:
+                    del flows[device_code]
+                    with open(DEVICE_FLOW_FILE, "w") as f:
+                        json.dump(flows, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to delete device flow from disk: {e}")
+
+    def cleanup_expired_device_flows(self) -> None:
+        """Clean up expired device flows from disk."""
+        if not DEVICE_FLOW_FILE.exists():
+            return
+
+        try:
+            with open(DEVICE_FLOW_FILE, "r") as f:
+                flows = json.load(f)
+            
+            current_time = time.time()
+            flows_to_delete = []
+            
+            for device_code, flow in flows.items():
+                expires_at = flow.get("expires_at")
+                if expires_at and current_time >= expires_at:
+                    flows_to_delete.append(device_code)
+            
+            if flows_to_delete:
+                for device_code in flows_to_delete:
+                    del flows[device_code]
+                
+                with open(DEVICE_FLOW_FILE, "w") as f:
+                    json.dump(flows, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to cleanup expired device flows from disk: {e}")
+
+    def save_latest_device_code(self, device_code: str) -> None:
+        """Save the latest device_code to disk."""
+        try:
+            data = {"device_code": device_code, "timestamp": time.time()}
+            with open(LATEST_DEVICE_CODE_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Failed to save latest device_code to disk: {e}")
+
+    def get_latest_device_code(self) -> Optional[str]:
+        """Get the latest device_code from disk."""
+        if not LATEST_DEVICE_CODE_FILE.exists():
+            return None
+
+        try:
+            with open(LATEST_DEVICE_CODE_FILE, "r") as f:
+                data = json.load(f)
+            
+            device_code = data.get("device_code")
+            
+            if device_code:
+                return device_code
+            return None
+        except Exception as e:
+            print(f"Warning: Failed to load latest device_code from disk: {e}")
+            return None
+
+    def clear_latest_device_code(self) -> None:
+        """Clear the latest device_code from disk."""
+        try:
+            if LATEST_DEVICE_CODE_FILE.exists():
+                os.remove(LATEST_DEVICE_CODE_FILE)
+        except Exception as e:
+            print(f"Warning: Failed to clear latest device_code from disk: {e}")

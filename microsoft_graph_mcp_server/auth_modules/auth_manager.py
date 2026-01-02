@@ -1,6 +1,7 @@
 """Authentication manager for Microsoft Graph API."""
 
 import asyncio
+import logging
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
@@ -11,6 +12,8 @@ from msal import PublicClientApplication
 from .token_manager import TokenManager
 from .device_flow import DeviceFlowManager
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class GraphAuthManager:
@@ -55,51 +58,27 @@ class GraphAuthManager:
             "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared.",
         }
 
-    async def check_login_status(self) -> Dict[str, Any]:
-        """Check the current login status."""
-        return await self.device_flow_manager.check_login_status()
+    async def check_login_status(self, device_code: Optional[str] = None) -> Dict[str, Any]:
+        """Check the current login status.
+
+        Args:
+            device_code: Optional device_code to load device flow from disk
+        """
+        logger.info(f"AuthManager: check_login_status called with device_code: {device_code[:20] if device_code else 'None'}...")
+        return await self.device_flow_manager.check_login_status(device_code)
 
     async def login(self) -> Dict[str, Any]:
-        """Explicit login method for authentication with automatic waiting for completion."""
-        if (
-            self.token_manager.authenticated
-            and self.token_manager.access_token
-            and self.token_manager.is_token_valid()
-        ):
-            expiry_info = self.token_manager.get_token_expiry_info()
-            expiry_datetime = __import__("datetime").datetime.fromtimestamp(
-                self.token_manager.token_expiry
-            )
-            expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        """Explicit login method for authentication - creates device flow and returns URL/code."""
+        logger.info("AuthManager: login called")
+        # Clear all previous authentication state (user wants fresh login)
+        self.token_manager.clear_tokens()
+        self.device_flow_manager.clear_device_flow()
 
-            remaining_hours = expiry_info["remaining_hours"]
-            remaining_minutes = expiry_info["remaining_minutes"]
-
-            if remaining_hours > 0:
-                time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-            else:
-                time_remaining = (
-                    f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                )
-
-            return {
-                "status": "already_authenticated",
-                "message": f"You are already authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                "token_expiry": self.token_manager.token_expiry,
-                "expiry_datetime": expiry_str,
-                **expiry_info,
-            }
-
-        if self.device_flow_manager.device_flow is not None:
-            result = await self.device_flow_manager.check_authentication_status()
-            if result.get("status") == "success":
-                return result
-            elif result.get("status") == "pending":
-                return await self.device_flow_manager.initiate_and_wait_for_completion()
-            else:
-                return result
-
-        return await self.device_flow_manager.initiate_device_flow_only()
+        # Create new device flow
+        logger.info("AuthManager: Initiating device flow")
+        result = await self.device_flow_manager.initiate_device_flow_only()
+        logger.info(f"AuthManager: Device flow initiated with status: {result.get('status')}")
+        return result
 
     async def _acquire_token(self) -> None:
         """Acquire a new access token using device code flow."""

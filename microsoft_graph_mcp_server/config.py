@@ -4,9 +4,9 @@ import os
 from typing import Optional
 
 try:
-    from pydantic_settings import BaseSettings
+    from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
-    from pydantic import BaseSettings
+    from pydantic import BaseSettings, ConfigDict as SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -54,9 +54,10 @@ class Settings(BaseSettings):
         os.getenv("MAX_BCC_BATCH_SIZE", "500")
     )  # Maximum BCC recipients per batch when forwarding emails
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 # Global settings instance
