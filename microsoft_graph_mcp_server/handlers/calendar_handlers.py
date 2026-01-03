@@ -566,7 +566,16 @@ class CalendarHandler(BaseHandler):
         else:
             timezone_str = await graph_client.get_user_timezone()
 
+        user_email = None
+        try:
+            user_info = await graph_client.get_me()
+            user_email = user_info.get("mail") or user_info.get("userPrincipalName")
+        except Exception as e:
+            pass
+
         schedules = mandatory_attendees + optional_attendees
+        if user_email and user_email not in schedules:
+            schedules = [user_email] + schedules
         
         from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
@@ -631,7 +640,7 @@ class CalendarHandler(BaseHandler):
             except Exception as e:
                 pass
 
-            attendee_type = "Optional" if schedule_id in optional_attendees else "Mandatory"
+            attendee_type = "Organizer" if schedule_id == user_email else ("Optional" if schedule_id in optional_attendees else "Mandatory")
             formatted_results.append(f"Attendee: {schedule_id} ({attendee_type})")
             formatted_results.append("")
 
@@ -651,6 +660,8 @@ class CalendarHandler(BaseHandler):
                         try:
                             attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
                             user_tz = ZoneInfo(timezone_str)
+                            
+                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
                             
                             today = date_obj
                             
@@ -672,7 +683,10 @@ class CalendarHandler(BaseHandler):
                                         working_start_user = working_start_dt.astimezone(user_tz)
                                         working_end_user = working_end_dt.astimezone(user_tz)
                                         
-                                        formatted_results.append(f"Working Hours: {working_start_dt.strftime('%H:%M')}-{working_end_dt.strftime('%H:%M')} ({attendee_timezone}) / {working_start_user.strftime('%H:%M')}-{working_end_user.strftime('%H:%M')} ({timezone_str})")
+                                        if same_timezone:
+                                            formatted_results.append(f"Working Hours: {working_start_dt.strftime('%H:%M')}-{working_end_dt.strftime('%H:%M')} ({timezone_str})")
+                                        else:
+                                            formatted_results.append(f"Working Hours: {working_start_dt.strftime('%H:%M')}-{working_end_dt.strftime('%H:%M')} ({attendee_timezone}) / {working_start_user.strftime('%H:%M')}-{working_end_user.strftime('%H:%M')} ({timezone_str})")
                                         formatted_results.append("")
                                         
                                         utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
@@ -715,7 +729,10 @@ class CalendarHandler(BaseHandler):
                                             }
                                             status_text = status_map.get(status_code, 'Unknown')
 
-                                            formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
+                                            if same_timezone:
+                                                formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({timezone_str}): {status_code} ({status_text})")
+                                            else:
+                                                formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
                                     except Exception as e:
                                         formatted_results.append(f"  Error parsing working hours: {e}")
                                         formatted_results.append(f"  Raw working hours: {working_start} - {working_end}")
@@ -752,7 +769,10 @@ class CalendarHandler(BaseHandler):
                                         }
                                         status_text = status_map.get(status_code, 'Unknown')
 
-                                        formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
+                                        if same_timezone:
+                                            formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({timezone_str}): {status_code} ({status_text})")
+                                        else:
+                                            formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
                         except Exception as e:
                             formatted_results.append(f"  Error converting timezone: {e}")
                             formatted_results.append("")
@@ -865,7 +885,7 @@ class CalendarHandler(BaseHandler):
                                             slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
                                             slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
                                             slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                            free_slots.append(f"{slot_start_attendee_free.strftime('%H:%M')}-{slot_end_attendee_free.strftime('%H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%H:%M')}-{slot_end_user_free.strftime('%H:%M')} ({timezone_str})")
+                                            free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
                                             in_free_slot = False
 
                                 if in_free_slot:
@@ -877,7 +897,7 @@ class CalendarHandler(BaseHandler):
                                         slot_end_attendee_free = working_end_dt
                                     slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
                                     slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                    free_slots.append(f"{slot_start_attendee_free.strftime('%H:%M')}-{slot_end_attendee_free.strftime('%H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%H:%M')}-{slot_end_user_free.strftime('%H:%M')} ({timezone_str})")
+                                    free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
                         except Exception as e:
                             pass
                     else:
@@ -896,13 +916,13 @@ class CalendarHandler(BaseHandler):
                                 if in_free_slot:
                                     slot_start_dt = day_start_dt + timedelta(minutes=free_slot_start * interval_minutes)
                                     slot_end_dt = day_start_dt + timedelta(minutes=i * interval_minutes)
-                                    free_slots.append(f"{slot_start_dt.strftime('%H:%M')}-{slot_end_dt.strftime('%H:%M')} ({timezone_str})")
+                                    free_slots.append(f"{slot_start_dt.strftime('%m/%d %H:%M')}-{slot_end_dt.strftime('%m/%d %H:%M')} ({timezone_str})")
                                     in_free_slot = False
 
                         if in_free_slot:
                             slot_start_dt = day_start_dt + timedelta(minutes=free_slot_start * interval_minutes)
                             slot_end_dt = day_start_dt + timedelta(minutes=len(availability_view) * interval_minutes)
-                            free_slots.append(f"{slot_start_dt.strftime('%H:%M')}-{slot_end_dt.strftime('%H:%M')} ({timezone_str})")
+                            free_slots.append(f"{slot_start_dt.strftime('%m/%d %H:%M')}-{slot_end_dt.strftime('%m/%d %H:%M')} ({timezone_str})")
 
                     if free_slots:
                         formatted_results.append("  " + ", ".join(free_slots))
@@ -937,17 +957,17 @@ class CalendarHandler(BaseHandler):
                             item_start_user = item_start_dt.astimezone(user_tz)
                             item_end_user = item_end_dt.astimezone(user_tz)
                             
-                            item_start_attendee_str = item_start_attendee.strftime("%H:%M")
-                            item_end_attendee_str = item_end_attendee.strftime("%H:%M")
-                            item_start_user_str = item_start_user.strftime("%H:%M")
-                            item_end_user_str = item_end_user.strftime("%H:%M")
+                            item_start_attendee_str = item_start_attendee.strftime("%m/%d %H:%M")
+                            item_end_attendee_str = item_end_attendee.strftime("%m/%d %H:%M")
+                            item_start_user_str = item_start_user.strftime("%m/%d %H:%M")
+                            item_end_user_str = item_end_user.strftime("%m/%d %H:%M")
                             
                             formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({attendee_timezone}) / {item_start_user_str}-{item_end_user_str} ({timezone_str})")
                         else:
                             item_start_dt = item_start_dt.astimezone(ZoneInfo(timezone_str))
                             item_end_dt = item_end_dt.astimezone(ZoneInfo(timezone_str))
-                            item_start_str = item_start_dt.strftime("%H:%M")
-                            item_end_str = item_end_dt.strftime("%H:%M")
+                            item_start_str = item_start_dt.strftime("%m/%d %H:%M")
+                            item_end_str = item_end_dt.strftime("%m/%d %H:%M")
                             formatted_results.append(f"  - {status}: {item_start_str}-{item_end_str} ({timezone_str})")
                     except Exception as e:
                         formatted_results.append(f"  - {status}: {item_start} to {item_end}")
