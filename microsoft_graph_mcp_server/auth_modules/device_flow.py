@@ -12,7 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Timeout for waiting for authentication completion (in seconds)
 # This gives users enough time to complete authentication in the browser
-AUTH_VERIFICATION_TIMEOUT = 30.0
+AUTH_VERIFICATION_TIMEOUT = 60.0
+
+# Timeout for waiting for Microsoft to issue the access token after user completes authentication (in seconds)
+# This accounts for Microsoft's processing time, network latency, and system performance variations
+TOKEN_ACQUISITION_TIMEOUT = 15.0
 
 
 class DeviceFlowManager:
@@ -69,14 +73,14 @@ class DeviceFlowManager:
                 print(f"\nAnd enter the code:")
                 print(f"\n{flow['user_code']}")
                 print("\n" + "=" * 70)
-                print("NOTE: Previous tokens have been cleared. You can not use it any more.")
-                print("IMPORTANT: After completing authentication, you MUST call check_status")
-                print("to verify your authentication status and complete the login process.")
+                print("NOTE: Previous tokens have been cleared.")
+                print("IMPORTANT: After completing authentication, you MUST call complete_login")
+                print("to complete the authentication process.")
                 print("=" * 70 + "\n")
 
                 return {
                     "status": "pending",
-                    "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call check_status to verify your authentication status and complete the login process.",
+                    "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. IMPORTANT: After completing authentication, you MUST call complete_login to complete the authentication process.",
                     "verification_uri": flow.get("verification_uri", ""),
                     "user_code": user_code,
                     "expires_in": flow.get("expires_in", 900),
@@ -382,7 +386,7 @@ class DeviceFlowManager:
                             self.client_app.acquire_token_by_device_flow,
                             self.device_flow,
                         ),
-                        timeout=3.0,
+                        timeout=TOKEN_ACQUISITION_TIMEOUT,
                     )
                     return result
                 except asyncio.TimeoutError:

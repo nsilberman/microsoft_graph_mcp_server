@@ -134,6 +134,10 @@ class GraphClient:
         """Get specific user by ID."""
         return await self.user_client.get_user(user_id)
 
+    async def get_user_timezone_by_email(self, email: str) -> Optional[str]:
+        """Get user's timezone by email address."""
+        return await self.user_client.get_user_timezone_by_email(email)
+
     async def search_contacts(self, query: str, top: int = 10) -> List[Dict[str, Any]]:
         """Search contacts and people relevant to the user."""
         return await self.user_client.search_contacts(query, top)
@@ -383,6 +387,49 @@ class GraphClient:
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a calendar event."""
         return await self.calendar_client.create_event(event_data)
+
+    async def update_event(self, event_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a calendar event."""
+        return await self.calendar_client.update_event(event_id, event_data)
+
+    async def cancel_event(self, event_id: str, comment: Optional[str] = None) -> None:
+        """Cancel a calendar event."""
+        return await self.calendar_client.cancel_event(event_id, comment)
+
+    async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
+        """Forward a calendar event."""
+        return await self.calendar_client.forward_event(event_id, attendees, comment)
+
+    async def reply_to_event(self, event_id: str, comment: str, reply_all: bool = False) -> None:
+        """Reply to a calendar event."""
+        return await self.calendar_client.reply_to_event(event_id, comment, reply_all)
+
+    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Accept a calendar event invitation."""
+        return await self.calendar_client.accept_event(event_id, comment, send_response)
+
+    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Decline a calendar event invitation."""
+        return await self.calendar_client.decline_event(event_id, comment, send_response)
+
+    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Tentatively accept a calendar event invitation."""
+        return await self.calendar_client.tentatively_accept_event(event_id, comment, send_response)
+
+    async def propose_new_time(self, event_id: str, proposed_new_time: Dict[str, str], comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Decline an event and propose a new time to the organizer."""
+        return await self.calendar_client.propose_new_time(event_id, proposed_new_time, comment, send_response)
+
+    async def check_availability(
+        self,
+        schedules: List[str],
+        start_time: Optional[Dict[str, str]],
+        end_time: Optional[Dict[str, str]],
+        availability_view_interval: Optional[int] = None,
+        date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Check availability of attendees for a given time range."""
+        return await self.calendar_client.check_availability(schedules, start_time, end_time, availability_view_interval, date)
 
     # File management methods - delegated to FileClient
     async def get_drive_items(self, folder_path: str = "") -> List[Dict[str, Any]]:

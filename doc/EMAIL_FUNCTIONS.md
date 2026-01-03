@@ -322,7 +322,7 @@ Composes and sends a new email.
 
 **Example Usage:**
 ```python
-result = await compose_reply_forward_email(
+result = await send_email(
     action="compose",
     to=["recipient@example.com"],
     subject="Meeting Tomorrow",
@@ -352,7 +352,7 @@ Replies to an existing email. The reply will be linked to the original email thr
 
 **Example Usage:**
 ```python
-result = await compose_reply_forward_email(
+result = await send_email(
     action="reply",
     emailNumber=1,
     to=["original_sender@example.com"],
@@ -391,7 +391,7 @@ Forwards an email to recipients. The original email will be included in the forw
 **Example Usage:**
 ```python
 # Basic forward
-result = await compose_reply_forward_email(
+result = await send_email(
     action="forward",
     emailNumber=1,
     to=["new_recipient@example.com"],
@@ -399,7 +399,7 @@ result = await compose_reply_forward_email(
 )
 
 # Forward with custom subject and CC
-result = await compose_reply_forward_email(
+result = await send_email(
     action="forward",
     emailNumber=1,
     to=["new_recipient@example.com"],
@@ -409,7 +409,7 @@ result = await compose_reply_forward_email(
 )
 
 # Forward with BCC recipients from CSV file
-result = await compose_reply_forward_email(
+result = await send_email(
     action="forward",
     emailNumber=1,
     to=["main_recipient@example.com"],
@@ -418,7 +418,7 @@ result = await compose_reply_forward_email(
 )
 
 # Forward with BCC recipients from array
-result = await compose_reply_forward_email(
+result = await send_email(
     action="forward",
     emailNumber=1,
     to=["main_recipient@example.com"],
@@ -811,7 +811,7 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
-4. **Use HTML format for email bodies**: When using `compose_reply_forward_email`, ensure the htmlbody parameter is in HTML format for all actions (compose, reply, forward).
+4. **Use HTML format for email bodies**: When using `send_email`, ensure the htmlbody parameter is in HTML format for all actions (compose, reply, forward).
 
 5. **Respect parameter limits**: 
    - `days` parameter for recent emails: maximum 7
@@ -833,11 +833,11 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 - Solution: Use `search_emails` first (with or without search_type and query)
 
 **"Invalid action: X. Must be 'compose', 'reply', or 'forward'."**
-- Occurs when an invalid action is provided to `compose_reply_forward_email`
+- Occurs when an invalid action is provided to `send_email`
 - Solution: Use one of the valid actions: "compose", "reply", or "forward"
 
 **"Error: Email number X is out of range"**
-- Occurs when an invalid email number is provided to `compose_reply_forward_email` for reply or forward actions
+- Occurs when an invalid email number is provided to `send_email` for reply or forward actions
 - Solution: Use a valid email number from `browse_email_cache` (between 1 and total count)
 
 **"Error: No valid email ID found"**

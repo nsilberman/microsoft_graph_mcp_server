@@ -38,6 +38,31 @@ class UserClient(BaseGraphClient):
         """Get specific user by ID."""
         return await self.get(f"/users/{user_id}")
 
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get user by email address with mailbox settings."""
+        try:
+            params = {
+                "$filter": f"mail eq '{email}'",
+                "$select": "id,displayName,mail,mailboxSettings"
+            }
+            result = await self.get("/users", params=params)
+            users = result.get("value", [])
+            if users:
+                return users[0]
+        except Exception:
+            pass
+        return None
+
+    async def get_user_timezone_by_email(self, email: str) -> Optional[str]:
+        """Get user's timezone by email address."""
+        user = await self.get_user_by_email(email)
+        if user:
+            mailbox_settings = user.get("mailboxSettings", {})
+            timezone = mailbox_settings.get("timeZone")
+            if timezone:
+                return timezone
+        return None
+
     async def search_contacts(self, query: str, top: int = 10) -> List[Dict[str, Any]]:
         """Search contacts and people relevant to the user."""
         params = {"$search": f'"{query}"', "$top": top}

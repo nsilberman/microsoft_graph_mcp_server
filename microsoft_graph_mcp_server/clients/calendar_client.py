@@ -245,6 +245,159 @@ class CalendarClient(BaseGraphClient):
         """Create a calendar event."""
         return await self.post("/me/events", data=event_data)
 
+    async def update_event(self, event_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update an existing calendar event."""
+        return await self.patch(f"/me/events/{event_id}", data=event_data)
+
+    async def cancel_event(self, event_id: str, comment: Optional[str] = None) -> None:
+        """Cancel a calendar event by ID, sending cancellation notifications to attendees.
+        
+        Args:
+            event_id: The ID of the event to cancel
+            comment: Optional message to include in the cancellation notification
+        """
+        data = {}
+        if comment:
+            data["Comment"] = comment
+        await self.post(f"/me/events/{event_id}/cancel", data=data)
+
+    async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
+        """Forward a calendar event by adding new optional attendees.
+        
+        Args:
+            event_id: The ID of the event to forward
+            attendees: List of attendees to add (each with 'address' and optional 'name')
+            comment: Optional message to include in the invitation
+        """
+        data = {
+            "ToRecipients": [
+                {"emailAddress": attendee} for attendee in attendees
+            ]
+        }
+        if comment:
+            data["Comment"] = comment
+        await self.post(f"/me/events/{event_id}/forward", data=data)
+
+    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Accept a calendar event invitation.
+        
+        Args:
+            event_id: The ID of the event to accept
+            comment: Optional message to include in the response
+            send_response: Whether to send response to organizer
+        """
+        data = {}
+        if comment:
+            data["Comment"] = comment
+        if not send_response:
+            data["SendResponse"] = False
+        await self.post(f"/me/events/{event_id}/accept", data=data)
+
+    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Decline a calendar event invitation.
+        
+        Args:
+            event_id: The ID of the event to decline
+            comment: Optional message to include in the response
+            send_response: Whether to send response to organizer
+        """
+        data = {}
+        if comment:
+            data["Comment"] = comment
+        if not send_response:
+            data["SendResponse"] = False
+        await self.post(f"/me/events/{event_id}/decline", data=data)
+
+    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Tentatively accept a calendar event invitation.
+        
+        Args:
+            event_id: The ID of the event to tentatively accept
+            comment: Optional message to include in the response
+            send_response: Whether to send response to organizer
+        """
+        data = {}
+        if comment:
+            data["Comment"] = comment
+        if not send_response:
+            data["SendResponse"] = False
+        await self.post(f"/me/events/{event_id}/tentativelyAccept", data=data)
+
+    async def propose_new_time(self, event_id: str, proposed_new_time: Dict[str, str], comment: Optional[str] = None, send_response: bool = True) -> None:
+        """Decline an event and propose a new time to the organizer.
+        
+        Args:
+            event_id: The ID of the event to decline with proposed new time
+            proposed_new_time: Proposed new time with dateTime and timeZone
+            comment: Optional message to include in the response
+            send_response: Whether to send response to organizer
+        """
+        data = {
+            "ProposedNewTime": proposed_new_time
+        }
+        if comment:
+            data["Comment"] = comment
+        if not send_response:
+            data["SendResponse"] = False
+        await self.post(f"/me/events/{event_id}/decline", data=data)
+
+    async def check_availability(
+        self,
+        schedules: List[str],
+        start_time: Optional[Dict[str, str]],
+        end_time: Optional[Dict[str, str]],
+        availability_view_interval: Optional[int] = None,
+        date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Check availability of attendees for a given time range.
+        
+        Args:
+            schedules: List of attendee email addresses
+            start_time: Start time with dateTime and timeZone (optional if date is provided)
+            end_time: End time with dateTime and timeZone (optional if date is provided)
+            availability_view_interval: Time interval in minutes for availability view (optional, default 30)
+            date: Date in ISO format (e.g., '2024-01-01') to calculate time range (optional if start/end provided)
+        
+        Returns:
+            Dictionary containing schedule information for each attendee
+        """
+        if date:
+            from datetime import datetime, timedelta
+            from zoneinfo import ZoneInfo
+            
+            date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            
+            start_time = {
+                "dateTime": f"{date}T00:00:00",
+                "timeZone": "UTC"
+            }
+            end_time = {
+                "dateTime": f"{date}T23:59:59",
+                "timeZone": "UTC"
+            }
+        
+        data = {
+            "schedules": schedules,
+            "startTime": start_time,
+            "endTime": end_time
+        }
+        
+        if availability_view_interval:
+            data["availabilityViewInterval"] = availability_view_interval
+        
+        return await self.post("/me/calendar/getSchedule", data=data)
+
+    async def get_mailbox_settings(self, email: str) -> Dict[str, Any]:
+        """Get mailbox settings for a specific user including working hours.
+        
+        Args:
+            email: Email address of the user
+        
+        Returns:
+            Dictionary containing mailbox settings including working hours
+        """
+        return await self.get(f"/users/{email}/mailboxSettings")
+
     async def delete_event(self, event_id: str) -> None:
-        """Delete a calendar event by ID."""
+        """Delete a calendar event by ID (hard delete without sending notifications)."""
         await self.delete(f"/me/events/{event_id}")

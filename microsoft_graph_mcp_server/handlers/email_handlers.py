@@ -161,10 +161,10 @@ class EmailHandler(BaseHandler):
         )
         return self._format_response(email_content["content"])
 
-    async def handle_compose_reply_forward_email(
+    async def handle_send_email(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle compose_reply_forward_email tool with compose, reply, and forward actions."""
+        """Handle send_email tool with compose, reply, and forward actions."""
         action = arguments.get("action")
 
         if action == "compose":

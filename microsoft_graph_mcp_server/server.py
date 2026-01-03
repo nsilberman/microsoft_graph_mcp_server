@@ -89,8 +89,8 @@ class MicrosoftGraphMCPServer:
                 elif name == "get_email_content":
                     return await self.email_handler.handle_get_email_content(arguments)
 
-                elif name == "compose_reply_forward_email":
-                    return await self.email_handler.handle_compose_reply_forward_email(
+                elif name == "send_email":
+                    return await self.email_handler.handle_send_email(
                         arguments
                     )
 
@@ -102,6 +102,9 @@ class MicrosoftGraphMCPServer:
 
                 elif name == "search_events":
                     return await self.calendar_handler.handle_search_events(arguments)
+
+                elif name == "check_attendee_availability":
+                    return await self.calendar_handler.handle_check_attendee_availability(arguments)
 
                 elif name == "create_event":
                     return await self.calendar_handler.handle_create_event(arguments)

@@ -7,7 +7,8 @@ This document describes the calendar-related functions available in the Microsof
 1. [Search Events](#search-events)
 2. [Browse Events](#browse-events)
 3. [Get Event Detail](#get-event-detail)
-4. [Create Event](#create-event)
+4. [Manage Event](#manage-event)
+5. [Check Attendee Availability](#check-attendee-availability)
 
 ---
 
@@ -302,12 +303,18 @@ result = await get_event_detail(event_id="5")
 
 ---
 
-## Create Event
+## Manage Event
 
 ### Description
-Create a new calendar event.
+Manage calendar events with multiple actions: create, update, cancel, forward, reply, accept, decline, tentatively accept, and propose new time. This unified tool provides comprehensive event management capabilities.
 
 ### Parameters
+
+#### Common Parameters (All Actions)
+- `action` (required, string): Action to perform
+  - Values: "create", "update", "cancel", "forward", "reply", "accept", "decline", "tentatively_accept", "propose_new_time"
+
+#### Create Action Parameters
 - `subject` (required, string): Event subject
 - `start` (required, object): Event start time with dateTime and timeZone
   - `dateTime`: Start date and time in ISO format
@@ -322,7 +329,58 @@ Create a new calendar event.
   - `contentType`: Content type ("Text" or "HTML")
 - `location` (optional, string): Event location
 
+#### Update Action Parameters
+- `event_id` (required, string): Event ID to update
+- `subject` (optional, string): Updated event subject
+- `start` (optional, object): Updated event start time
+- `end` (optional, object): Updated event end time
+- `attendees` (optional, array): Updated list of attendees
+- `body` (optional, object): Updated event body
+- `location` (optional, string): Updated event location
+
+#### Cancel Action Parameters
+- `event_id` (required, string): Event ID to cancel
+- `comment` (optional, string): Message to include in cancellation notification
+
+#### Forward Action Parameters
+- `event_id` (required, string): Event ID to forward
+- `attendees` (required, array): List of attendees to add as optional attendees
+  - Can be email addresses (strings) or attendee objects
+- `comment` (optional, string): Message to include in forward
+
+#### Reply Action Parameters
+- `event_id` (required, string): Event ID to reply to
+- `subject` (optional, string): Email subject (default: "Re: Event")
+- `body` (optional, string): Email body content (default: event body content)
+- `to` (optional, array): List of TO recipient email addresses (default: required attendees)
+- `cc` (optional, array): List of CC recipient email addresses (default: optional attendees)
+
+#### Accept Action Parameters
+- `event_id` (required, string): Event ID to accept
+- `comment` (optional, string): Message to include in response
+- `send_response` (optional, boolean): Send response to organizer (default: true)
+
+#### Decline Action Parameters
+- `event_id` (required, string): Event ID to decline
+- `comment` (optional, string): Message to include in response
+- `send_response` (optional, boolean): Send response to organizer (default: true)
+
+#### Tentatively Accept Action Parameters
+- `event_id` (required, string): Event ID to tentatively accept
+- `comment` (optional, string): Message to include in response
+- `send_response` (optional, boolean): Send response to organizer (default: true)
+
+#### Propose New Time Action Parameters
+- `event_id` (required, string): Event ID to propose new time for
+- `propose_new_time` (required, object): Proposed new time
+  - `dateTime`: Proposed date and time in ISO format
+  - `timeZone`: Time zone (e.g., 'UTC', 'America/New_York')
+- `comment` (optional, string): Message to include with proposal
+- `send_response` (optional, boolean): Send response to organizer (default: true)
+
 ### Returns
+
+#### Create Action Returns
 ```json
 {
   "id": "event-id",
@@ -337,13 +395,23 @@ Create a new calendar event.
   },
   ...
 }
+}
+```
+
+#### Other Actions Returns
+```json
+{
+  "type": "text",
+  "text": "Event updated successfully."
+}
 ```
 
 ### Example Usage
 
-#### Create Simple Event:
+#### Create Event:
 ```python
-result = await create_event(
+result = await manage_event(
+    action="create",
     subject="Team Meeting",
     start={
         "dateTime": "2026-01-06T14:00:00",
@@ -356,51 +424,207 @@ result = await create_event(
 )
 ```
 
-#### Create Event with Attendees:
+#### Update Event:
 ```python
-result = await create_event(
-    subject="Project Review",
+result = await manage_event(
+    action="update",
+    event_id="event-id",
+    subject="Updated Team Meeting",
     start={
-        "dateTime": "2026-01-06T14:00:00",
-        "timeZone": "UTC"
-    },
-    end={
         "dateTime": "2026-01-06T15:00:00",
         "timeZone": "UTC"
     },
-    attendees=[
-        {"emailAddress": {"address": "john@example.com"}, "type": "required"},
-        {"emailAddress": {"address": "jane@example.com"}, "type": "required"}
-    ]
-)
-```
-
-#### Create Event with Location and Body:
-```python
-result = await create_event(
-    subject="Quarterly Review",
-    start={
-        "dateTime": "2026-01-06T14:00:00",
-        "timeZone": "UTC"
-    },
     end={
-        "dateTime": "2026-01-06T15:00:00",
+        "dateTime": "2026-01-06T16:00:00",
         "timeZone": "UTC"
-    },
-    location="Conference Room A",
-    body={
-        "content": "<p>Please review the Q4 report before the meeting.</p>",
-        "contentType": "HTML"
     }
 )
 ```
 
+#### Cancel Event:
+```python
+result = await manage_event(
+    action="cancel",
+    event_id="event-id",
+    comment="Meeting is no longer needed"
+)
+```
+
+#### Forward Event:
+```python
+result = await manage_event(
+    action="forward",
+    event_id="event-id",
+    attendees=["new-attendee@example.com", "another@example.com"],
+    comment="Please join this meeting"
+)
+```
+
+#### Reply to Event:
+```python
+result = await manage_event(
+    action="reply",
+    event_id="event-id",
+    subject="Re: Team Meeting",
+    body="I'll be attending the meeting",
+    to=["organizer@example.com"],
+    cc=["optional-attendee@example.com"]
+)
+```
+
+#### Accept Event:
+```python
+result = await manage_event(
+    action="accept",
+    event_id="event-id",
+    comment="Looking forward to it"
+)
+```
+
+#### Decline Event:
+```python
+result = await manage_event(
+    action="decline",
+    event_id="event-id",
+    comment="I have a conflict at that time"
+)
+```
+
+#### Tentatively Accept Event:
+```python
+result = await manage_event(
+    action="tentatively_accept",
+    event_id="event-id",
+    comment="I'll try to make it"
+)
+```
+
+#### Propose New Time:
+```python
+result = await manage_event(
+    action="propose_new_time",
+    event_id="event-id",
+    propose_new_time={
+        "dateTime": "2026-01-06T15:00:00",
+        "timeZone": "UTC"
+    },
+    comment="Can we meet an hour later?"
+)
+```
+
 ### Notes
+
+#### Create Action
 - All times should be in ISO 8601 format
-- Timezone can be any IANA timezone name (e.g., 'America/New_York', 'Asia/Shanghai')
+- Timezone can be any IANA timezone name
 - Attendee types: "required", "optional", "resource"
 - Body content types: "Text" or "HTML"
 - The event is created in the user's primary calendar
+
+#### Update Action
+- Only provided fields are updated
+- Event ID must be valid
+- Cannot change event type (single, recurring, etc.)
+
+#### Cancel Action
+- Sends cancellation notifications to all attendees
+- Event is moved to deleted items
+- Cannot be undone (must recreate if needed)
+
+#### Forward Action
+- Adds new attendees as optional attendees
+- Original attendees remain unchanged
+- Sends invitation to new attendees
+- Comment is included in the invitation
+
+#### Reply Action
+- Sends email to event attendees
+- Uses event body as default email content if not provided
+- TO recipients default to required attendees
+- CC recipients default to optional attendees
+- Event must be in cache (use search_events first)
+
+#### Accept/Decline/Tentatively Accept Actions
+- Sends response to organizer
+- Updates user's response status for the event
+- Comment is included in the response
+- Set send_response to false to respond without notifying organizer
+
+#### Propose New Time Action
+- Automatically declines the event
+- Sends proposed new time to organizer
+- Organizer can accept or decline the proposal
+- Comment is included with the proposal
+- This is the preferred way to propose alternative times
+
+---
+
+## Check Attendee Availability
+
+### Description
+Check availability of attendees for a given time range. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events.
+
+### Parameters
+- `attendees` (required, array): List of attendee email addresses to check availability for
+  - Each attendee: email address string (e.g., "user@example.com")
+- `start` (required, string): Start date and time in ISO format
+  - Format: "2024-01-01T14:30:00"
+  - Timezone is automatically detected from user's mailbox settings
+- `end` (required, string): End date and time in ISO format
+  - Format: "2024-01-01T15:30:00"
+  - Timezone is automatically detected from user's mailbox settings
+- `availability_view_interval` (optional, integer): Time interval in minutes for availability view
+  - Default: 30 minutes
+  - Controls the granularity of the availability view string
+  - Valid values: 5, 6, 10, 15, 30, 60
+
+### Returns
+```json
+{
+  "type": "text",
+  "text": "\nAttendee: user1@example.com\nAvailability View: 000011112222\nSchedule Items:\n  - busy: 2024-01-01T14:00:00 to 2024-01-01T14:30:00\n  - free: 2024-01-01T14:30:00 to 2024-01-01T15:00:00\n\nAttendee: user2@example.com\nAvailability View: 000000000000\nSchedule Items:\nNo scheduled items in this time range."
+}
+```
+
+### Return Fields
+- `type`: Content type (always "text")
+- `text`: Formatted availability information including:
+  - Attendee email addresses
+  - Availability view string for each attendee
+  - Schedule items showing busy/free periods
+
+### Example Usage
+```python
+# Check availability for multiple attendees
+result = await check_attendee_availability(
+    attendees=["user1@example.com", "user2@example.com"],
+    start="2024-01-01T14:00:00",
+    end="2024-01-01T15:00:00"
+)
+
+# Check availability with custom interval
+result = await check_attendee_availability(
+    attendees=["user1@example.com"],
+    start="2024-01-01T09:00:00",
+    end="2024-01-01T17:00:00",
+    availability_view_interval=15
+)
+```
+
+### Notes
+- Checks availability of multiple attendees for a given time range
+- Returns availability view string and schedule items for each attendee
+- Availability view string uses single-character codes for each time interval:
+  - `0`: Free
+  - `1`: Tentative
+  - `2`: Busy
+  - `3`: Out of office (OOF)
+  - `4`: Working elsewhere
+  - `?`: Unknown
+- Schedule items provide detailed information about each attendee's scheduled events
+- Timezone is automatically detected from user's mailbox settings
+- The availability_view_interval parameter controls the granularity of the availability view
+- Useful for finding optimal meeting times when creating or updating events
 
 ---
 

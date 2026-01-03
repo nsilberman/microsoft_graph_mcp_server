@@ -176,7 +176,7 @@ Use an absolute path to your project directory:
 - **search_emails** - Search emails by sender, recipient, subject, or body text. If no search criteria provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
 - **get_email_content** - Get full email content by ID (with optional text-only mode)
-- **compose_reply_forward_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
+- **send_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
 #### Calendar Management
 - **browse_events** - Browse calendar events with pagination

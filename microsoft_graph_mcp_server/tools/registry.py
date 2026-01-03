@@ -18,11 +18,12 @@ class ToolRegistry:
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
-            ToolRegistry.compose_reply_forward_email(),
+            ToolRegistry.send_email(),
             ToolRegistry.browse_events(),
             ToolRegistry.get_event_detail(),
             ToolRegistry.search_events(),
-            ToolRegistry.create_event(),
+            ToolRegistry.check_attendee_availability(),
+            ToolRegistry.manage_event(),
             ToolRegistry.list_files(),
             ToolRegistry.get_teams(),
             ToolRegistry.get_team_channels(),
@@ -281,10 +282,10 @@ class ToolRegistry:
         )
 
     @staticmethod
-    def compose_reply_forward_email() -> types.Tool:
+    def send_email() -> types.Tool:
         """Compose, reply, or forward email tool definition."""
         return types.Tool(
-            name="compose_reply_forward_email",
+            name="send_email",
             description="Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.",
             inputSchema={
                 "type": "object",
@@ -401,6 +402,42 @@ class ToolRegistry:
         )
 
     @staticmethod
+    def check_attendee_availability() -> types.Tool:
+        """Check attendee availability tool definition."""
+        return types.Tool(
+            name="check_attendee_availability",
+            description="Check availability of attendees for a given date. Automatically calculates time range based on all attendees' working hours. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Timezone defaults to user's mailbox settings, but can be explicitly specified.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "attendees": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of mandatory attendee email addresses to check availability for",
+                    },
+                    "optional_attendees": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of optional attendee email addresses to check availability for (optional)",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Date in ISO format (e.g., '2024-01-01'). The time range will be automatically calculated based on all attendees' working hours.",
+                    },
+                    "time_zone": {
+                        "type": "string",
+                        "description": "Timezone for the time range (optional, e.g., 'India Standard Time', 'Pacific Standard Time'). If not provided, defaults to user's mailbox settings.",
+                    },
+                    "availability_view_interval": {
+                        "type": "integer",
+                        "description": "Time interval in minutes for availability view (optional, default: 30). Valid values: 5, 6, 10, 15, 30, 60",
+                    },
+                },
+                "required": ["attendees", "date"],
+            },
+        )
+
+    @staticmethod
     def create_event() -> types.Tool:
         """Create event tool definition."""
         return types.Tool(
@@ -485,6 +522,96 @@ class ToolRegistry:
                     },
                 },
                 "required": ["subject", "start", "end"],
+            },
+        )
+
+    @staticmethod
+    def manage_event() -> types.Tool:
+        """Manage event tool definition with multiple actions."""
+        return types.Tool(
+            name="manage_event",
+            description="Manage calendar events with multiple actions: create, update, cancel, forward, reply, accept, decline, tentatively_accept, propose_new_time. Create: Create a new calendar event. Update: Update an existing event by ID. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "update", "cancel", "forward", "reply", "accept", "decline", "tentatively_accept", "propose_new_time"],
+                        "description": "Action to perform on the event",
+                    },
+                    "event_id": {
+                        "type": "string",
+                        "description": "Event ID (required for update, cancel, forward, reply, accept, decline, tentatively_accept, propose_new_time actions)",
+                    },
+                    "subject": {
+                        "type": "string",
+                        "description": "Event subject (required for create, optional for update)",
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "Start date and time in ISO format (required for create, optional for update)",
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "End date and time in ISO format (required for create, optional for update)",
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "Event location (optional for create, update)",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Event body content (optional for create, update, reply)",
+                    },
+                    "body_content_type": {
+                        "type": "string",
+                        "enum": ["Text", "HTML"],
+                        "description": "Body content type (optional for create, update, default: HTML)",
+                    },
+                    "attendees": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of attendee email addresses (optional for create, update, required for forward)",
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "Optional comment for cancel, forward, accept, decline, tentatively_accept, propose_new_time actions",
+                    },
+                    "subject": {
+                        "type": "string",
+                        "description": "Email subject for reply action (optional, default: 'Re: Event')",
+                    },
+                    "to": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of 'to' recipient email addresses for reply action (optional, defaults to required event attendees)",
+                    },
+                    "cc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of 'cc' recipient email addresses for reply action (optional, defaults to optional event attendees)",
+                    },
+                    "send_response": {
+                        "type": "boolean",
+                        "description": "Whether to send response to organizer for accept, decline, tentatively_accept actions (optional, default: true)",
+                    },
+                    "propose_new_time": {
+                        "type": "object",
+                        "description": "Propose a new time when using propose_new_time action (required for propose_new_time action)",
+                        "properties": {
+                            "dateTime": {
+                                "type": "string",
+                                "description": "Proposed new date and time in ISO format (e.g., '2024-12-31T14:30:00')",
+                            },
+                            "timeZone": {
+                                "type": "string",
+                                "description": "Time zone for the proposed time (e.g., 'UTC', 'America/New_York')",
+                            },
+                        },
+                        "required": ["dateTime", "timeZone"],
+                    },
+                },
+                "required": ["action"],
             },
         )
 

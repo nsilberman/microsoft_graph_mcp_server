@@ -70,3 +70,9 @@ Thumbs.db
 
 # Cache
 .cache/
+
+# Investigation/Debug files
+investigation_test/
+debug_*.py
+test_debug*.py
+analyze_*.py
