@@ -157,7 +157,7 @@ for i in range(start_slot_index, total_slots):
 ```
 Availability for 2026-01-05:
 
-Attendee: ajay.kulkarni@in.ibm.com
+Attendee: colleague1@example.com
 Timezone: Asia/Kolkata
 Working Hours: 09:00-18:00
   09:00-09:30 (Asia/Kolkata) / 11:30-12:00 (Asia/Shanghai): 0 (Free)
@@ -165,6 +165,168 @@ Working Hours: 09:00-18:00
   10:00-10:30 (Asia/Kolkata) / 12:30-13:00 (Asia/Shanghai): 2 (Busy)
   10:30-11:00 (Asia/Kolkata) / 13:00-13:30 (Asia/Shanghai): 2 (Busy)
   ...
+```
+
+## Summary and Top Time Slots
+
+### How It Works
+
+The system provides a summary section that identifies the best time slots for meetings by analyzing the availability of all attendees. It calculates which time slots have the highest number of free attendees and presents them in a ranked list.
+
+### Summary Calculation
+
+The system calculates summary statistics as follows:
+
+```python
+from collections import Counter
+
+slot_scores = []
+slot_unavailable = {}
+
+for attendee_data in all_attendee_availability:
+    schedule_id = attendee_data["schedule_id"]
+    availability_view = attendee_data["availability_view"]
+    working_hours = attendee_data["working_hours"]
+
+    attendee_timezone = working_hours.get("timeZone", {}).get("name") or timezone_str
+    attendee_tz = ZoneInfo(convert_microsoft_timezone_to_iana(attendee_timezone))
+
+    working_start_dt = None
+    working_end_dt = None
+
+    if working_hours:
+        working_start = working_hours.get("startTime")
+        working_end = working_hours.get("endTime")
+
+        if working_start and working_end:
+            working_start_time = datetime.strptime(working_start.split('.')[0], "%H:%M:%S").time()
+            working_end_time = datetime.strptime(working_end.split('.')[0], "%H:%M:%S").time()
+
+            working_start_dt = datetime.combine(date_obj, working_start_time, tzinfo=attendee_tz)
+            working_end_dt = datetime.combine(date_obj, working_end_time, tzinfo=attendee_tz)
+
+    for i, status_code in enumerate(availability_view):
+        slot_start_utc = utc_midnight + timedelta(minutes=i * availability_view_interval)
+        slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * availability_view_interval)
+
+        slot_start_user = slot_start_utc.astimezone(user_tz)
+        slot_end_user = slot_end_utc.astimezone(user_tz)
+
+        slot_key = (slot_start_user, slot_end_user)
+
+        is_free = (status_code == '0')
+
+        if working_start_dt and working_end_dt:
+            slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
+            if slot_start_attendee < working_start_dt or slot_start_attendee >= working_end_dt:
+                is_free = False
+                status_code = '4'
+
+        if is_free:
+            slot_scores.append(slot_key)
+        else:
+            status_map = {
+                '1': 'Tentative',
+                '2': 'Busy',
+                '3': 'Out of office',
+                '4': 'Working elsewhere / Outside hours',
+                '?': 'Unknown'
+            }
+            status_text = status_map.get(status_code, 'Unknown')
+
+            attendee_type = "Mandatory" if schedule_id in mandatory_attendees else "Optional" if schedule_id in optional_attendees else "Organizer"
+
+            if slot_key not in slot_unavailable:
+                slot_unavailable[slot_key] = []
+            slot_unavailable[slot_key].append({
+                "schedule_id": schedule_id,
+                "status": status_text,
+                "type": attendee_type
+            })
+
+if slot_scores:
+    slot_counter = Counter(slot_scores)
+    top_slots = slot_counter.most_common(5)
+
+    total_attendees = len(all_attendee_availability)
+
+    for rank, (slot, count) in enumerate(top_slots, 1):
+        slot_start, slot_end = slot
+        free_count = count
+        percentage = (free_count / total_attendees) * 100
+
+        time_slot = {
+            "rank": rank,
+            "start_time": slot_start.strftime('%Y-%m-%d %H:%M'),
+            "end_time": slot_end.strftime('%Y-%m-%d %H:%M'),
+            "timezone": timezone_str,
+            "free_attendees": free_count,
+            "total_attendees": total_attendees,
+            "percentage_free": round(percentage, 1),
+            "unavailable_attendees": []
+        }
+
+        if slot in slot_unavailable:
+            unavailable_list = slot_unavailable[slot]
+            for unavailable_info in unavailable_list:
+                time_slot["unavailable_attendees"].append({
+                    "email": unavailable_info['schedule_id'],
+                    "status": unavailable_info['status'],
+                    "type": unavailable_info['type']
+                })
+```
+
+### Summary Output Structure
+
+The summary section includes:
+
+- **top_time_slots**: Array of top time slots (default: 5), each containing:
+  - `rank`: Slot ranking (1-5)
+  - `start_time`: Slot start time in user's timezone
+  - `end_time`: Slot end time in user's timezone
+  - `timezone`: Timezone for the slot
+  - `free_attendees`: Number of attendees who are free
+  - `total_attendees`: Total number of attendees
+  - `percentage_free`: Percentage of attendees who are free
+  - `unavailable_attendees`: Array of unavailable attendees with their status and type
+- **total_attendees**: Total number of attendees checked
+
+### Example Summary Output
+
+```json
+{
+  "summary": {
+    "top_time_slots": [
+      {
+        "rank": 1,
+        "start_time": "2026-01-05 11:30",
+        "end_time": "2026-01-05 12:00",
+        "timezone": "Asia/Shanghai",
+        "free_attendees": 3,
+        "total_attendees": 3,
+        "percentage_free": 100.0,
+        "unavailable_attendees": []
+      },
+      {
+        "rank": 2,
+        "start_time": "2026-01-05 12:00",
+        "end_time": "2026-01-05 12:30",
+        "timezone": "Asia/Shanghai",
+        "free_attendees": 2,
+        "total_attendees": 3,
+        "percentage_free": 66.7,
+        "unavailable_attendees": [
+          {
+            "email": "colleague1@example.com",
+            "status": "Busy",
+            "type": "Mandatory"
+          }
+        ]
+      }
+    ],
+    "total_attendees": 3
+  }
+}
 ```
 
 ## Timezone Conversion
@@ -277,21 +439,52 @@ The system uses Python's `zoneinfo` module and supports all IANA timezone names:
 Check availability of attendees for a given date.
 
 **Parameters:**
-- `attendees` (List[str]): List of attendee email addresses
+- `attendees` (List[str]): List of mandatory attendee email addresses
+- `optional_attendees` (Optional[List[str]]): List of optional attendee email addresses (optional)
 - `date` (str): Date in ISO format (e.g., "2026-01-05")
-- `availability_view_interval` (Optional[int]): Time interval in minutes for availability slots (default: 30)
-- `time_zone` (Optional[str]): User timezone for display (default: auto-detected)
+- `availability_view_interval` (Optional[int]): Time interval in minutes for availability slots (default: 30). Valid values: 5, 6, 10, 15, 30, 60
+- `time_zone` (Optional[str]): User timezone for display (default: auto-detected from user's mailbox settings)
+- `top_slots` (Optional[int]): Number of top time slots to display in the summary (default: 5)
 
 **Returns:**
-- Dictionary containing availability information for each attendee
+- Dictionary containing:
+  - `date`: The date being checked
+  - `interval_minutes`: The time interval used for availability slots
+  - `timezone`: The timezone used for display
+  - `attendees`: Array of attendee objects, each containing:
+    - `email`: Attendee email address
+    - `type`: Attendee type ("Organizer", "Mandatory", or "Optional")
+    - `working_hours`: Working hours information (if available)
+    - `free_time_slots`: Array of free time slots
+    - `scheduled_items`: Array of scheduled items (meetings, appointments)
+    - `timezone`: Attendee's timezone
+  - `summary`: Summary information containing:
+    - `top_time_slots`: Array of top time slots with highest availability, each containing:
+      - `rank`: Slot ranking (1-5)
+      - `start_time`: Slot start time in user's timezone
+      - `end_time`: Slot end time in user's timezone
+      - `timezone`: Timezone for the slot
+      - `free_attendees`: Number of attendees who are free
+      - `total_attendees`: Total number of attendees
+      - `percentage_free`: Percentage of attendees who are free
+      - `unavailable_attendees`: Array of unavailable attendees with their status and type
+    - `total_attendees`: Total number of attendees checked
+
+**Automatic Organizer Inclusion:**
+The function automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. This is done by:
+1. Retrieving the current user's email from Microsoft Graph
+2. Adding it to the schedules list if not already present
+3. Including it in the availability calculation
 
 **Example:**
 ```python
 result = await check_attendee_availability(
-    attendees=["ajay.kulkarni@in.ibm.com"],
+    attendees=["colleague1@example.com"],
+    optional_attendees=["colleague2@example.com"],
     date="2026-01-05",
     availability_view_interval=30,
-    time_zone="Asia/Shanghai"
+    time_zone="Asia/Shanghai",
+    top_slots=5
 )
 ```
 
@@ -307,7 +500,7 @@ Get working hours for a specific user.
 
 **Example:**
 ```python
-working_hours = await calendar_client.get_working_hours("ajay.kulkarni@in.ibm.com")
+working_hours = await calendar_client.get_working_hours("colleague1@example.com")
 # Returns: {
 #     'daysOfWeek': ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
 #     'startTime': '09:00:00',
@@ -348,41 +541,157 @@ If the Microsoft Graph API returns a 403 Forbidden error:
 
 ```python
 result = await check_attendee_availability(
-    attendees=["ajay.kulkarni@in.ibm.com"],
+    attendees=["colleague1@example.com"],
     date="2026-01-05"
 )
 ```
 
 Output:
+```json
+{
+  "date": "2026-01-05",
+  "interval_minutes": 30,
+  "timezone": "Asia/Shanghai",
+  "attendees": [
+    {
+      "email": "colleague1@example.com",
+      "type": "Mandatory",
+      "working_hours": {
+        "start": "09:00",
+        "end": "18:00",
+        "timezone": "Asia/Kolkata",
+        "user_timezone": {
+          "start": "11:30",
+          "end": "20:30",
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "free_time_slots": [
+        {
+          "start": "2026-01-05 09:00",
+          "end": "2026-01-05 10:00",
+          "timezone": "Asia/Kolkata",
+          "user_timezone": {
+            "start": "2026-01-05 11:30",
+            "end": "2026-01-05 12:30",
+            "timezone": "Asia/Shanghai"
+          }
+        }
+      ],
+      "scheduled_items": [
+        {
+          "status": "Busy",
+          "start": "2026-01-05 10:00",
+          "end": "2026-01-05 11:00",
+          "timezone": "Asia/Kolkata",
+          "user_timezone": {
+            "start": "2026-01-05 12:30",
+            "end": "2026-01-05 13:30",
+            "timezone": "Asia/Shanghai"
+          }
+        }
+      ],
+      "timezone": "Asia/Kolkata"
+    }
+  ],
+  "summary": {
+    "top_time_slots": [
+      {
+        "rank": 1,
+        "start_time": "2026-01-05 11:30",
+        "end_time": "2026-01-05 12:00",
+        "timezone": "Asia/Shanghai",
+        "free_attendees": 1,
+        "total_attendees": 1,
+        "percentage_free": 100.0,
+        "unavailable_attendees": []
+      }
+    ],
+    "total_attendees": 1
+  }
+}
 ```
-Availability for 2026-01-05:
 
-Attendee: ajay.kulkarni@in.ibm.com
-Timezone: Asia/Kolkata
-Working Hours: 09:00-18:00
-  09:00-09:30 (Asia/Kolkata) / 11:30-12:00 (Asia/Shanghai): 0 (Free)
-  09:30-10:00 (Asia/Kolkata) / 12:00-12:30 (Asia/Shanghai): 0 (Free)
-  10:00-10:30 (Asia/Kolkata) / 12:30-13:00 (Asia/Shanghai): 2 (Busy)
-  ...
-```
-
-### Example 2: Check Availability for Multiple Attendees
+### Example 2: Check Availability for Multiple Attendees with Optional Attendees
 
 ```python
 result = await check_attendee_availability(
-    attendees=["ajay.kulkarni@in.ibm.com", "john.doe@example.com"],
+    attendees=["colleague1@example.com"],
+    optional_attendees=["colleague2@example.com"],
     date="2026-01-05",
-    availability_view_interval=15
+    availability_view_interval=15,
+    top_slots=3
 )
 ```
 
-### Example 3: Custom Timezone Display
+Output:
+```json
+{
+  "date": "2026-01-05",
+  "interval_minutes": 15,
+  "timezone": "Asia/Shanghai",
+  "attendees": [
+    {
+      "email": "colleague1@example.com",
+      "type": "Mandatory",
+      "working_hours": {
+        "start": "09:00",
+        "end": "18:00",
+        "timezone": "Asia/Kolkata",
+        "user_timezone": {
+          "start": "11:30",
+          "end": "20:30",
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "free_time_slots": [...],
+      "scheduled_items": [...],
+      "timezone": "Asia/Kolkata"
+    },
+    {
+      "email": "colleague2@example.com",
+      "type": "Optional",
+      "working_hours": {
+        "start": "09:00",
+        "end": "17:00",
+        "timezone": "America/New_York",
+        "user_timezone": {
+          "start": "22:00",
+          "end": "06:00",
+          "timezone": "Asia/Shanghai"
+        }
+      },
+      "free_time_slots": [...],
+      "scheduled_items": [...],
+      "timezone": "America/New_York"
+    }
+  ],
+  "summary": {
+    "top_time_slots": [
+      {
+        "rank": 1,
+        "start_time": "2026-01-05 23:00",
+        "end_time": "2026-01-05 23:15",
+        "timezone": "Asia/Shanghai",
+        "free_attendees": 2,
+        "total_attendees": 2,
+        "percentage_free": 100.0,
+        "unavailable_attendees": []
+      }
+    ],
+    "total_attendees": 2
+  }
+}
+```
+
+### Example 3: Custom Timezone Display with Top Slots
 
 ```python
 result = await check_attendee_availability(
-    attendees=["ajay.kulkarni@in.ibm.com"],
+    attendees=["colleague1@example.com"],
     date="2026-01-05",
-    time_zone="America/New_York"
+    time_zone="America/New_York",
+    top_slots=5
 )
 ```
 

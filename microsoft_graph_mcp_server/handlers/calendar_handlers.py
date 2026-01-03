@@ -587,19 +587,17 @@ class CalendarHandler(BaseHandler):
 
         availability_data = result.get("value", [])
 
-        formatted_results = []
-        formatted_results.append(f"Date: {date}")
-        formatted_results.append(f"Interval: {availability_view_interval} minutes per slot")
-        formatted_results.append("")
-
-        formatted_results.append("Legend:")
-        formatted_results.append("  0 = Free")
-        formatted_results.append("  1 = Tentative")
-        formatted_results.append("  2 = Busy")
-        formatted_results.append("  3 = Out of office (OOF)")
-        formatted_results.append("  4 = Working elsewhere")
-        formatted_results.append("  ? = Unknown")
-        formatted_results.append("")
+        # Initialize JSON response structure
+        json_response = {
+            "date": date,
+            "interval_minutes": availability_view_interval,
+            "timezone": timezone_str,
+            "attendees": [],
+            "summary": {
+                "top_time_slots": [],
+                "total_attendees": 0
+            }
+        }
 
         all_attendee_availability = []
         attendee_names = []
@@ -652,358 +650,243 @@ class CalendarHandler(BaseHandler):
                 pass
 
             attendee_type = "Organizer" if schedule_id == user_email else ("Optional" if schedule_id in optional_attendees else "Mandatory")
-            formatted_results.append(f"Attendee: {schedule_id} ({attendee_type})")
-            formatted_results.append("")
+            
+            # Create attendee JSON object
+            attendee_data = {
+                "email": schedule_id,
+                "type": attendee_type,
+                "working_hours": None,
+                "free_time_slots": [],
+                "scheduled_items": [],
+                "timezone": None
+            }
 
             if availability_view:
-                formatted_results.append("Availability by Time Slot:")
                 from datetime import datetime, timedelta
                 from zoneinfo import ZoneInfo
 
-                try:
-                    interval_minutes = availability_view_interval
-
-                    if not attendee_timezone_found:
-                        formatted_results.append(f"  Note: Attendee timezone could not be determined. Showing times in {timezone_str} (your timezone).")
-                        formatted_results.append("")
-
-                    if attendee_timezone_found and attendee_timezone:
-                        try:
-                            attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
-                            user_tz = ZoneInfo(timezone_str)
-                            
-                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
-                            
-                            today = date_obj
-                            
-                            if working_hours:
-                                working_start = working_hours.get("startTime")
-                                working_end = working_hours.get("endTime")
-                                
-                                if working_start and working_end:
-                                    try:
-                                        working_start_clean = working_start.split('.')[0]
-                                        working_end_clean = working_end.split('.')[0]
-                                        
-                                        working_start_time = datetime.strptime(working_start_clean, "%H:%M:%S").time()
-                                        working_end_time = datetime.strptime(working_end_clean, "%H:%M:%S").time()
-                                        
-                                        working_start_dt = datetime.combine(today, working_start_time, tzinfo=attendee_tz)
-                                        working_end_dt = datetime.combine(today, working_end_time, tzinfo=attendee_tz)
-                                        
-                                        working_start_user = working_start_dt.astimezone(user_tz)
-                                        working_end_user = working_end_dt.astimezone(user_tz)
-                                        
-                                        if same_timezone:
-                                            formatted_results.append(f"Working Hours: {working_start_dt.strftime('%H:%M')}-{working_end_dt.strftime('%H:%M')} ({timezone_str})")
-                                        else:
-                                            formatted_results.append(f"Working Hours: {working_start_dt.strftime('%H:%M')}-{working_end_dt.strftime('%H:%M')} ({attendee_timezone}) / {working_start_user.strftime('%H:%M')}-{working_end_user.strftime('%H:%M')} ({timezone_str})")
-                                        formatted_results.append("")
-                                        
-                                        utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
-                                        utc_midnight_attendee = utc_midnight.astimezone(attendee_tz)
-                                        
-                                        minutes_from_utc_midnight = int((working_start_dt - utc_midnight_attendee).total_seconds() / 60)
-                                        start_slot_index = minutes_from_utc_midnight // interval_minutes
-                                        
-                                        if start_slot_index < 0:
-                                            start_slot_index = 0
-                                        
-                                        total_slots = len(availability_view)
-                                        
-                                        for i in range(start_slot_index, total_slots):
-                                            status_code = availability_view[i] if i < total_slots else '?'
-                                            slot_start_utc = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                            slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * interval_minutes)
-                                            
-                                            slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
-                                            slot_end_attendee = slot_end_utc.astimezone(attendee_tz)
-                                            
-                                            if slot_start_attendee >= working_end_dt:
-                                                break
-                                            
-                                            slot_start_user = slot_start_attendee.astimezone(user_tz)
-                                            slot_end_user = slot_end_attendee.astimezone(user_tz)
-                                            
-                                            slot_start_attendee_str = slot_start_attendee.strftime("%H:%M")
-                                            slot_end_attendee_str = slot_end_attendee.strftime("%H:%M")
-                                            slot_start_user_str = slot_start_user.strftime("%H:%M")
-                                            slot_end_user_str = slot_end_user.strftime("%H:%M")
-
-                                            status_map = {
-                                                '0': 'Free',
-                                                '1': 'Tentative',
-                                                '2': 'Busy',
-                                                '3': 'Out of office',
-                                                '4': 'Working elsewhere',
-                                                '?': 'Unknown'
-                                            }
-                                            status_text = status_map.get(status_code, 'Unknown')
-
-                                            if same_timezone:
-                                                formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({timezone_str}): {status_code} ({status_text})")
-                                            else:
-                                                formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
-                                    except Exception as e:
-                                        formatted_results.append(f"  Error parsing working hours: {e}")
-                                        formatted_results.append(f"  Raw working hours: {working_start} - {working_end}")
-                                        formatted_results.append("")
-                                        working_hours = None
-                                else:
-                                    formatted_results.append("Working Hours: Unknown")
-                                    formatted_results.append("")
-                                    
-                                    utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
-                                    
-                                    for i, status_code in enumerate(availability_view):
-                                        slot_start_utc = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                        slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * interval_minutes)
-                                        
-                                        slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
-                                        slot_end_attendee = slot_end_utc.astimezone(attendee_tz)
-                                        
-                                        slot_start_user = slot_start_attendee.astimezone(user_tz)
-                                        slot_end_user = slot_end_attendee.astimezone(user_tz)
-                                        
-                                        slot_start_attendee_str = slot_start_attendee.strftime("%H:%M")
-                                        slot_end_attendee_str = slot_end_attendee.strftime("%H:%M")
-                                        slot_start_user_str = slot_start_user.strftime("%H:%M")
-                                        slot_end_user_str = slot_end_user.strftime("%H:%M")
-
-                                        status_map = {
-                                            '0': 'Free',
-                                            '1': 'Tentative',
-                                            '2': 'Busy',
-                                            '3': 'Out of office',
-                                            '4': 'Working elsewhere',
-                                            '?': 'Unknown'
-                                        }
-                                        status_text = status_map.get(status_code, 'Unknown')
-
-                                        if same_timezone:
-                                            formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({timezone_str}): {status_code} ({status_text})")
-                                        else:
-                                            formatted_results.append(f"  {slot_start_attendee_str}-{slot_end_attendee_str} ({attendee_timezone}) / {slot_start_user_str}-{slot_end_user_str} ({timezone_str}): {status_code} ({status_text})")
-                        except Exception as e:
-                            formatted_results.append(f"  Error converting timezone: {e}")
-                            formatted_results.append("")
-                            formatted_results.append("Working Hours: Unknown")
-                            formatted_results.append("")
-                            
-                            utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
-                            fallback_tz = ZoneInfo(timezone_str)
-                            
-                            for i, status_code in enumerate(availability_view):
-                                slot_start_utc = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * interval_minutes)
-                                
-                                slot_start = slot_start_utc.astimezone(fallback_tz)
-                                slot_end = slot_end_utc.astimezone(fallback_tz)
-                                slot_start_str = slot_start.strftime("%H:%M")
-                                slot_end_str = slot_end.strftime("%H:%M")
-
-                                status_map = {
-                                    '0': 'Free',
-                                    '1': 'Tentative',
-                                    '2': 'Busy',
-                                    '3': 'Out of office',
-                                    '4': 'Working elsewhere',
-                                    '?': 'Unknown'
-                                }
-                                status_text = status_map.get(status_code, 'Unknown')
-
-                                formatted_results.append(f"  {slot_start_str}-{slot_end_str} ({timezone_str}): {status_code} ({status_text})")
-                            else:
-                                formatted_results.append("")
-                                formatted_results.append("Working Hours: Unknown")
-                                formatted_results.append("")
-                                
-                                utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
-                                fallback_tz = ZoneInfo(timezone_str)
-                                
-                                for i, status_code in enumerate(availability_view):
-                                    slot_start_utc = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                    slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * interval_minutes)
-                                    
-                                    slot_start = slot_start_utc.astimezone(fallback_tz)
-                                    slot_end = slot_end_utc.astimezone(fallback_tz)
-                                    slot_start_str = slot_start.strftime("%H:%M")
-                                    slot_end_str = slot_end.strftime("%H:%M")
-
-                                    status_map = {
-                                        '0': 'Free',
-                                        '1': 'Tentative',
-                                        '2': 'Busy',
-                                        '3': 'Out of office',
-                                        '4': 'Working elsewhere',
-                                        '?': 'Unknown'
-                                    }
-                                    status_text = status_map.get(status_code, 'Unknown')
-
-                                    formatted_results.append(f"  {slot_start_str}-{slot_end_str} ({timezone_str}): {status_code} ({status_text})")
-
-                    formatted_results.append("")
-
-                    formatted_results.append("Free Time Slots:")
-                    free_slots = []
-                    in_free_slot = False
-                    free_slot_start = None
-
-                    if attendee_timezone_found and attendee_timezone and working_hours:
-                        try:
-                            attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
-                            user_tz = ZoneInfo(timezone_str)
-                            
-                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
-                            
-                            working_start = working_hours.get("startTime")
-                            working_end = working_hours.get("endTime")
-                            
-                            if working_start and working_end:
+                if attendee_timezone_found and attendee_timezone and working_hours:
+                    try:
+                        attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
+                        user_tz = ZoneInfo(timezone_str)
+                        
+                        same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
+                        
+                        today = date_obj
+                        
+                        working_start = working_hours.get("startTime")
+                        working_end = working_hours.get("endTime")
+                        
+                        if working_start and working_end:
+                            try:
                                 working_start_clean = working_start.split('.')[0]
                                 working_end_clean = working_end.split('.')[0]
                                 
-                                working_start_dt = datetime.combine(today, datetime.strptime(working_start_clean, "%H:%M:%S").time(), tzinfo=attendee_tz)
-                                working_end_dt = datetime.combine(today, datetime.strptime(working_end_clean, "%H:%M:%S").time(), tzinfo=attendee_tz)
+                                working_start_time = datetime.strptime(working_start_clean, "%H:%M:%S").time()
+                                working_end_time = datetime.strptime(working_end_clean, "%H:%M:%S").time()
                                 
-                                utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
-                                utc_midnight_attendee = utc_midnight.astimezone(attendee_tz)
+                                working_start_dt = datetime.combine(today, working_start_time, tzinfo=attendee_tz)
+                                working_end_dt = datetime.combine(today, working_end_time, tzinfo=attendee_tz)
                                 
-                                minutes_from_utc_midnight = int((working_start_dt - utc_midnight_attendee).total_seconds() / 60)
-                                start_slot_index = minutes_from_utc_midnight // interval_minutes
+                                working_start_user = working_start_dt.astimezone(user_tz)
+                                working_end_user = working_end_dt.astimezone(user_tz)
                                 
-                                if start_slot_index < 0:
-                                    start_slot_index = 0
-                                
-                                for i in range(start_slot_index, len(availability_view)):
-                                    status_code = availability_view[i] if i < len(availability_view) else '?'
-                                    slot_start_utc = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                    slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * interval_minutes)
-                                    
-                                    slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
-                                    slot_end_attendee = slot_end_utc.astimezone(attendee_tz)
-                                    
-                                    if slot_start_attendee >= working_end_dt:
-                                        break
-                                    
-                                    if status_code == '0':
-                                        if not in_free_slot:
-                                            free_slot_start = i
-                                            in_free_slot = True
-                                    else:
-                                        if in_free_slot:
-                                            slot_start_utc_free = utc_midnight + timedelta(minutes=free_slot_start * interval_minutes)
-                                            slot_end_utc_free = utc_midnight + timedelta(minutes=i * interval_minutes)
-                                            slot_start_attendee_free = slot_start_utc_free.astimezone(attendee_tz)
-                                            slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
-                                            slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
-                                            slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                            if same_timezone:
-                                                free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({timezone_str})")
-                                            else:
-                                                free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
-                                            in_free_slot = False
+                                if same_timezone:
+                                    attendee_data["working_hours"] = {
+                                        "start": working_start_dt.strftime('%H:%M'),
+                                        "end": working_end_dt.strftime('%H:%M'),
+                                        "timezone": timezone_str
+                                    }
+                                else:
+                                    attendee_data["working_hours"] = {
+                                        "start": working_start_dt.strftime('%H:%M'),
+                                        "end": working_end_dt.strftime('%H:%M'),
+                                        "timezone": attendee_timezone,
+                                        "user_timezone": {
+                                            "start": working_start_user.strftime('%H:%M'),
+                                            "end": working_end_user.strftime('%H:%M'),
+                                            "timezone": timezone_str
+                                        }
+                                    }
+                            except Exception as e:
+                                attendee_data["working_hours"] = None
+                        else:
+                            attendee_data["working_hours"] = None
+                    except Exception as e:
+                        attendee_data["working_hours"] = None
+                else:
+                    attendee_data["working_hours"] = None
+                attendee_data["timezone"] = attendee_timezone if attendee_timezone_found else None
 
-                                if in_free_slot:
-                                    slot_start_utc_free = utc_midnight + timedelta(minutes=free_slot_start * interval_minutes)
-                                    slot_end_utc_free = utc_midnight + timedelta(minutes=len(availability_view) * interval_minutes)
-                                    slot_start_attendee_free = slot_start_utc_free.astimezone(attendee_tz)
-                                    slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
-                                    if slot_end_attendee_free > working_end_dt:
-                                        slot_end_attendee_free = working_end_dt
-                                    slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
-                                    slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                    if same_timezone:
-                                        free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({timezone_str})")
-                                    else:
-                                        free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
+                # Process free time slots
+                if attendee_timezone_found and attendee_timezone and working_hours:
+                    try:
+                        attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
+                        user_tz = ZoneInfo(timezone_str)
+                        
+                        same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
+                        
+                        working_start = working_hours.get("startTime")
+                        working_end = working_hours.get("endTime")
+                        
+                        if working_start and working_end:
+                            working_start_clean = working_start.split('.')[0]
+                            working_end_clean = working_end.split('.')[0]
+
+                            working_start_dt = datetime.combine(today, datetime.strptime(working_start_clean, "%H:%M:%S").time(), tzinfo=attendee_tz)
+                            working_end_dt = datetime.combine(today, datetime.strptime(working_end_clean, "%H:%M:%S").time(), tzinfo=attendee_tz)
+
+                            utc_midnight = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
+                            utc_midnight_attendee = utc_midnight.astimezone(attendee_tz)
+
+                            minutes_from_utc_midnight = int((working_start_dt - utc_midnight_attendee).total_seconds() / 60)
+                            start_slot_index = minutes_from_utc_midnight // availability_view_interval
+
+                            if start_slot_index < 0:
+                                start_slot_index = 0
+
+                            in_free_slot = False
+                            free_slot_start = 0
+
+                            for i in range(start_slot_index, len(availability_view)):
+                                status_code = availability_view[i] if i < len(availability_view) else '?'
+                                slot_start_utc = utc_midnight + timedelta(minutes=i * availability_view_interval)
+                                slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * availability_view_interval)
+
+                                slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
+                                slot_end_attendee = slot_end_utc.astimezone(attendee_tz)
+
+                                if slot_start_attendee >= working_end_dt:
+                                    break
+
+                                if status_code == '0':
+                                    if not in_free_slot:
+                                        free_slot_start = i
+                                        in_free_slot = True
+                                else:
+                                    if in_free_slot:
+                                        slot_start_utc_free = utc_midnight + timedelta(minutes=free_slot_start * availability_view_interval)
+                                        slot_end_utc_free = utc_midnight + timedelta(minutes=i * availability_view_interval)
+                                        slot_start_attendee_free = slot_start_utc_free.astimezone(attendee_tz)
+                                        slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
+                                        slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
+                                        slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
+                                        if same_timezone:
+                                            attendee_data["free_time_slots"].append({
+                                                "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                                "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                                "timezone": timezone_str
+                                            })
+                                        else:
+                                            attendee_data["free_time_slots"].append({
+                                                "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                                "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                                "timezone": attendee_timezone,
+                                                "user_timezone": {
+                                                    "start": slot_start_user_free.strftime('%Y-%m-%d %H:%M'),
+                                                    "end": slot_end_user_free.strftime('%Y-%m-%d %H:%M'),
+                                                    "timezone": timezone_str
+                                                }
+                                            })
+                                        in_free_slot = False
+
+                            if in_free_slot:
+                                slot_start_utc_free = utc_midnight + timedelta(minutes=free_slot_start * availability_view_interval)
+                                slot_end_utc_free = utc_midnight + timedelta(minutes=len(availability_view) * availability_view_interval)
+                                slot_start_attendee_free = slot_start_utc_free.astimezone(attendee_tz)
+                                slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
+                                if slot_end_attendee_free > working_end_dt:
+                                    slot_end_attendee_free = working_end_dt
+                                slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
+                                slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
+                                if same_timezone:
+                                    attendee_data["free_time_slots"].append({
+                                        "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                        "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                        "timezone": timezone_str
+                                    })
+                                else:
+                                    attendee_data["free_time_slots"].append({
+                                        "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                        "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
+                                        "timezone": attendee_timezone,
+                                        "user_timezone": {
+                                            "start": slot_start_user_free.strftime('%Y-%m-%d %H:%M'),
+                                            "end": slot_end_user_free.strftime('%Y-%m-%d %H:%M'),
+                                            "timezone": timezone_str
+                                        }
+                                    })
+                    except Exception as e:
+                        pass
+
+                # Add attendee to JSON response
+                json_response["attendees"].append(attendee_data)
+
+                non_free_items = [item for item in schedule_items if item.get("status", "Unknown").lower() != "free"]
+
+                if non_free_items:
+                    for item in non_free_items:
+                        status = item.get("status", "Unknown")
+                        item_start = item.get("start", {}).get("dateTime", "")
+                        item_end = item.get("end", {}).get("dateTime", "")
+
+                        try:
+                            item_start_clean = item_start.split('.')[0]
+                            item_end_clean = item_end.split('.')[0]
+                            item_start_dt = datetime.fromisoformat(item_start_clean).replace(tzinfo=ZoneInfo("UTC"))
+                            item_end_dt = datetime.fromisoformat(item_end_clean).replace(tzinfo=ZoneInfo("UTC"))
+
+                            if attendee_timezone_found and attendee_timezone:
+                                attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
+                                user_tz = ZoneInfo(timezone_str)
+
+                                same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
+
+                                item_start_attendee = item_start_dt.astimezone(attendee_tz)
+                                item_end_attendee = item_end_dt.astimezone(attendee_tz)
+                                item_start_user = item_start_dt.astimezone(user_tz)
+                                item_end_user = item_end_dt.astimezone(user_tz)
+
+                                item_start_attendee_str = item_start_attendee.strftime("%Y-%m-%d %H:%M")
+                                item_end_attendee_str = item_end_attendee.strftime("%Y-%m-%d %H:%M")
+                                item_start_user_str = item_start_user.strftime("%Y-%m-%d %H:%M")
+                                item_end_user_str = item_end_user.strftime("%Y-%m-%d %H:%M")
+
+                                if same_timezone:
+                                    attendee_data["scheduled_items"].append({
+                                        "status": status,
+                                        "start": item_start_attendee_str,
+                                        "end": item_end_attendee_str,
+                                        "timezone": timezone_str
+                                    })
+                                else:
+                                    attendee_data["scheduled_items"].append({
+                                        "status": status,
+                                        "start": item_start_attendee_str,
+                                        "end": item_end_attendee_str,
+                                        "timezone": attendee_timezone,
+                                        "user_timezone": {
+                                            "start": item_start_user_str,
+                                            "end": item_end_user_str,
+                                            "timezone": timezone_str
+                                        }
+                                    })
+                            else:
+                                item_start_dt = item_start_dt.astimezone(ZoneInfo(timezone_str))
+                                item_end_dt = item_end_dt.astimezone(ZoneInfo(timezone_str))
+                                item_start_str = item_start_dt.strftime("%Y-%m-%d %H:%M")
+                                item_end_str = item_end_dt.strftime("%Y-%m-%d %H:%M")
+                                attendee_data["scheduled_items"].append({
+                                    "status": status,
+                                    "start": item_start_str,
+                                    "end": item_end_str,
+                                    "timezone": timezone_str
+                                })
                         except Exception as e:
                             pass
-                    else:
-                        formatted_results.append("")
-                        formatted_results.append("Working Hours: Unknown")
-                        formatted_results.append("")
-                        
-                        day_start_dt = datetime.combine(today, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo(timezone_str))
-                        
-                        for i, status_code in enumerate(availability_view):
-                            if status_code == '0':
-                                if not in_free_slot:
-                                    free_slot_start = i
-                                    in_free_slot = True
-                            else:
-                                if in_free_slot:
-                                    slot_start_dt = day_start_dt + timedelta(minutes=free_slot_start * interval_minutes)
-                                    slot_end_dt = day_start_dt + timedelta(minutes=i * interval_minutes)
-                                    free_slots.append(f"{slot_start_dt.strftime('%m/%d %H:%M')}-{slot_end_dt.strftime('%m/%d %H:%M')} ({timezone_str})")
-                                    in_free_slot = False
 
-                        if in_free_slot:
-                            slot_start_dt = day_start_dt + timedelta(minutes=free_slot_start * interval_minutes)
-                            slot_end_dt = day_start_dt + timedelta(minutes=len(availability_view) * interval_minutes)
-                            free_slots.append(f"{slot_start_dt.strftime('%m/%d %H:%M')}-{slot_end_dt.strftime('%m/%d %H:%M')} ({timezone_str})")
-
-                    if free_slots:
-                        formatted_results.append("  " + ", ".join(free_slots))
-                    else:
-                        formatted_results.append("  No free time slots available")
-                except Exception as e:
-                    formatted_results.append(f"  Error parsing time slots: {e}")
-
-                formatted_results.append("")
-
-            non_free_items = [item for item in schedule_items if item.get("status", "Unknown").lower() != "free"]
-
-            if non_free_items:
-                formatted_results.append("Scheduled Items:")
-                for item in non_free_items:
-                    status = item.get("status", "Unknown")
-                    item_start = item.get("start", {}).get("dateTime", "")
-                    item_end = item.get("end", {}).get("dateTime", "")
-                    
-                    try:
-                        item_start_clean = item_start.split('.')[0]
-                        item_end_clean = item_end.split('.')[0]
-                        item_start_dt = datetime.fromisoformat(item_start_clean).replace(tzinfo=ZoneInfo("UTC"))
-                        item_end_dt = datetime.fromisoformat(item_end_clean).replace(tzinfo=ZoneInfo("UTC"))
-                        
-                        if attendee_timezone_found and attendee_timezone:
-                            attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
-                            user_tz = ZoneInfo(timezone_str)
-                            
-                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
-                            
-                            item_start_attendee = item_start_dt.astimezone(attendee_tz)
-                            item_end_attendee = item_end_dt.astimezone(attendee_tz)
-                            item_start_user = item_start_dt.astimezone(user_tz)
-                            item_end_user = item_end_dt.astimezone(user_tz)
-                            
-                            item_start_attendee_str = item_start_attendee.strftime("%m/%d %H:%M")
-                            item_end_attendee_str = item_end_attendee.strftime("%m/%d %H:%M")
-                            item_start_user_str = item_start_user.strftime("%m/%d %H:%M")
-                            item_end_user_str = item_end_user.strftime("%m/%d %H:%M")
-                            
-                            if same_timezone:
-                                formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({timezone_str})")
-                            else:
-                                formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({attendee_timezone}) / {item_start_user_str}-{item_end_user_str} ({timezone_str})")
-                        else:
-                            item_start_dt = item_start_dt.astimezone(ZoneInfo(timezone_str))
-                            item_end_dt = item_end_dt.astimezone(ZoneInfo(timezone_str))
-                            item_start_str = item_start_dt.strftime("%m/%d %H:%M")
-                            item_end_str = item_end_dt.strftime("%m/%d %H:%M")
-                            formatted_results.append(f"  - {status}: {item_start_str}-{item_end_str} ({timezone_str})")
-                    except Exception as e:
-                        formatted_results.append(f"  - {status}: {item_start} to {item_end}")
-            else:
-                formatted_results.append("No scheduled items in this time range.")
-
-            formatted_results.append("")
-
-        formatted_results.append("=" * 80)
-        formatted_results.append("SUMMARY: Top 5 Time Slots with Most Free Attendees")
-        formatted_results.append("=" * 80)
-        formatted_results.append("")
+        # Update total attendees count
+        json_response["summary"]["total_attendees"] = len(all_attendee_availability)
 
         if all_attendee_availability:
             try:
@@ -1107,24 +990,30 @@ class CalendarHandler(BaseHandler):
                         slot_start, slot_end = slot
                         free_count = count
                         percentage = (free_count / total_attendees) * 100
-                        formatted_results.append(f"{rank}. {slot_start.strftime('%H:%M')}-{slot_end.strftime('%H:%M')} ({timezone_str})")
-                        formatted_results.append(f"   Free: {free_count}/{total_attendees} attendees ({percentage:.1f}%)")
+
+                        time_slot = {
+                            "rank": rank,
+                            "start_time": slot_start.strftime('%Y-%m-%d %H:%M'),
+                            "end_time": slot_end.strftime('%Y-%m-%d %H:%M'),
+                            "timezone": timezone_str,
+                            "free_attendees": free_count,
+                            "total_attendees": total_attendees,
+                            "percentage_free": round(percentage, 1),
+                            "unavailable_attendees": []
+                        }
 
                         if slot in slot_unavailable:
                             unavailable_list = slot_unavailable[slot]
-                            formatted_results.append(f"   Not available ({len(unavailable_list)}):")
                             for unavailable_info in unavailable_list:
-                                formatted_results.append(f"     - {unavailable_info['schedule_id']} ({unavailable_info['status']}) [{unavailable_info['type']}]")
+                                time_slot["unavailable_attendees"].append({
+                                    "email": unavailable_info['schedule_id'],
+                                    "status": unavailable_info['status'],
+                                    "type": unavailable_info['type']
+                                })
 
-                        formatted_results.append("")
-                else:
-                    formatted_results.append("No time slots found where any attendees are free.")
-                    formatted_results.append("")
+                        json_response["summary"]["top_time_slots"].append(time_slot)
+
             except Exception as e:
-                formatted_results.append(f"Error generating summary: {e}")
-                formatted_results.append("")
-        else:
-            formatted_results.append("No availability data available for summary.")
-            formatted_results.append("")
+                json_response["summary"]["error"] = f"Error generating summary: {e}"
 
-        return self._format_response("\n".join(formatted_results))
+        return self._format_response(json.dumps(json_response, indent=2))

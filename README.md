@@ -183,6 +183,7 @@ Use an absolute path to your project directory:
 - **get_event** - Get full calendar event by ID
 - **search_events** - Search calendar events by keywords
 - **create_event** - Create a calendar event
+- **check_attendee_availability** - Check availability of attendees for a given date. Automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. Automatically calculates time range based on all attendees' working hours. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Timezone defaults to user's mailbox settings, but can be explicitly specified.
 
 #### File and Team Management
 - **list_files** - List files and folders from OneDrive
