@@ -432,6 +432,10 @@ class ToolRegistry:
                         "type": "integer",
                         "description": "Time interval in minutes for availability view (optional, default: 30). Valid values: 5, 6, 10, 15, 30, 60",
                     },
+                    "top_slots": {
+                        "type": "integer",
+                        "description": "Number of top time slots to display in the summary (optional, default: 5)",
+                    },
                 },
                 "required": ["attendees", "date"],
             },

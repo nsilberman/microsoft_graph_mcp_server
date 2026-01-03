@@ -560,6 +560,7 @@ class CalendarHandler(BaseHandler):
         date = arguments["date"]
         availability_view_interval = arguments.get("availability_view_interval", 30)
         time_zone = arguments.get("time_zone")
+        top_slots = arguments.get("top_slots", 5)
 
         if time_zone:
             timezone_str = time_zone
@@ -600,11 +601,21 @@ class CalendarHandler(BaseHandler):
         formatted_results.append("  ? = Unknown")
         formatted_results.append("")
 
+        all_attendee_availability = []
+        attendee_names = []
+
         for attendee_info in availability_data:
             schedule_id = attendee_info.get("scheduleId", "Unknown")
             availability_view = attendee_info.get("availabilityView", "")
             schedule_items = attendee_info.get("scheduleItems", [])
             working_hours = attendee_info.get("workingHours", {})
+
+            all_attendee_availability.append({
+                "schedule_id": schedule_id,
+                "availability_view": availability_view,
+                "working_hours": working_hours
+            })
+            attendee_names.append(schedule_id)
 
             attendee_timezone = None
             attendee_timezone_found = False
@@ -843,6 +854,8 @@ class CalendarHandler(BaseHandler):
                             attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
                             user_tz = ZoneInfo(timezone_str)
                             
+                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
+                            
                             working_start = working_hours.get("startTime")
                             working_end = working_hours.get("endTime")
                             
@@ -885,7 +898,10 @@ class CalendarHandler(BaseHandler):
                                             slot_end_attendee_free = slot_end_utc_free.astimezone(attendee_tz)
                                             slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
                                             slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                            free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
+                                            if same_timezone:
+                                                free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({timezone_str})")
+                                            else:
+                                                free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
                                             in_free_slot = False
 
                                 if in_free_slot:
@@ -897,7 +913,10 @@ class CalendarHandler(BaseHandler):
                                         slot_end_attendee_free = working_end_dt
                                     slot_start_user_free = slot_start_attendee_free.astimezone(user_tz)
                                     slot_end_user_free = slot_end_attendee_free.astimezone(user_tz)
-                                    free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
+                                    if same_timezone:
+                                        free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({timezone_str})")
+                                    else:
+                                        free_slots.append(f"{slot_start_attendee_free.strftime('%m/%d %H:%M')}-{slot_end_attendee_free.strftime('%m/%d %H:%M')} ({attendee_timezone}) / {slot_start_user_free.strftime('%m/%d %H:%M')}-{slot_end_user_free.strftime('%m/%d %H:%M')} ({timezone_str})")
                         except Exception as e:
                             pass
                     else:
@@ -952,6 +971,8 @@ class CalendarHandler(BaseHandler):
                             attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
                             user_tz = ZoneInfo(timezone_str)
                             
+                            same_timezone = (self._convert_microsoft_timezone_to_iana(attendee_timezone) == timezone_str)
+                            
                             item_start_attendee = item_start_dt.astimezone(attendee_tz)
                             item_end_attendee = item_end_dt.astimezone(attendee_tz)
                             item_start_user = item_start_dt.astimezone(user_tz)
@@ -962,7 +983,10 @@ class CalendarHandler(BaseHandler):
                             item_start_user_str = item_start_user.strftime("%m/%d %H:%M")
                             item_end_user_str = item_end_user.strftime("%m/%d %H:%M")
                             
-                            formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({attendee_timezone}) / {item_start_user_str}-{item_end_user_str} ({timezone_str})")
+                            if same_timezone:
+                                formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({timezone_str})")
+                            else:
+                                formatted_results.append(f"  - {status}: {item_start_attendee_str}-{item_end_attendee_str} ({attendee_timezone}) / {item_start_user_str}-{item_end_user_str} ({timezone_str})")
                         else:
                             item_start_dt = item_start_dt.astimezone(ZoneInfo(timezone_str))
                             item_end_dt = item_end_dt.astimezone(ZoneInfo(timezone_str))
@@ -974,6 +998,133 @@ class CalendarHandler(BaseHandler):
             else:
                 formatted_results.append("No scheduled items in this time range.")
 
+            formatted_results.append("")
+
+        formatted_results.append("=" * 80)
+        formatted_results.append("SUMMARY: Top 5 Time Slots with Most Free Attendees")
+        formatted_results.append("=" * 80)
+        formatted_results.append("")
+
+        if all_attendee_availability:
+            try:
+                from datetime import datetime, timedelta
+                from zoneinfo import ZoneInfo
+                from collections import Counter
+
+                user_tz = ZoneInfo(timezone_str)
+                utc_midnight = datetime.combine(date_obj, datetime.strptime("00:00:00", "%H:%M:%S").time(), tzinfo=ZoneInfo("UTC"))
+
+                slot_scores = []
+                slot_unavailable = {}
+
+                for attendee_data in all_attendee_availability:
+                    schedule_id = attendee_data["schedule_id"]
+                    availability_view = attendee_data["availability_view"]
+                    working_hours = attendee_data["working_hours"]
+
+                    attendee_timezone = None
+                    attendee_timezone_found = False
+
+                    if working_hours:
+                        working_hours_tz = working_hours.get("timeZone", {})
+                        if working_hours_tz:
+                            attendee_timezone = working_hours_tz.get("name")
+                            if attendee_timezone:
+                                attendee_timezone_found = True
+
+                    if not attendee_timezone_found:
+                        attendee_timezone = timezone_str
+                        attendee_timezone_found = True
+
+                    attendee_tz = ZoneInfo(self._convert_microsoft_timezone_to_iana(attendee_timezone))
+
+                    working_start_dt = None
+                    working_end_dt = None
+
+                    if working_hours:
+                        working_start = working_hours.get("startTime")
+                        working_end = working_hours.get("endTime")
+
+                        if working_start and working_end:
+                            try:
+                                working_start_clean = working_start.split('.')[0]
+                                working_end_clean = working_end.split('.')[0]
+
+                                working_start_time = datetime.strptime(working_start_clean, "%H:%M:%S").time()
+                                working_end_time = datetime.strptime(working_end_clean, "%H:%M:%S").time()
+
+                                working_start_dt = datetime.combine(date_obj, working_start_time, tzinfo=attendee_tz)
+                                working_end_dt = datetime.combine(date_obj, working_end_time, tzinfo=attendee_tz)
+                            except Exception as e:
+                                pass
+
+                    for i, status_code in enumerate(availability_view):
+                        slot_start_utc = utc_midnight + timedelta(minutes=i * availability_view_interval)
+                        slot_end_utc = utc_midnight + timedelta(minutes=(i + 1) * availability_view_interval)
+
+                        slot_start_user = slot_start_utc.astimezone(user_tz)
+                        slot_end_user = slot_end_utc.astimezone(user_tz)
+
+                        slot_key = (slot_start_user, slot_end_user)
+
+                        is_free = (status_code == '0')
+
+                        if working_start_dt and working_end_dt:
+                            slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
+                            if slot_start_attendee < working_start_dt or slot_start_attendee >= working_end_dt:
+                                is_free = False
+                                status_code = '4'
+
+                        if is_free:
+                            slot_scores.append(slot_key)
+                        else:
+                            status_map = {
+                                '1': 'Tentative',
+                                '2': 'Busy',
+                                '3': 'Out of office',
+                                '4': 'Working elsewhere / Outside hours',
+                                '?': 'Unknown'
+                            }
+                            status_text = status_map.get(status_code, 'Unknown')
+
+                            attendee_type = "Mandatory" if schedule_id in mandatory_attendees else "Optional" if schedule_id in optional_attendees else "Organizer"
+
+                            if slot_key not in slot_unavailable:
+                                slot_unavailable[slot_key] = []
+                            slot_unavailable[slot_key].append({
+                                "schedule_id": schedule_id,
+                                "status": status_text,
+                                "type": attendee_type
+                            })
+
+                if slot_scores:
+                    slot_counter = Counter(slot_scores)
+                    top_slots = slot_counter.most_common(5)
+
+                    total_attendees = len(all_attendee_availability)
+
+                    for rank, (slot, count) in enumerate(top_slots, 1):
+                        slot_start, slot_end = slot
+                        free_count = count
+                        percentage = (free_count / total_attendees) * 100
+                        formatted_results.append(f"{rank}. {slot_start.strftime('%H:%M')}-{slot_end.strftime('%H:%M')} ({timezone_str})")
+                        formatted_results.append(f"   Free: {free_count}/{total_attendees} attendees ({percentage:.1f}%)")
+
+                        if slot in slot_unavailable:
+                            unavailable_list = slot_unavailable[slot]
+                            formatted_results.append(f"   Not available ({len(unavailable_list)}):")
+                            for unavailable_info in unavailable_list:
+                                formatted_results.append(f"     - {unavailable_info['schedule_id']} ({unavailable_info['status']}) [{unavailable_info['type']}]")
+
+                        formatted_results.append("")
+                else:
+                    formatted_results.append("No time slots found where any attendees are free.")
+                    formatted_results.append("")
+            except Exception as e:
+                formatted_results.append(f"Error generating summary: {e}")
+                formatted_results.append("")
+        else:
+            formatted_results.append("No availability data available for summary.")
             formatted_results.append("")
 
         return self._format_response("\n".join(formatted_results))
