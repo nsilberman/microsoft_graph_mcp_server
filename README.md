@@ -172,7 +172,7 @@ Use an absolute path to your project directory:
 
 #### Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
-- **move_delete_emails** - Move or delete emails. Supports moving a single email, moving all emails from a folder, deleting a single email, deleting multiple emails, or deleting all emails from a folder
+- **manage_emails** - Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple
 - **search_emails** - Search emails by sender, recipient, subject, or body text. If no search criteria provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days)
 - **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
 - **get_email_content** - Get full email content by ID (with optional text-only mode)

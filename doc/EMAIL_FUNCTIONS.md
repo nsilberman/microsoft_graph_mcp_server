@@ -9,7 +9,7 @@ This document describes the email-related functions available in the Microsoft G
 3. [Get Email Content](#get-email-content)
 4. [Compose Reply Forward Email](#compose-reply-forward-email)
 5. [Manage Mail Folder](#manage-mail-folder)
-6. [Move Delete Emails](#move-delete-emails)
+6. [Manage Emails](#manage-emails)
 
 ---
 
@@ -626,22 +626,27 @@ result = await manage_mail_folder(action="move", folder_path="Inbox/Projects", d
 
 ---
 
-## Move Delete Emails
+## Manage Emails
 
 ### Description
-Move or delete emails. Supports moving a single email, moving all emails from a folder, deleting a single email, deleting multiple emails, or deleting all emails from a folder.
+Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple.
 
 ### Parameters
 - `action` (required, string): Action to perform
-  - Values: "move_single", "move_all", "delete_single", "delete_multiple", "delete_all"
+  - Values: "move_single", "move_all", "delete_single", "delete_multiple", "delete_all", "archive_single", "archive_multiple", "flag_single", "flag_multiple", "categorize_single", "categorize_multiple"
 - `email_number` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
-  - Required for: "move_single" and "delete_single" actions
+  - Required for: "move_single", "delete_single", "archive_single", "flag_single", and "categorize_single" actions
 - `email_numbers` (optional, array of integers): List of email numbers from browse_email_cache (e.g., [1, 2, 3])
-  - Required for: "delete_multiple" action
+  - Required for: "delete_multiple", "archive_multiple", "flag_multiple", and "categorize_multiple" actions
 - `source_folder` (optional, string): Source folder path (e.g., 'Inbox', 'Archive/2024')
   - Required for: "move_all" and "delete_all" actions
 - `destination_folder` (optional, string): Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')
   - Required for: "move_single" and "move_all" actions
+- `flag_status` (optional, string): Flag status
+  - Values: "flagged", "complete"
+  - Required for: "flag_single" and "flag_multiple" actions
+- `categories` (optional, array of strings): List of category names to apply (e.g., ['Important', 'Work'])
+  - Required for: "categorize_single" and "categorize_multiple" actions
 
 ### Actions
 
@@ -663,7 +668,7 @@ Moves a single email to a different folder.
 
 **Example Usage:**
 ```python
-result = await move_delete_emails(
+result = await manage_emails(
     action="move_single",
     email_number=1,
     destination_folder="Archive/2024"
@@ -691,7 +696,7 @@ Moves all emails from a source folder to a destination folder.
 
 **Example Usage:**
 ```python
-result = await move_delete_emails(
+result = await manage_emails(
     action="move_all",
     source_folder="Inbox",
     destination_folder="Archive/2024"
@@ -715,7 +720,7 @@ Deletes a single email by moving it to Deleted Items (recoverable).
 
 **Example Usage:**
 ```python
-result = await move_delete_emails(
+result = await manage_emails(
     action="delete_single",
     email_number=1
 )
@@ -741,7 +746,7 @@ Deletes multiple emails by moving them to Deleted Items (recoverable).
 
 **Example Usage:**
 ```python
-result = await move_delete_emails(
+result = await manage_emails(
     action="delete_multiple",
     email_numbers=[1, 2, 3]
 )
@@ -767,18 +772,184 @@ Deletes all emails from a folder by moving them to Deleted Items (recoverable).
 
 **Example Usage:**
 ```python
-result = await move_delete_emails(
+result = await manage_emails(
     action="delete_all",
     source_folder="Inbox"
 )
 ```
 
+#### Archive Single Email (action="archive_single")
+Archives a single email by moving it to the Archive folder.
+
+**Parameters:**
+- `action`: "archive_single"
+- `email_number`: Email number from browse_email_cache
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Email archived"
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_emails(
+    action="archive_single",
+    email_number=1
+)
+```
+
+#### Archive Multiple Emails (action="archive_multiple")
+Archives multiple emails by moving them to the Archive folder.
+
+**Parameters:**
+- `action`: "archive_multiple"
+- `email_numbers`: List of email numbers from browse_email_cache
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Archived X emails",
+  "archived_count": X,
+  "failed_count": 0,
+  "errors": null
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_emails(
+    action="archive_multiple",
+    email_numbers=[1, 2, 3]
+)
+```
+
+#### Flag Single Email (action="flag_single")
+Flags or unflags a single email.
+
+**Parameters:**
+- `action`: "flag_single"
+- `email_number`: Email number from browse_email_cache
+- `flag_status`: Flag status ("flagged" or "complete")
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Email flagged"
+}
+```
+
+**Example Usage:**
+```python
+# Flag an email
+result = await manage_emails(
+    action="flag_single",
+    email_number=1,
+    flag_status="flagged"
+)
+
+# Mark as complete
+result = await manage_emails(
+    action="flag_single",
+    email_number=1,
+    flag_status="complete"
+)
+```
+
+#### Flag Multiple Emails (action="flag_multiple")
+Flags or unflags multiple emails.
+
+**Parameters:**
+- `action`: "flag_multiple"
+- `email_numbers`: List of email numbers from browse_email_cache
+- `flag_status`: Flag status ("flagged" or "complete")
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Flagged X emails",
+  "flagged_count": X,
+  "failed_count": 0,
+  "errors": null
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_emails(
+    action="flag_multiple",
+    email_numbers=[1, 2, 3],
+    flag_status="flagged"
+)
+```
+
+#### Categorize Single Email (action="categorize_single")
+Adds categories to a single email.
+
+**Parameters:**
+- `action`: "categorize_single"
+- `email_number`: Email number from browse_email_cache
+- `categories`: List of category names to apply (e.g., ['Important', 'Work'])
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Email categorized with: Important, Work"
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_emails(
+    action="categorize_single",
+    email_number=1,
+    categories=["Important", "Work"]
+)
+```
+
+#### Categorize Multiple Emails (action="categorize_multiple")
+Adds categories to multiple emails.
+
+**Parameters:**
+- `action`: "categorize_multiple"
+- `email_numbers`: List of email numbers from browse_email_cache
+- `categories`: List of category names to apply (e.g., ['Important', 'Work'])
+
+**Returns:**
+```json
+{
+  "status": "success",
+  "message": "Categorized X emails",
+  "categorized_count": X,
+  "failed_count": 0,
+  "errors": null
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_emails(
+    action="categorize_multiple",
+    email_numbers=[1, 2, 3],
+    categories=["Important", "Work"]
+)
+```
+
 ### Notes
-- Requires valid email number(s) from cache for "move_single", "delete_single", and "delete_multiple" actions
+- Requires valid email number(s) from cache for single and multiple email actions
 - Use `browse_email_cache` to get email numbers
 - "move_all" and "delete_all" actions operate on all emails in the source folder
 - Destination folder must exist for move actions (use manage_mail_folder to create if needed)
 - Deleted emails are moved to Deleted Items folder and can be recovered
+- Archived emails are moved to the Archive folder
+- Flag status can be "flagged" (mark for follow-up) or "complete" (mark as done)
+- Categories are user-defined labels that help organize emails
 - Batch operations use batch processing for efficiency (20 emails per batch)
 - All operations return status, count, and error information for tracking
 

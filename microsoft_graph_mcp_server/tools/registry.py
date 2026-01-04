@@ -14,7 +14,7 @@ class ToolRegistry:
             ToolRegistry.auth(),
             ToolRegistry.search_contacts(),
             ToolRegistry.manage_mail_folder(),
-            ToolRegistry.move_delete_emails(),
+            ToolRegistry.manage_emails(),
             ToolRegistry.browse_email_cache(),
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
@@ -126,11 +126,11 @@ class ToolRegistry:
         )
 
     @staticmethod
-    def move_delete_emails() -> types.Tool:
-        """Move and delete emails tool definition."""
+    def manage_emails() -> types.Tool:
+        """Manage emails tool definition."""
         return types.Tool(
-            name="move_delete_emails",
-            description="Move or delete emails. Supports moving a single email, moving all emails from a folder, deleting a single email, deleting multiple emails, or deleting all emails from a folder.",
+            name="manage_emails",
+            description="Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -142,17 +142,23 @@ class ToolRegistry:
                             "delete_single",
                             "delete_multiple",
                             "delete_all",
+                            "archive_single",
+                            "archive_multiple",
+                            "flag_single",
+                            "flag_multiple",
+                            "categorize_single",
+                            "categorize_multiple",
                         ],
-                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder",
+                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder, 'archive_single' to archive a single email, 'archive_multiple' to archive multiple emails, 'flag_single' to flag a single email, 'flag_multiple' to flag multiple emails, 'categorize_single' to categorize a single email, 'categorize_multiple' to categorize multiple emails",
                     },
                     "email_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single' and 'delete_single' actions",
+                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single', 'delete_single', 'archive_single', 'flag_single', and 'categorize_single' actions",
                     },
                     "email_numbers": {
                         "type": "array",
                         "items": {"type": "integer"},
-                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple' action",
+                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple', 'archive_multiple', 'flag_multiple', and 'categorize_multiple' actions",
                     },
                     "source_folder": {
                         "type": "string",
@@ -161,6 +167,16 @@ class ToolRegistry:
                     "destination_folder": {
                         "type": "string",
                         "description": "Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects'). Required for 'move_single' and 'move_all' actions",
+                    },
+                    "flag_status": {
+                        "type": "string",
+                        "enum": ["flagged", "complete"],
+                        "description": "Flag status: 'flagged' to mark as flagged, 'complete' to mark as complete. Required for 'flag_single' and 'flag_multiple' actions",
+                    },
+                    "categories": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of category names to apply (e.g., ['Important', 'Work']). Required for 'categorize_single' and 'categorize_multiple' actions",
                     },
                 },
                 "required": ["action"],
@@ -325,6 +341,11 @@ class ToolRegistry:
                     "bcc_csv_file": {
                         "type": "string",
                         "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)",
+                    },
+                    "importance": {
+                        "type": "string",
+                        "enum": ["normal", "high", "low"],
+                        "description": "Email importance level: 'normal' (default), 'high', or 'low' (optional)",
                     },
                 },
                 "required": ["action", "to", "htmlbody"],

@@ -271,6 +271,7 @@ class GraphClient:
         reply_to_message_id: Optional[str] = None,
         forward_to_message_id: Optional[str] = None,
         body_content_type: str = "Text",
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send an email."""
         return await self.email_client.send_email(
@@ -282,6 +283,7 @@ class GraphClient:
             reply_to_message_id,
             forward_to_message_id,
             body_content_type,
+            importance,
         )
 
     async def batch_forward_emails(
@@ -356,6 +358,30 @@ class GraphClient:
     ) -> Dict[str, Any]:
         """Move a folder to a different parent folder."""
         return await self.email_client.move_folder(folder_path, destination_parent)
+
+    async def archive_email(self, email_id: str) -> Dict[str, Any]:
+        """Archive an email by moving it to the Archive folder."""
+        return await self.email_client.archive_email(email_id)
+
+    async def batch_archive_emails(self, email_ids: List[str]) -> Dict[str, Any]:
+        """Archive multiple emails using batch operations."""
+        return await self.email_client.batch_archive_emails(email_ids)
+
+    async def flag_email(self, email_id: str, flag_status: str) -> Dict[str, Any]:
+        """Flag or unflag an email."""
+        return await self.email_client.flag_email(email_id, flag_status)
+
+    async def batch_flag_emails(self, email_ids: List[str], flag_status: str) -> Dict[str, Any]:
+        """Flag multiple emails using batch operations."""
+        return await self.email_client.batch_flag_emails(email_ids, flag_status)
+
+    async def categorize_email(self, email_id: str, categories: List[str]) -> Dict[str, Any]:
+        """Add categories to an email."""
+        return await self.email_client.categorize_email(email_id, categories)
+
+    async def batch_categorize_emails(self, email_ids: List[str], categories: List[str]) -> Dict[str, Any]:
+        """Categorize multiple emails using batch operations."""
+        return await self.email_client.batch_categorize_emails(email_ids, categories)
 
     # Calendar management methods - delegated to CalendarClient
     async def browse_events(

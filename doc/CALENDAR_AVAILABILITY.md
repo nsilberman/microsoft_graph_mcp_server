@@ -560,7 +560,7 @@ Output:
         "start": "09:00",
         "end": "18:00",
         "timezone": "Asia/Kolkata",
-        "user_timezone": {
+        "organizer_timezone": {
           "start": "11:30",
           "end": "20:30",
           "timezone": "Asia/Shanghai"
@@ -571,7 +571,7 @@ Output:
           "start": "2026-01-05 09:00",
           "end": "2026-01-05 10:00",
           "timezone": "Asia/Kolkata",
-          "user_timezone": {
+          "organizer_timezone": {
             "start": "2026-01-05 11:30",
             "end": "2026-01-05 12:30",
             "timezone": "Asia/Shanghai"
@@ -584,7 +584,7 @@ Output:
           "start": "2026-01-05 10:00",
           "end": "2026-01-05 11:00",
           "timezone": "Asia/Kolkata",
-          "user_timezone": {
+          "organizer_timezone": {
             "start": "2026-01-05 12:30",
             "end": "2026-01-05 13:30",
             "timezone": "Asia/Shanghai"
@@ -638,7 +638,7 @@ Output:
         "start": "09:00",
         "end": "18:00",
         "timezone": "Asia/Kolkata",
-        "user_timezone": {
+        "organizer_timezone": {
           "start": "11:30",
           "end": "20:30",
           "timezone": "Asia/Shanghai"
@@ -655,7 +655,7 @@ Output:
         "start": "09:00",
         "end": "17:00",
         "timezone": "America/New_York",
-        "user_timezone": {
+        "organizer_timezone": {
           "start": "22:00",
           "end": "06:00",
           "timezone": "Asia/Shanghai"

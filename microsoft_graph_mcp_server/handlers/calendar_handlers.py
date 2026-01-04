@@ -702,7 +702,7 @@ class CalendarHandler(BaseHandler):
                                         "start": working_start_dt.strftime('%H:%M'),
                                         "end": working_end_dt.strftime('%H:%M'),
                                         "timezone": attendee_timezone,
-                                        "user_timezone": {
+                                        "organizer_timezone": {
                                             "start": working_start_user.strftime('%H:%M'),
                                             "end": working_end_user.strftime('%H:%M'),
                                             "timezone": timezone_str
@@ -782,7 +782,7 @@ class CalendarHandler(BaseHandler):
                                                 "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
                                                 "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
                                                 "timezone": attendee_timezone,
-                                                "user_timezone": {
+                                                "organizer_timezone": {
                                                     "start": slot_start_user_free.strftime('%Y-%m-%d %H:%M'),
                                                     "end": slot_end_user_free.strftime('%Y-%m-%d %H:%M'),
                                                     "timezone": timezone_str
@@ -810,7 +810,7 @@ class CalendarHandler(BaseHandler):
                                         "start": slot_start_attendee_free.strftime('%Y-%m-%d %H:%M'),
                                         "end": slot_end_attendee_free.strftime('%Y-%m-%d %H:%M'),
                                         "timezone": attendee_timezone,
-                                        "user_timezone": {
+                                        "organizer_timezone": {
                                             "start": slot_start_user_free.strftime('%Y-%m-%d %H:%M'),
                                             "end": slot_end_user_free.strftime('%Y-%m-%d %H:%M'),
                                             "timezone": timezone_str
@@ -865,7 +865,7 @@ class CalendarHandler(BaseHandler):
                                         "start": item_start_attendee_str,
                                         "end": item_end_attendee_str,
                                         "timezone": attendee_timezone,
-                                        "user_timezone": {
+                                        "organizer_timezone": {
                                             "start": item_start_user_str,
                                             "end": item_end_user_str,
                                             "timezone": timezone_str
@@ -985,11 +985,17 @@ class CalendarHandler(BaseHandler):
                     top_slots = slot_counter.most_common(5)
 
                     total_attendees = len(all_attendee_availability)
+                    rank = 0
 
-                    for rank, (slot, count) in enumerate(top_slots, 1):
+                    for slot, count in top_slots:
                         slot_start, slot_end = slot
                         free_count = count
                         percentage = (free_count / total_attendees) * 100
+
+                        if free_count == 1:
+                            continue
+
+                        rank += 1
 
                         time_slot = {
                             "rank": rank,

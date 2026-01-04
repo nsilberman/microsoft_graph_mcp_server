@@ -855,6 +855,7 @@ class EmailClient(BaseGraphClient):
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         subject: Optional[str] = None,
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Forward an email message using Microsoft Graph API.
 
@@ -870,6 +871,7 @@ class EmailClient(BaseGraphClient):
             cc_recipients: Optional list of CC recipient email addresses
             bcc_recipients: Optional list of BCC recipient email addresses
             subject: Optional subject for the forward (defaults to "FW: " + original subject)
+            importance: Optional importance level ('normal', 'high', 'low')
 
         Returns:
             Response from the Graph API
@@ -976,6 +978,9 @@ class EmailClient(BaseGraphClient):
         if inline_attachments:
             message_data["attachments"] = inline_attachments
 
+        if importance:
+            message_data["importance"] = importance
+
         return await self.send_message(message_data)
 
     async def reply_to_message(
@@ -987,6 +992,7 @@ class EmailClient(BaseGraphClient):
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         subject: Optional[str] = None,
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Reply to an email message using Microsoft Graph API.
 
@@ -1002,6 +1008,7 @@ class EmailClient(BaseGraphClient):
             cc_recipients: Optional list of CC recipient email addresses
             bcc_recipients: Optional list of BCC recipient email addresses
             subject: Optional subject for the reply (defaults to original subject)
+            importance: Optional importance level ('normal', 'high', 'low')
 
         Returns:
             Response from the Graph API
@@ -1122,6 +1129,9 @@ Subject: {original_subject}
         if inline_attachments:
             message_data["attachments"] = inline_attachments
 
+        if importance:
+            message_data["importance"] = importance
+
         return await self.send_message(message_data)
 
     async def send_email(
@@ -1134,6 +1144,7 @@ Subject: {original_subject}
         reply_to_message_id: Optional[str] = None,
         forward_to_message_id: Optional[str] = None,
         body_content_type: str = "Text",
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Unified backend function to send emails (compose, reply, or forward).
 
@@ -1146,6 +1157,7 @@ Subject: {original_subject}
             reply_to_message_id: Optional message ID to reply to
             forward_to_message_id: Optional message ID to forward
             body_content_type: Content type for body ('Text' or 'HTML')
+            importance: Optional importance level ('normal', 'high', 'low')
 
         Returns:
             Response from the Graph API
@@ -1169,6 +1181,7 @@ Subject: {original_subject}
                 cc_recipients=cc_recipients,
                 bcc_recipients=bcc_recipients,
                 subject=subject,
+                importance=importance,
             )
 
         if forward_to_message_id:
@@ -1180,6 +1193,7 @@ Subject: {original_subject}
                 cc_recipients=cc_recipients,
                 bcc_recipients=bcc_recipients,
                 subject=subject,
+                importance=importance,
             )
 
         message_data = {
@@ -1200,6 +1214,9 @@ Subject: {original_subject}
                 {"emailAddress": {"address": email}} for email in bcc_recipients
             ]
 
+        if importance:
+            message_data["importance"] = importance
+
         return await self.post("/me/sendMail", data={"message": message_data})
 
     async def batch_forward_emails(
@@ -1211,6 +1228,7 @@ Subject: {original_subject}
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         body_content_type: str = "Text",
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Backend function to forward multiple emails to recipients with batch BCC support.
 
@@ -1222,6 +1240,7 @@ Subject: {original_subject}
             cc_recipients: Optional list of CC recipient email addresses
             bcc_recipients: Optional list of BCC recipient email addresses
             body_content_type: Content type for body ('Text' or 'HTML')
+            importance: Optional importance level ('normal', 'high', 'low')
 
         Returns:
             Response from the Graph API
@@ -1234,6 +1253,7 @@ Subject: {original_subject}
             bcc_recipients=bcc_recipients,
             forward_to_message_id=email_ids[0] if email_ids else None,
             body_content_type=body_content_type,
+            importance=importance,
         )
 
     async def create_folder(
@@ -1736,4 +1756,309 @@ Subject: {original_subject}
             "childFolderCount": result.get("childFolderCount", 0),
             "totalItemCount": result.get("totalItemCount", 0),
             "unreadItemCount": result.get("unreadItemCount", 0),
+        }
+
+    async def archive_email(self, email_id: str) -> Dict[str, Any]:
+        """Archive an email by moving it to the Archive folder.
+
+        Args:
+            email_id: ID of the email to archive
+
+        Returns:
+            Success message
+        """
+        archive_folder_id = await self._get_folder_id_by_path("Archive")
+        move_data = {"destinationId": archive_folder_id}
+        await self.post(f"/me/messages/{email_id}/move", data=move_data)
+        await asyncio.sleep(2.0)
+        return {"status": "success", "message": "Email archived"}
+
+    async def batch_archive_emails(self, email_ids: List[str]) -> Dict[str, Any]:
+        """Archive multiple emails using batch operations.
+
+        Args:
+            email_ids: List of email IDs to archive
+
+        Returns:
+            Result with archived count and any errors
+        """
+        archive_folder_id = await self._get_folder_id_by_path("Archive")
+
+        batch_size = 20
+        archived_count = 0
+        failed_count = 0
+        errors = []
+
+        async def process_batch(batch_ids: list, batch_idx: int) -> tuple:
+            """Process a batch of emails and return (archived_count, failed_count, errors)."""
+            batch_archived = 0
+            batch_failed = 0
+            batch_errors = []
+            requests = []
+
+            for idx, email_id in enumerate(batch_ids):
+                request_id = f"req_{batch_idx * batch_size + idx}"
+                requests.append(
+                    {
+                        "id": request_id,
+                        "method": "POST",
+                        "url": f"/me/messages/{email_id}/move",
+                        "headers": {"Content-Type": "application/json"},
+                        "body": {"destinationId": archive_folder_id},
+                    }
+                )
+
+            if not requests:
+                return (0, 0, [])
+
+            batch_data = {"requests": requests}
+
+            try:
+                batch_result = await self.post("/$batch", data=batch_data)
+                responses = batch_result.get("responses", [])
+
+                for response in responses:
+                    status = response.get("status", 0)
+                    request_id = response.get("id", "")
+
+                    if 200 <= status < 300:
+                        batch_archived += 1
+                    else:
+                        batch_failed += 1
+                        body = response.get("body", {})
+                        error_msg = body.get("error", {}).get(
+                            "message", f"HTTP {status}"
+                        )
+                        batch_errors.append(f"Request {request_id}: {error_msg}")
+            except Exception as e:
+                batch_failed += len(requests)
+                batch_errors.append(f"Batch {batch_idx + 1} failed: {str(e)}")
+
+            return (batch_archived, batch_failed, batch_errors)
+
+        batches = [
+            email_ids[i : i + batch_size] for i in range(0, len(email_ids), batch_size)
+        ]
+        batch_tasks = [process_batch(batch, idx) for idx, batch in enumerate(batches)]
+        batch_results = await asyncio.gather(*batch_tasks)
+
+        for batch_archived, batch_failed, batch_errors in batch_results:
+            archived_count += batch_archived
+            failed_count += batch_failed
+            errors.extend(batch_errors)
+
+        return {
+            "status": "success",
+            "message": f"Archived {archived_count} emails",
+            "archived_count": archived_count,
+            "failed_count": failed_count,
+            "errors": errors if errors else None,
+        }
+
+    async def flag_email(self, email_id: str, flag_status: str) -> Dict[str, Any]:
+        """Flag or unflag an email.
+
+        Args:
+            email_id: ID of the email to flag
+            flag_status: Flag status ('flagged' or 'complete')
+
+        Returns:
+            Success message
+        """
+        flag_data = {
+            "flag": {
+                "flagStatus": flag_status
+            }
+        }
+        await self.patch(f"/me/messages/{email_id}", data=flag_data)
+        await asyncio.sleep(2.0)
+        return {"status": "success", "message": f"Email {flag_status}"}
+
+    async def batch_flag_emails(
+        self, email_ids: List[str], flag_status: str
+    ) -> Dict[str, Any]:
+        """Flag multiple emails using batch operations.
+
+        Args:
+            email_ids: List of email IDs to flag
+            flag_status: Flag status ('flagged' or 'complete')
+
+        Returns:
+            Result with flagged count and any errors
+        """
+        batch_size = 20
+        flagged_count = 0
+        failed_count = 0
+        errors = []
+
+        async def process_batch(batch_ids: list, batch_idx: int) -> tuple:
+            """Process a batch of emails and return (flagged_count, failed_count, errors)."""
+            batch_flagged = 0
+            batch_failed = 0
+            batch_errors = []
+            requests = []
+
+            for idx, email_id in enumerate(batch_ids):
+                request_id = f"req_{batch_idx * batch_size + idx}"
+                requests.append(
+                    {
+                        "id": request_id,
+                        "method": "PATCH",
+                        "url": f"/me/messages/{email_id}",
+                        "headers": {"Content-Type": "application/json"},
+                        "body": {
+                            "flag": {
+                                "flagStatus": flag_status
+                            }
+                        },
+                    }
+                )
+
+            if not requests:
+                return (0, 0, [])
+
+            batch_data = {"requests": requests}
+
+            try:
+                batch_result = await self.post("/$batch", data=batch_data)
+                responses = batch_result.get("responses", [])
+
+                for response in responses:
+                    status = response.get("status", 0)
+                    request_id = response.get("id", "")
+
+                    if 200 <= status < 300:
+                        batch_flagged += 1
+                    else:
+                        batch_failed += 1
+                        body = response.get("body", {})
+                        error_msg = body.get("error", {}).get(
+                            "message", f"HTTP {status}"
+                        )
+                        batch_errors.append(f"Request {request_id}: {error_msg}")
+            except Exception as e:
+                batch_failed += len(requests)
+                batch_errors.append(f"Batch {batch_idx + 1} failed: {str(e)}")
+
+            return (batch_flagged, batch_failed, batch_errors)
+
+        batches = [
+            email_ids[i : i + batch_size] for i in range(0, len(email_ids), batch_size)
+        ]
+        batch_tasks = [process_batch(batch, idx) for idx, batch in enumerate(batches)]
+        batch_results = await asyncio.gather(*batch_tasks)
+
+        for batch_flagged, batch_failed, batch_errors in batch_results:
+            flagged_count += batch_flagged
+            failed_count += batch_failed
+            errors.extend(batch_errors)
+
+        return {
+            "status": "success",
+            "message": f"Flagged {flagged_count} emails as {flag_status}",
+            "flagged_count": flagged_count,
+            "failed_count": failed_count,
+            "errors": errors if errors else None,
+        }
+
+    async def categorize_email(self, email_id: str, categories: List[str]) -> Dict[str, Any]:
+        """Add categories to an email.
+
+        Args:
+            email_id: ID of the email to categorize
+            categories: List of category names to apply
+
+        Returns:
+            Success message
+        """
+        category_data = {
+            "categories": categories
+        }
+        await self.patch(f"/me/messages/{email_id}", data=category_data)
+        await asyncio.sleep(2.0)
+        return {"status": "success", "message": f"Email categorized with: {', '.join(categories)}"}
+
+    async def batch_categorize_emails(
+        self, email_ids: List[str], categories: List[str]
+    ) -> Dict[str, Any]:
+        """Categorize multiple emails using batch operations.
+
+        Args:
+            email_ids: List of email IDs to categorize
+            categories: List of category names to apply
+
+        Returns:
+            Result with categorized count and any errors
+        """
+        batch_size = 20
+        categorized_count = 0
+        failed_count = 0
+        errors = []
+
+        async def process_batch(batch_ids: list, batch_idx: int) -> tuple:
+            """Process a batch of emails and return (categorized_count, failed_count, errors)."""
+            batch_categorized = 0
+            batch_failed = 0
+            batch_errors = []
+            requests = []
+
+            for idx, email_id in enumerate(batch_ids):
+                request_id = f"req_{batch_idx * batch_size + idx}"
+                requests.append(
+                    {
+                        "id": request_id,
+                        "method": "PATCH",
+                        "url": f"/me/messages/{email_id}",
+                        "headers": {"Content-Type": "application/json"},
+                        "body": {
+                            "categories": categories
+                        },
+                    }
+                )
+
+            if not requests:
+                return (0, 0, [])
+
+            batch_data = {"requests": requests}
+
+            try:
+                batch_result = await self.post("/$batch", data=batch_data)
+                responses = batch_result.get("responses", [])
+
+                for response in responses:
+                    status = response.get("status", 0)
+                    request_id = response.get("id", "")
+
+                    if 200 <= status < 300:
+                        batch_categorized += 1
+                    else:
+                        batch_failed += 1
+                        body = response.get("body", {})
+                        error_msg = body.get("error", {}).get(
+                            "message", f"HTTP {status}"
+                        )
+                        batch_errors.append(f"Request {request_id}: {error_msg}")
+            except Exception as e:
+                batch_failed += len(requests)
+                batch_errors.append(f"Batch {batch_idx + 1} failed: {str(e)}")
+
+            return (batch_categorized, batch_failed, batch_errors)
+
+        batches = [
+            email_ids[i : i + batch_size] for i in range(0, len(email_ids), batch_size)
+        ]
+        batch_tasks = [process_batch(batch, idx) for idx, batch in enumerate(batches)]
+        batch_results = await asyncio.gather(*batch_tasks)
+
+        for batch_categorized, batch_failed, batch_errors in batch_results:
+            categorized_count += batch_categorized
+            failed_count += batch_failed
+            errors.extend(batch_errors)
+
+        return {
+            "status": "success",
+            "message": f"Categorized {categorized_count} emails with: {', '.join(categories)}",
+            "categorized_count": categorized_count,
+            "failed_count": failed_count,
+            "errors": errors if errors else None,
         }

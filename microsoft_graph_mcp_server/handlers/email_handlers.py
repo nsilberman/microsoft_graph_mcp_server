@@ -185,6 +185,7 @@ class EmailHandler(BaseHandler):
         body = arguments["htmlbody"]
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
+        importance = arguments.get("importance")
 
         result = await graph_client.send_email(
             to_recipients=to_recipients,
@@ -193,6 +194,7 @@ class EmailHandler(BaseHandler):
             cc_recipients=cc_recipients,
             bcc_recipients=bcc_recipients,
             body_content_type="HTML",
+            importance=importance,
         )
         return self._format_response(f"Email composed and sent successfully: {result}")
 
@@ -204,6 +206,7 @@ class EmailHandler(BaseHandler):
         body = arguments.get("htmlbody")
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
+        importance = arguments.get("importance")
 
         cached_emails = email_cache.get_cached_emails()
         if emailNumber < 1 or emailNumber > len(cached_emails):
@@ -222,6 +225,7 @@ class EmailHandler(BaseHandler):
             bcc_recipients=bcc_recipients,
             reply_to_message_id=email_id,
             body_content_type="HTML",
+            importance=importance,
         )
         return self._format_response(f"Reply email sent successfully: {result}")
 
@@ -234,6 +238,7 @@ class EmailHandler(BaseHandler):
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         bcc_csv_file = arguments.get("bcc_csv_file")
+        importance = arguments.get("importance")
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
@@ -287,6 +292,7 @@ class EmailHandler(BaseHandler):
                     cc_recipients=cc_recipients,
                     bcc_recipients=batch_bcc,
                     body_content_type="HTML",
+                    importance=importance,
                 )
                 results.append(
                     {"batch": i + 1, "bcc_count": len(batch_bcc), "result": result}
@@ -302,6 +308,7 @@ class EmailHandler(BaseHandler):
                 cc_recipients=cc_recipients,
                 bcc_recipients=bcc_recipients,
                 body_content_type="HTML",
+                importance=importance,
             )
 
             response_message = f"Email forwarded successfully: {result}"
@@ -449,10 +456,10 @@ class EmailHandler(BaseHandler):
             }
         )
 
-    async def handle_move_delete_emails(
+    async def handle_manage_emails(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle move_delete_emails tool with multiple actions."""
+        """Handle manage_emails tool with multiple actions."""
         action = arguments.get("action")
 
         if action == "move_single":
@@ -465,9 +472,21 @@ class EmailHandler(BaseHandler):
             return await self._handle_delete_multiple_emails(arguments)
         elif action == "delete_all":
             return await self._handle_delete_all_emails(arguments)
+        elif action == "archive_single":
+            return await self._handle_archive_single_email(arguments)
+        elif action == "archive_multiple":
+            return await self._handle_archive_multiple_emails(arguments)
+        elif action == "flag_single":
+            return await self._handle_flag_single_email(arguments)
+        elif action == "flag_multiple":
+            return await self._handle_flag_multiple_emails(arguments)
+        elif action == "categorize_single":
+            return await self._handle_categorize_single_email(arguments)
+        elif action == "categorize_multiple":
+            return await self._handle_categorize_multiple_emails(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'move_single', 'move_all', 'delete_single', 'delete_multiple', or 'delete_all'."
+                f"Invalid action: {action}. Must be 'move_single', 'move_all', 'delete_single', 'delete_multiple', 'delete_all', 'archive_single', 'archive_multiple', 'flag_single', 'flag_multiple', 'categorize_single', or 'categorize_multiple'."
             )
 
     async def _handle_delete_single_email(
@@ -601,5 +620,242 @@ class EmailHandler(BaseHandler):
         result = await graph_client.move_all_emails_from_folder(
             source_folder, destination_folder
         )
+
+        return self._format_response(result)
+
+    async def _handle_archive_single_email(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle archive single email action."""
+        email_number = arguments["email_number"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(
+                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+            )
+
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+
+        if not email_id:
+            return self._format_error(
+                "Error: No valid email ID found. Please check the cache and try again."
+            )
+
+        result = await graph_client.archive_email(email_id)
+
+        email_cache.remove_email(email_id)
+
+        return self._format_response(result)
+
+    async def _handle_archive_multiple_emails(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle archive multiple emails action."""
+        email_numbers = arguments["email_numbers"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        email_ids = []
+        invalid_numbers = []
+
+        for email_number in email_numbers:
+            if email_number < 1 or email_number > total_count:
+                invalid_numbers.append(email_number)
+                continue
+
+            email = cached_emails[email_number - 1]
+            email_id = email.get("id")
+
+            if not email_id:
+                invalid_numbers.append(email_number)
+                continue
+
+            email_ids.append(email_id)
+
+        if invalid_numbers:
+            return self._format_error(
+                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+            )
+
+        if not email_ids:
+            return self._format_error(
+                "Error: No valid email IDs found. Please check the cache and try again."
+            )
+
+        result = await graph_client.batch_archive_emails(email_ids)
+
+        for email_id in email_ids:
+            email_cache.remove_email(email_id)
+
+        return self._format_response(result)
+
+    async def _handle_flag_single_email(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle flag single email action."""
+        email_number = arguments["email_number"]
+        flag_status = arguments["flag_status"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(
+                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+            )
+
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+
+        if not email_id:
+            return self._format_error(
+                "Error: No valid email ID found. Please check the cache and try again."
+            )
+
+        result = await graph_client.flag_email(email_id, flag_status)
+
+        return self._format_response(result)
+
+    async def _handle_flag_multiple_emails(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle flag multiple emails action."""
+        email_numbers = arguments["email_numbers"]
+        flag_status = arguments["flag_status"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        email_ids = []
+        invalid_numbers = []
+
+        for email_number in email_numbers:
+            if email_number < 1 or email_number > total_count:
+                invalid_numbers.append(email_number)
+                continue
+
+            email = cached_emails[email_number - 1]
+            email_id = email.get("id")
+
+            if not email_id:
+                invalid_numbers.append(email_number)
+                continue
+
+            email_ids.append(email_id)
+
+        if invalid_numbers:
+            return self._format_error(
+                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+            )
+
+        if not email_ids:
+            return self._format_error(
+                "Error: No valid email IDs found. Please check the cache and try again."
+            )
+
+        result = await graph_client.batch_flag_emails(email_ids, flag_status)
+
+        return self._format_response(result)
+
+    async def _handle_categorize_single_email(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle categorize single email action."""
+        email_number = arguments["email_number"]
+        categories = arguments["categories"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(
+                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+            )
+
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+
+        if not email_id:
+            return self._format_error(
+                "Error: No valid email ID found. Please check the cache and try again."
+            )
+
+        result = await graph_client.categorize_email(email_id, categories)
+
+        return self._format_response(result)
+
+    async def _handle_categorize_multiple_emails(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle categorize multiple emails action."""
+        email_numbers = arguments["email_numbers"]
+        categories = arguments["categories"]
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        email_ids = []
+        invalid_numbers = []
+
+        for email_number in email_numbers:
+            if email_number < 1 or email_number > total_count:
+                invalid_numbers.append(email_number)
+                continue
+
+            email = cached_emails[email_number - 1]
+            email_id = email.get("id")
+
+            if not email_id:
+                invalid_numbers.append(email_number)
+                continue
+
+            email_ids.append(email_id)
+
+        if invalid_numbers:
+            return self._format_error(
+                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+            )
+
+        if not email_ids:
+            return self._format_error(
+                "Error: No valid email IDs found. Please check the cache and try again."
+            )
+
+        result = await graph_client.batch_categorize_emails(email_ids, categories)
 
         return self._format_response(result)

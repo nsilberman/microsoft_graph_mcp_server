@@ -43,32 +43,45 @@ async def delete_folder(self, folder_path: str) -> Dict[str, Any]:
     return {"status": "success", "message": f"Folder '{folder_path}' moved to Deleted Items"}
 ```
 
-### 2. Implemented Email Deletion Functionality
+### 2. Implemented Email Management Functionality
 
 **Problem**:
-- The application was missing email deletion capabilities
-- Users could not delete emails through the MCP server
+- The application was missing email management capabilities
+- Users could not move, delete, archive, flag, or categorize emails through the MCP server
 
 **Solution**:
-- Implemented complete `delete_email` functionality following the same pattern as folder deletion
+- Implemented complete `manage_emails` functionality following the same pattern as folder deletion
 - Emails are moved to Deleted Items rather than permanently deleted
+- Added support for archiving, flagging, and categorizing emails
+- Supports both single and bulk operations
 
 **Files Modified**:
 
 1. **[email_client.py](../microsoft_graph_mcp_server/clients/email_client.py)**:
    - Added [delete_email](../microsoft_graph_mcp_server/clients/email_client.py#L986-L1001) method
+   - Added [archive_email](../microsoft_graph_mcp_server/clients/email_client.py) method
+   - Added [flag_email](../microsoft_graph_mcp_server/clients/email_client.py) method
+   - Added [categorize_email](../microsoft_graph_mcp_server/clients/email_client.py) method
 
 2. **[graph_client.py](../microsoft_graph_mcp_server/graph_client.py)**:
    - Added [delete_email](../microsoft_graph_mcp_server/graph_client.py) delegation method
+   - Added [archive_email](../microsoft_graph_mcp_server/graph_client.py) delegation method
+   - Added [flag_email](../microsoft_graph_mcp_server/graph_client.py) delegation method
+   - Added [categorize_email](../microsoft_graph_mcp_server/graph_client.py) delegation method
 
 3. **[email_handlers.py](../microsoft_graph_mcp_server/handlers/email_handlers.py)**:
-   - Added [handle_delete_email](../microsoft_graph_mcp_server/handlers/email_handlers.py#L417-L431) handler
+   - Added [handle_manage_emails](../microsoft_graph_mcp_server/handlers/email_handlers.py) handler with support for:
+     - move_single, move_all
+     - delete_single, delete_multiple, delete_all
+     - archive_single, archive_multiple
+     - flag_single, flag_multiple
+     - categorize_single, categorize_multiple
 
 4. **[registry.py](../microsoft_graph_mcp_server/tools/registry.py)**:
-   - Added [delete_email](../microsoft_graph_mcp_server/tools/registry.py) tool definition
+   - Added [manage_emails](../microsoft_graph_mcp_server/tools/registry.py) tool definition with all actions
 
 5. **[server.py](../microsoft_graph_mcp_server/server.py)**:
-   - Added routing for delete_email tool
+   - Added routing for manage_emails tool
 
 **Code Changes**:
 
@@ -80,25 +93,81 @@ async def delete_email(self, email_id: str) -> Dict[str, Any]:
     await self.post(f"/me/messages/{email_id}/move", data=move_data)
     await asyncio.sleep(2.0)
     return {"status": "success", "message": "Email moved to Deleted Items"}
+
+async def archive_email(self, email_id: str) -> Dict[str, Any]:
+    """Archive an email by moving it to the Archive folder."""
+    archive_folder_id = await self._get_folder_id_by_path("Archive")
+    move_data = {"destinationId": archive_folder_id}
+    await self.post(f"/me/messages/{email_id}/move", data=move_data)
+    await asyncio.sleep(2.0)
+    return {"status": "success", "message": "Email archived"}
+
+async def flag_email(self, email_id: str, flag_status: str) -> Dict[str, Any]:
+    """Flag or unflag an email."""
+    flag_data = {"flag": {"flagStatus": flag_status}}
+    await self.patch(f"/me/messages/{email_id}", data=flag_data)
+    await asyncio.sleep(2.0)
+    return {"status": "success", "message": f"Email {flag_status}"}
+
+async def categorize_email(self, email_id: str, categories: List[str]) -> Dict[str, Any]:
+    """Add categories to an email."""
+    category_data = {"categories": categories}
+    await self.patch(f"/me/messages/{email_id}", data=category_data)
+    await asyncio.sleep(2.0)
+    return {"status": "success", "message": f"Email categorized with: {', '.join(categories)}"}
 ```
 
 **email_handlers.py**:
 ```python
-async def handle_delete_email(self, arguments: dict) -> list[types.TextContent]:
-    email_number = arguments["email_number"]
-    
-    email = self.email_cache.get_email_by_number(email_number)
-    if not email:
-        return self._format_response({
-            "error": f"Email number {email_number} not found in current list"
-        })
-    
-    email_id = email["id"]
-    result = await graph_client.delete_email(email_id)
-    
-    self.email_cache.remove_email(email_id)
-    
-    return self._format_response(result)
+async def handle_manage_emails(self, arguments: dict) -> list[types.TextContent]:
+    """Handle manage_emails tool with multiple actions."""
+    action = arguments.get("action")
+
+    if action == "delete_single":
+        email_number = arguments["email_number"]
+        email = self.email_cache.get_email_by_number(email_number)
+        if not email:
+            return self._format_response({
+                "error": f"Email number {email_number} not found in current list"
+            })
+        email_id = email["id"]
+        result = await graph_client.delete_email(email_id)
+        self.email_cache.remove_email(email_id)
+        return self._format_response(result)
+    elif action == "archive_single":
+        email_number = arguments["email_number"]
+        email = self.email_cache.get_email_by_number(email_number)
+        if not email:
+            return self._format_response({
+                "error": f"Email number {email_number} not found in current list"
+            })
+        email_id = email["id"]
+        result = await graph_client.archive_email(email_id)
+        self.email_cache.remove_email(email_id)
+        return self._format_response(result)
+    elif action == "flag_single":
+        email_number = arguments["email_number"]
+        flag_status = arguments["flag_status"]
+        email = self.email_cache.get_email_by_number(email_number)
+        if not email:
+            return self._format_response({
+                "error": f"Email number {email_number} not found in current list"
+            })
+        email_id = email["id"]
+        result = await graph_client.flag_email(email_id, flag_status)
+        return self._format_response(result)
+    elif action == "categorize_single":
+        email_number = arguments["email_number"]
+        categories = arguments["categories"]
+        email = self.email_cache.get_email_by_number(email_number)
+        if not email:
+            return self._format_response({
+                "error": f"Email number {email_number} not found in current list"
+            })
+        email_id = email["id"]
+        result = await graph_client.categorize_email(email_id, categories)
+        return self._format_response(result)
+    # Additional action handlers...
 ```
 
 ### 3. Standardized Folder Operation Response Format
