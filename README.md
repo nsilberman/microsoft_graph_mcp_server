@@ -4,30 +4,38 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 
 ## Features
 
-### User and Organization Management
-- Get basic user information such as profile, photo, and email address
-- Query user lists and group information in the organization
-- Manage user permissions and group memberships
+### Authentication and User Settings
+- Interactive device code flow authentication with Microsoft Graph
+- User settings management including timezone, search days, and page sizes
+- Authentication status checking and token management
 
-### Email and Calendar Operations
-- Read and send Outlook emails
-- Manage calendar events, create, update, and delete meetings
-- Query contacts and personal contact information
+### Email Management
+- Search and browse emails with advanced filtering (by sender, recipient, subject, body)
+- Compose, reply, and forward emails with HTML support
+- Manage email folders (create, delete, rename, move)
+- Bulk email operations (move, delete, archive, flag, categorize)
+- Email caching with pagination for efficient browsing
 
-### File and Document Management
-- Access files and folders in OneDrive and SharePoint
-- Upload, download, move, and delete files
-- Manage file permissions and sharing settings
+### Calendar Management
+- Search and browse calendar events with pagination
+- Create, update, and cancel your own events
+- Respond to events organized by others (accept, decline, tentatively accept, propose new time)
+- Check attendee availability for scheduling
+- Forward events and reply to event attendees
 
-### Team Collaboration Features
-- Access Teams teams and channels
-- Manage team members and channel messages
-- Create and manage Planner tasks and to-do items
+### Contact Management
+- Search contacts and people relevant to you
+- Returns organization users and personal contacts
 
-### Data Analysis and Intelligent Insights
-- Get user activity data and common file trends
-- Analyze meeting requests and collaboration patterns
-- Generate personalized data insights and decision support
+### File and Team Management
+- List files and folders in OneDrive
+- Access Microsoft Teams teams and channels
+
+### Performance Optimizations
+- Efficient bulk email operations with batch processing
+- Optimized email search with configurable limits
+- Timezone-aware date and time handling
+- Disk-based caching for persistence
 
 ## Installation
 
