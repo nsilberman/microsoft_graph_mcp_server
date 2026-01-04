@@ -12,6 +12,7 @@ class ToolRegistry:
         """Get all available tools."""
         return [
             ToolRegistry.auth(),
+            ToolRegistry.user_settings(),
             ToolRegistry.search_contacts(),
             ToolRegistry.manage_mail_folder(),
             ToolRegistry.manage_emails(),
@@ -23,7 +24,8 @@ class ToolRegistry:
             ToolRegistry.get_event_detail(),
             ToolRegistry.search_events(),
             ToolRegistry.check_attendee_availability(),
-            ToolRegistry.manage_event(),
+            ToolRegistry.manage_my_event(),
+            ToolRegistry.respond_to_event(),
             ToolRegistry.list_files(),
             ToolRegistry.get_teams(),
             ToolRegistry.get_team_channels(),
@@ -36,6 +38,47 @@ class ToolRegistry:
             name="get_user_info",
             description="Get current user information from Microsoft Graph",
             inputSchema={"type": "object", "properties": {}},
+        )
+
+    @staticmethod
+    def user_settings() -> types.Tool:
+        """User settings tool definition."""
+        return types.Tool(
+            name="user_settings",
+            description="Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["init", "update"],
+                        "description": "Action to perform: 'init' to sync USER_TIMEZONE from Microsoft Graph and set default values, 'update' to update specific settings",
+                    },
+                    "page_size": {
+                        "type": "integer",
+                        "description": "Page size for user browsing (default: 5, recommended range: 3-10). Only used with 'update' action.",
+                        "minimum": 1,
+                        "maximum": 50,
+                    },
+                    "llm_page_size": {
+                        "type": "integer",
+                        "description": "Page size for LLM browsing (default: 20, recommended range: 10-50). Only used with 'update' action.",
+                        "minimum": 1,
+                        "maximum": 100,
+                    },
+                    "default_search_days": {
+                        "type": "integer",
+                        "description": "Default number of days to search for emails (default: 90). Only used with 'update' action.",
+                        "minimum": 1,
+                        "maximum": 365,
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "description": "User timezone (e.g., 'America/New_York', 'Asia/Shanghai'). Only used with 'update' action.",
+                    },
+                },
+                "required": ["action"],
+            },
         )
 
     @staticmethod
@@ -551,22 +594,73 @@ class ToolRegistry:
         )
 
     @staticmethod
-    def manage_event() -> types.Tool:
-        """Manage event tool definition with multiple actions."""
+    @staticmethod
+    def respond_to_event() -> types.Tool:
+        """Respond to event tool definition for responding to events organized by others."""
         return types.Tool(
-            name="manage_event",
-            description="Manage calendar events with multiple actions: create, update, cancel, forward, reply, accept, decline, tentatively_accept, propose_new_time. Create: Create a new calendar event. Update: Update an existing event by ID. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer.",
+            name="respond_to_event",
+            description="Respond to calendar events organized by others with multiple actions: accept, decline, tentatively_accept, propose_new_time, delete. Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer. Delete: Delete a cancelled event from your calendar (use this when the organizer has cancelled the event and you want to remove it from your calendar). For accept/decline/tentatively_accept actions on recurring events, set series=true to accept/decline the entire series, or series=false (default) for a single occurrence. The event_id parameter uses the cache number from browse_events or search_events results.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "update", "cancel", "forward", "reply", "accept", "decline", "tentatively_accept", "propose_new_time"],
+                        "enum": ["accept", "decline", "tentatively_accept", "propose_new_time", "delete"],
                         "description": "Action to perform on the event",
                     },
                     "event_id": {
                         "type": "string",
-                        "description": "Event ID (required for update, cancel, forward, reply, accept, decline, tentatively_accept, propose_new_time actions)",
+                        "description": "Event cache number from browse_events or search_events (required for all actions)",
+                    },
+                    "comment": {
+                        "type": "string",
+                        "description": "Optional comment for accept, decline, tentatively_accept, propose_new_time actions",
+                    },
+                    "send_response": {
+                        "type": "boolean",
+                        "description": "Whether to send response to organizer for accept, decline, tentatively_accept actions (optional, default: true)",
+                    },
+                    "series": {
+                        "type": "boolean",
+                        "description": "For accept/decline/tentatively_accept actions on recurring events: set to true to accept/decline the entire series, or false (default) for a single occurrence only",
+                    },
+                    "propose_new_time": {
+                        "type": "object",
+                        "description": "Propose a new time when using propose_new_time action (required for propose_new_time action)",
+                        "properties": {
+                            "dateTime": {
+                                "type": "string",
+                                "description": "Proposed new date and time in your local timezone (e.g., '2024-12-31T14:30' or '2024-12-31 14:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration",
+                            },
+                            "timeZone": {
+                                "type": "string",
+                                "description": "Time zone for the proposed time (optional, will use your Microsoft 365 profile timezone or .env configuration if not provided)",
+                            },
+                        },
+                        "required": ["dateTime"],
+                    },
+                },
+                "required": ["action", "event_id"],
+            },
+        )
+
+    @staticmethod
+    def manage_my_event() -> types.Tool:
+        """Manage my event tool definition for managing user's own events."""
+        return types.Tool(
+            name="manage_my_event",
+            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event by cache number. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). The event_id parameter uses the cache number from browse_events or search_events results.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "update", "cancel", "forward", "reply"],
+                        "description": "Action to perform on the event",
+                    },
+                    "event_id": {
+                        "type": "string",
+                        "description": "Event cache number from browse_events or search_events (required for update, cancel, forward, reply actions)",
                     },
                     "subject": {
                         "type": "string",
@@ -574,11 +668,11 @@ class ToolRegistry:
                     },
                     "start": {
                         "type": "string",
-                        "description": "Start date and time in ISO format (required for create, optional for update)",
+                        "description": "Start date and time in your local timezone (e.g., '2024-01-01T14:30' or '2024-01-01 14:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
                     },
                     "end": {
                         "type": "string",
-                        "description": "End date and time in ISO format (required for create, optional for update)",
+                        "description": "End date and time in your local timezone (e.g., '2024-01-01T15:30' or '2024-01-01 15:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
                     },
                     "location": {
                         "type": "string",
@@ -596,11 +690,96 @@ class ToolRegistry:
                     "attendees": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of attendee email addresses (optional for create, update, required for forward)",
+                        "description": "List of required attendee email addresses (optional for create, update, required for forward)",
+                    },
+                    "optional_attendees": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of optional attendee email addresses (optional for create, update)",
+                    },
+                    "isOnlineMeeting": {
+                        "type": "boolean",
+                        "description": "Whether to create the event as an online meeting (optional for create, update). If true, creates a Teams meeting when onlineMeetingProvider is 'teamsForBusiness'. For other providers (Zoom, Google Meet, etc.), set isOnlineMeeting to true and include the join link in the body field",
+                    },
+                    "onlineMeetingProvider": {
+                        "type": "string",
+                        "enum": ["teamsForBusiness", "skypeForBusiness", "skypeForConsumer", "unknown"],
+                        "description": "Online meeting provider (optional for create, update). Use 'teamsForBusiness' for Teams meetings, 'skypeForBusiness' for Skype for Business, 'skypeForConsumer' for Skype Consumer, or 'unknown' for other providers. For 'unknown' or other providers (Zoom, Google Meet, etc.), include the join link in the body field. Requires isOnlineMeeting to be true",
+                    },
+                    "recurrence": {
+                        "type": "object",
+                        "description": "Recurrence pattern for the event (optional for create, update). Defines how the event repeats",
+                        "properties": {
+                            "pattern": {
+                                "type": "object",
+                                "description": "Recurrence pattern - how often the event repeats",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["daily", "weekly", "absoluteMonthly", "relativeMonthly", "absoluteYearly", "relativeYearly"],
+                                        "description": "The recurrence type: daily, weekly, absoluteMonthly (e.g., 'day 15 of every month'), relativeMonthly (e.g., 'second Tuesday of every month'), absoluteYearly (e.g., 'April 15 of every year'), relativeYearly (e.g., 'third Tuesday of April of every year')",
+                                    },
+                                    "interval": {
+                                        "type": "integer",
+                                        "description": "The interval between occurrences. For example, interval=2 for type='weekly' means every 2 weeks",
+                                        "minimum": 1,
+                                    },
+                                    "daysOfWeek": {
+                                        "type": "array",
+                                        "items": {"type": "string", "enum": ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]},
+                                        "description": "Days of the week for weekly or relativeMonthly/relativeYearly patterns",
+                                    },
+                                    "dayOfMonth": {
+                                        "type": "integer",
+                                        "description": "Day of the month for absoluteMonthly or absoluteYearly patterns (1-31)",
+                                        "minimum": 1,
+                                        "maximum": 31,
+                                    },
+                                    "month": {
+                                        "type": "integer",
+                                        "description": "Month for absoluteYearly or relativeYearly patterns (1-12)",
+                                        "minimum": 1,
+                                        "maximum": 12,
+                                    },
+                                    "index": {
+                                        "type": "string",
+                                        "enum": ["first", "second", "third", "fourth", "last"],
+                                        "description": "Index for relativeMonthly or relativeYearly patterns (e.g., 'first', 'second', 'last')",
+                                    },
+                                },
+                                "required": ["type", "interval"],
+                            },
+                            "range": {
+                                "type": "object",
+                                "description": "Recurrence range - how long the recurrence lasts",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["endDate", "noEnd", "numbered"],
+                                        "description": "The range type: endDate (ends on a specific date), noEnd (never ends), numbered (ends after a specific number of occurrences)",
+                                    },
+                                    "startDate": {
+                                        "type": "string",
+                                        "description": "Start date of the recurrence in ISO format (e.g., '2024-01-01')",
+                                    },
+                                    "endDate": {
+                                        "type": "string",
+                                        "description": "End date of the recurrence in ISO format (e.g., '2024-12-31'). Required for type='endDate'",
+                                    },
+                                    "numberOfOccurrences": {
+                                        "type": "integer",
+                                        "description": "Number of occurrences. Required for type='numbered'",
+                                        "minimum": 1,
+                                    },
+                                },
+                                "required": ["type", "startDate"],
+                            },
+                        },
+                        "required": ["pattern", "range"],
                     },
                     "comment": {
                         "type": "string",
-                        "description": "Optional comment for cancel, forward, accept, decline, tentatively_accept, propose_new_time actions",
+                        "description": "Optional comment for cancel, forward actions",
                     },
                     "subject": {
                         "type": "string",
@@ -615,25 +794,6 @@ class ToolRegistry:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of 'cc' recipient email addresses for reply action (optional, defaults to optional event attendees)",
-                    },
-                    "send_response": {
-                        "type": "boolean",
-                        "description": "Whether to send response to organizer for accept, decline, tentatively_accept actions (optional, default: true)",
-                    },
-                    "propose_new_time": {
-                        "type": "object",
-                        "description": "Propose a new time when using propose_new_time action (required for propose_new_time action)",
-                        "properties": {
-                            "dateTime": {
-                                "type": "string",
-                                "description": "Proposed new date and time in ISO format (e.g., '2024-12-31T14:30:00')",
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Time zone for the proposed time (e.g., 'UTC', 'America/New_York')",
-                            },
-                        },
-                        "required": ["dateTime", "timeZone"],
                     },
                 },
                 "required": ["action"],

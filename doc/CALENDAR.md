@@ -303,80 +303,254 @@ result = await get_event_detail(event_id="5")
 
 ---
 
-## Manage Event
+## Respond to Event
 
 ### Description
-Manage calendar events with multiple actions: create, update, cancel, forward, reply, accept, decline, tentatively accept, and propose new time. This unified tool provides comprehensive event management capabilities.
+Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, and delete cancelled events. This tool is for responding to events that you are invited to, not events you organized yourself.
 
 ### Parameters
 
 #### Common Parameters (All Actions)
 - `action` (required, string): Action to perform
-  - Values: "create", "update", "cancel", "forward", "reply", "accept", "decline", "tentatively_accept", "propose_new_time"
-
-#### Create Action Parameters
-- `subject` (required, string): Event subject
-- `start` (required, object): Event start time with dateTime and timeZone
-  - `dateTime`: Start date and time in ISO format
-  - `timeZone`: Time zone (e.g., 'UTC', 'America/New_York')
-- `end` (required, object): Event end time with dateTime and timeZone
-  - `dateTime`: End date and time in ISO format
-  - `timeZone`: Time zone (e.g., 'UTC', 'America/New_York')
-- `attendees` (optional, array): List of attendees
-  - Each attendee: `{"emailAddress": {"address": "email@example.com"}, "type": "required"}`
-- `body` (optional, object): Event body with content and contentType
-  - `content`: Body content
-  - `contentType`: Content type ("Text" or "HTML")
-- `location` (optional, string): Event location
-
-#### Update Action Parameters
-- `event_id` (required, string): Event ID to update
-- `subject` (optional, string): Updated event subject
-- `start` (optional, object): Updated event start time
-- `end` (optional, object): Updated event end time
-- `attendees` (optional, array): Updated list of attendees
-- `body` (optional, object): Updated event body
-- `location` (optional, string): Updated event location
-
-#### Cancel Action Parameters
-- `event_id` (required, string): Event ID to cancel
-- `comment` (optional, string): Message to include in cancellation notification
-
-#### Forward Action Parameters
-- `event_id` (required, string): Event ID to forward
-- `attendees` (required, array): List of attendees to add as optional attendees
-  - Can be email addresses (strings) or attendee objects
-- `comment` (optional, string): Message to include in forward
-
-#### Reply Action Parameters
-- `event_id` (required, string): Event ID to reply to
-- `subject` (optional, string): Email subject (default: "Re: Event")
-- `body` (optional, string): Email body content (default: event body content)
-- `to` (optional, array): List of TO recipient email addresses (default: required attendees)
-- `cc` (optional, array): List of CC recipient email addresses (default: optional attendees)
+  - Values: "accept", "decline", "tentatively_accept", "propose_new_time", "delete"
+- `event_id` (required, string): Event cache number from browse_events or search_events (e.g., '1', '2', '3')
 
 #### Accept Action Parameters
-- `event_id` (required, string): Event ID to accept
 - `comment` (optional, string): Message to include in response
 - `send_response` (optional, boolean): Send response to organizer (default: true)
+- `series` (optional, boolean): Accept the entire recurring series (default: false)
+  - If true, accepts all occurrences in the recurring series
+  - Requires the series master event ID (event with type "seriesMaster")
+  - If false, accepts only the single event occurrence
 
 #### Decline Action Parameters
-- `event_id` (required, string): Event ID to decline
 - `comment` (optional, string): Message to include in response
 - `send_response` (optional, boolean): Send response to organizer (default: true)
+- `series` (optional, boolean): Decline the entire recurring series (default: false)
+  - If true, declines all occurrences in the recurring series
+  - Requires the series master event ID (event with type "seriesMaster")
+  - If false, declines only the single event occurrence
 
 #### Tentatively Accept Action Parameters
-- `event_id` (required, string): Event ID to tentatively accept
 - `comment` (optional, string): Message to include in response
 - `send_response` (optional, boolean): Send response to organizer (default: true)
+- `series` (optional, boolean): Tentatively accept the entire recurring series (default: false)
+  - If true, tentatively accepts all occurrences in the recurring series
+  - Requires the series master event ID (event with type "seriesMaster")
+  - If false, tentatively accepts only the single event occurrence
 
 #### Propose New Time Action Parameters
-- `event_id` (required, string): Event ID to propose new time for
 - `propose_new_time` (required, object): Proposed new time
   - `dateTime`: Proposed date and time in ISO format
   - `timeZone`: Time zone (e.g., 'UTC', 'America/New_York')
 - `comment` (optional, string): Message to include with proposal
 - `send_response` (optional, boolean): Send response to organizer (default: true)
+
+#### Delete Action Parameters
+- `comment` (optional, string): Message to include (optional)
+
+### Returns
+
+#### Accept/Decline/Tentatively Accept Actions Returns
+```json
+{
+  "type": "text",
+  "text": "Event accepted successfully."
+}
+```
+
+#### Propose New Time Action Returns
+```json
+{
+  "type": "text",
+  "text": "New time proposed to organizer."
+}
+```
+
+#### Delete Action Returns
+```json
+{
+  "type": "text",
+  "text": "Cancelled event deleted from calendar."
+}
+```
+
+### Example Usage
+
+#### Accept Event:
+```python
+result = await respond_to_event(
+    action="accept",
+    event_id="1",
+    comment="Looking forward to it"
+)
+```
+
+#### Accept Entire Recurring Series:
+```python
+result = await respond_to_event(
+    action="accept",
+    event_id="1",
+    series=True,
+    comment="I'll attend all meetings"
+)
+```
+
+#### Decline Event:
+```python
+result = await respond_to_event(
+    action="decline",
+    event_id="2",
+    comment="I have a conflict at that time"
+)
+```
+
+#### Decline Entire Recurring Series:
+```python
+result = await respond_to_event(
+    action="decline",
+    event_id="3",
+    series=True,
+    comment="I won't be able to attend any of these"
+)
+```
+
+#### Tentatively Accept Event:
+```python
+result = await respond_to_event(
+    action="tentatively_accept",
+    event_id="4",
+    comment="I'll try to make it"
+)
+```
+
+#### Propose New Time:
+```python
+result = await respond_to_event(
+    action="propose_new_time",
+    event_id="5",
+    propose_new_time={
+        "dateTime": "2026-01-06T15:00:00",
+        "timeZone": "UTC"
+    },
+    comment="Can we meet an hour later?"
+)
+```
+
+#### Delete Cancelled Event:
+```python
+result = await respond_to_event(
+    action="delete",
+    event_id="6",
+    comment="Removing cancelled event"
+)
+```
+
+### Notes
+
+#### Accept/Decline/Tentatively Accept Actions
+- Sends response to organizer
+- Updates user's response status for the event
+- Comment is included in the response
+- Set send_response to false to respond without notifying organizer
+- **Series Parameter Support**:
+  - When `series=true`, applies the action to all occurrences in the recurring series
+  - Requires the series master event ID (event with type "seriesMaster")
+  - When `series=false` (default), applies the action only to the single event occurrence
+  - Use `search_events` or `browse_events` to identify series master events (type: "seriesMaster")
+  - Individual occurrences have type "occurrence" or "exception"
+
+#### Propose New Time Action
+- Automatically declines the event
+- Sends proposed new time to organizer
+- Organizer can accept or decline the proposal
+- Comment is included with the proposal
+- This is the preferred way to propose alternative times
+
+#### Delete Action
+- Used to delete cancelled events organized by others from your calendar
+- Only works for events where you are not the organizer
+- Does not send notifications to the organizer
+- Useful for cleaning up cancelled events from your calendar
+
+#### General Notes
+- Event ID is the cache number from browse_events or search_events, not the Graph API ID
+- Event must be in cache (use search_events first)
+- For user-organized events, use the manage_my_event tool instead
+
+---
+
+## Manage My Event
+
+### Description
+Manage your own calendar events with multiple actions: create, update, cancel, forward, and reply. This tool is for events that you organized yourself, not events you were invited to.
+
+### Parameters
+
+#### Common Parameters (All Actions)
+- `action` (required, string): Action to perform
+  - Values: "create", "update", "cancel", "forward", "reply"
+
+#### Create Action Parameters
+- `subject` (required, string): Event subject
+- `start` (required, string): Event start date and time in your local timezone
+  - Format: "2026-01-06T14:30" or "2026-01-06 14:30"
+- `end` (required, string): Event end date and time in your local timezone
+  - Format: "2026-01-06T15:30" or "2026-01-06 15:30"
+- `attendees` (optional, array): List of required attendee email addresses
+- `optional_attendees` (optional, array): List of optional attendee email addresses
+- `body` (optional, string): Event body content
+- `body_content_type` (optional, string): Body content type
+  - Values: "Text" or "HTML"
+  - Default: "HTML"
+- `location` (optional, string): Event location
+- `isOnlineMeeting` (optional, boolean): Whether to create the event as an online meeting (default: false)
+- `onlineMeetingProvider` (optional, string): Online meeting provider
+  - Values: "teamsForBusiness", "skypeForBusiness", "skypeForConsumer", "unknown"
+  - Default: "teamsForBusiness" when isOnlineMeeting is true
+- `recurrence` (optional, object): Recurrence pattern for the event
+  - `pattern`: Recurrence pattern (how often the event repeats)
+    - `type`: "daily", "weekly", "absoluteMonthly", "relativeMonthly", "absoluteYearly", "relativeYearly"
+    - `interval`: Number of units between occurrences (e.g., 2 for every 2 weeks)
+    - `dayOfMonth`: Day of month (1-31) for absoluteMonthly/absoluteYearly
+    - `daysOfWeek`: Array of days for weekly/relativeMonthly/relativeYearly
+      - Values: "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
+    - `index`: "first", "second", "third", "fourth", "last" for relativeMonthly/relativeYearly
+    - `month`: Month number (1-12) for absoluteYearly/relativeYearly
+  - `range`: Recurrence range (how long the recurrence lasts)
+    - `type`: "endDate", "noEnd", "numbered"
+    - `startDate`: Start date in ISO format (e.g., "2024-01-01")
+    - `endDate`: End date in ISO format for type "endDate"
+    - `numberOfOccurrences`: Number of occurrences for type "numbered"
+
+#### Update Action Parameters
+- `event_id` (required, string): Event cache number from browse_events or search_events
+- `subject` (optional, string): Updated event subject
+- `start` (optional, string): Updated event start date and time in your local timezone
+- `end` (optional, string): Updated event end date and time in your local timezone
+- `attendees` (optional, array): Updated list of required attendee email addresses
+- `optional_attendees` (optional, array): Updated list of optional attendee email addresses
+- `body` (optional, string): Updated event body content
+- `body_content_type` (optional, string): Updated body content type
+- `location` (optional, string): Updated event location
+- `isOnlineMeeting` (optional, boolean): Whether to update as an online meeting
+- `onlineMeetingProvider` (optional, string): Online meeting provider
+
+#### Cancel Action Parameters
+- `event_id` (required, string): Event cache number from browse_events or search_events
+- `comment` (optional, string): Message to include in cancellation notification
+
+#### Forward Action Parameters
+- `event_id` (required, string): Event cache number from browse_events or search_events
+- `attendees` (required, array): List of attendee email addresses to add as optional attendees
+- `comment` (optional, string): Message to include in forward
+
+#### Reply Action Parameters
+- `event_id` (required, string): Event cache number from browse_events or search_events
+- `subject` (optional, string): Email subject (default: "Re: Event")
+- `body` (optional, string): Email body content (default: event body content)
+- `to` (optional, array): List of TO recipient email addresses (default: required attendees)
+- `cc` (optional, array): List of CC recipient email addresses (default: optional attendees)
 
 ### Returns
 
@@ -395,7 +569,6 @@ Manage calendar events with multiple actions: create, update, cancel, forward, r
   },
   ...
 }
-}
 ```
 
 #### Other Actions Returns
@@ -410,51 +583,72 @@ Manage calendar events with multiple actions: create, update, cancel, forward, r
 
 #### Create Event:
 ```python
-result = await manage_event(
+result = await manage_my_event(
     action="create",
     subject="Team Meeting",
-    start={
-        "dateTime": "2026-01-06T14:00:00",
-        "timeZone": "UTC"
-    },
-    end={
-        "dateTime": "2026-01-06T15:00:00",
-        "timeZone": "UTC"
+    start="2026-01-06T14:30",
+    end="2026-01-06T15:30"
+)
+```
+
+#### Create Recurring Event:
+```python
+result = await manage_my_event(
+    action="create",
+    subject="Weekly Team Meeting",
+    start="2026-01-06T14:30",
+    end="2026-01-06T15:30",
+    recurrence={
+        "pattern": {
+            "type": "weekly",
+            "interval": 1,
+            "daysOfWeek": ["monday"]
+        },
+        "range": {
+            "type": "noEnd",
+            "startDate": "2026-01-06"
+        }
     }
+)
+```
+
+#### Create Online Meeting:
+```python
+result = await manage_my_event(
+    action="create",
+    subject="Online Team Meeting",
+    start="2026-01-06T14:30",
+    end="2026-01-06T15:30",
+    isOnlineMeeting=True,
+    onlineMeetingProvider="teamsForBusiness"
 )
 ```
 
 #### Update Event:
 ```python
-result = await manage_event(
+result = await manage_my_event(
     action="update",
-    event_id="event-id",
+    event_id="1",
     subject="Updated Team Meeting",
-    start={
-        "dateTime": "2026-01-06T15:00:00",
-        "timeZone": "UTC"
-    },
-    end={
-        "dateTime": "2026-01-06T16:00:00",
-        "timeZone": "UTC"
-    }
+    start="2026-01-06T15:30",
+    end="2026-01-06T16:30"
 )
 ```
 
 #### Cancel Event:
 ```python
-result = await manage_event(
+result = await manage_my_event(
     action="cancel",
-    event_id="event-id",
+    event_id="2",
     comment="Meeting is no longer needed"
 )
 ```
 
 #### Forward Event:
 ```python
-result = await manage_event(
+result = await manage_my_event(
     action="forward",
-    event_id="event-id",
+    event_id="4",
     attendees=["new-attendee@example.com", "another@example.com"],
     comment="Please join this meeting"
 )
@@ -462,9 +656,9 @@ result = await manage_event(
 
 #### Reply to Event:
 ```python
-result = await manage_event(
+result = await manage_my_event(
     action="reply",
-    event_id="event-id",
+    event_id="5",
     subject="Re: Team Meeting",
     body="I'll be attending the meeting",
     to=["organizer@example.com"],
@@ -472,59 +666,22 @@ result = await manage_event(
 )
 ```
 
-#### Accept Event:
-```python
-result = await manage_event(
-    action="accept",
-    event_id="event-id",
-    comment="Looking forward to it"
-)
-```
-
-#### Decline Event:
-```python
-result = await manage_event(
-    action="decline",
-    event_id="event-id",
-    comment="I have a conflict at that time"
-)
-```
-
-#### Tentatively Accept Event:
-```python
-result = await manage_event(
-    action="tentatively_accept",
-    event_id="event-id",
-    comment="I'll try to make it"
-)
-```
-
-#### Propose New Time:
-```python
-result = await manage_event(
-    action="propose_new_time",
-    event_id="event-id",
-    propose_new_time={
-        "dateTime": "2026-01-06T15:00:00",
-        "timeZone": "UTC"
-    },
-    comment="Can we meet an hour later?"
-)
-```
-
 ### Notes
 
 #### Create Action
-- All times should be in ISO 8601 format
-- Timezone can be any IANA timezone name
-- Attendee types: "required", "optional", "resource"
+- Times should be in your local timezone (system automatically converts to UTC)
+- Timezone is automatically detected from your Microsoft 365 profile or .env configuration
+- Attendee types: required and optional
 - Body content types: "Text" or "HTML"
-- The event is created in the user's primary calendar
+- The event is created in your primary calendar
+- Supports recurring events with flexible recurrence patterns
+- Supports online meetings with Teams, Skype, or other providers
 
 #### Update Action
 - Only provided fields are updated
-- Event ID must be valid
+- Event ID is the cache number from browse_events or search_events
 - Cannot change event type (single, recurring, etc.)
+- Event must be in cache (use search_events first)
 
 #### Cancel Action
 - Sends cancellation notifications to all attendees
@@ -544,18 +701,10 @@ result = await manage_event(
 - CC recipients default to optional attendees
 - Event must be in cache (use search_events first)
 
-#### Accept/Decline/Tentatively Accept Actions
-- Sends response to organizer
-- Updates user's response status for the event
-- Comment is included in the response
-- Set send_response to false to respond without notifying organizer
-
-#### Propose New Time Action
-- Automatically declines the event
-- Sends proposed new time to organizer
-- Organizer can accept or decline the proposal
-- Comment is included with the proposal
-- This is the preferred way to propose alternative times
+#### General Notes
+- Event ID is the cache number from browse_events or search_events, not the Graph API ID
+- For events organized by others, use the respond_to_event tool instead
+- All date/time parameters are in your local timezone
 
 ---
 

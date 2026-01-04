@@ -3,6 +3,7 @@
 import json
 import re
 import urllib.parse
+from datetime import datetime
 from mcp import types
 
 from .base import BaseHandler
@@ -204,6 +205,17 @@ class CalendarHandler(BaseHandler):
         
         filtered_events = []
         for event in page_events:
+            attendees_list = event.get("attendees_list", [])
+            attendees_display = []
+            for attendee in attendees_list:
+                email_info = attendee.get("emailAddress", {})
+                name = email_info.get("name", "")
+                email = email_info.get("address", "")
+                if name:
+                    attendees_display.append(f"{name} ({email})")
+                elif email:
+                    attendees_display.append(email)
+            
             filtered_event = {
                 "number": event.get("number", 0),
                 "subject": event.get("subject", ""),
@@ -211,12 +223,14 @@ class CalendarHandler(BaseHandler):
                 "end": event.get("end", ""),
                 "location": event.get("location", ""),
                 "organizer": event.get("organizer", {}),
-                "attendees": event.get("attendees", 0),
+                "attendees": len(attendees_list),
+                "attendees_list": attendees_display,
                 "isAllDay": event.get("isAllDay", False),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
                 "recurrence": event.get("recurrence", False),
+                "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": event.get("responseStatus", {}),
                 "sensitivity": event.get("sensitivity", "normal"),
                 "meetingType": event.get("meetingType", "none"),
@@ -353,6 +367,38 @@ class CalendarHandler(BaseHandler):
                 for email in arguments["attendees"]
             ]
 
+        if "optional_attendees" in arguments:
+            if "attendees" not in event_data:
+                event_data["attendees"] = []
+            event_data["attendees"].extend([
+                {"emailAddress": {"address": email}, "type": "optional"}
+                for email in arguments["optional_attendees"]
+            ])
+
+        if "optional_attendees" in arguments:
+            if "attendees" not in event_data:
+                event_data["attendees"] = []
+            event_data["attendees"].extend([
+                {"emailAddress": {"address": email}, "type": "optional"}
+                for email in arguments["optional_attendees"]
+            ])
+
+        if "optional_attendees" in arguments:
+            if "attendees" not in event_data:
+                event_data["attendees"] = []
+            event_data["attendees"].extend([
+                {"emailAddress": {"address": email}, "type": "optional"}
+                for email in arguments["optional_attendees"]
+            ])
+
+        if "optional_attendees" in arguments:
+            if "attendees" not in event_data:
+                event_data["attendees"] = []
+            event_data["attendees"].extend([
+                {"emailAddress": {"address": email}, "type": "optional"}
+                for email in arguments["optional_attendees"]
+            ])
+
         result = await graph_client.create_event(event_data)
         return [
             types.TextContent(
@@ -361,8 +407,27 @@ class CalendarHandler(BaseHandler):
             )
         ]
 
-    async def handle_manage_event(self, arguments: dict) -> list[types.TextContent]:
-        """Handle manage_event tool with multiple actions: create, update, cancel, forward, reply, accept, decline, tentatively_accept, propose_new_time."""
+    async def handle_respond_to_event(self, arguments: dict) -> list[types.TextContent]:
+        """Handle respond_to_event tool for responding to events organized by others: accept, decline, tentatively_accept, propose_new_time, delete."""
+        action = arguments["action"]
+
+        if action == "accept":
+            return await self._handle_accept_event_action(arguments)
+        elif action == "decline":
+            return await self._handle_decline_event_action(arguments)
+        elif action == "tentatively_accept":
+            return await self._handle_tentatively_accept_event_action(arguments)
+        elif action == "propose_new_time":
+            return await self._handle_propose_new_time_action(arguments)
+        elif action == "delete":
+            return await self._handle_delete_cancelled_event_action(arguments)
+        else:
+            return self._format_error(
+                f"Invalid action: {action}. Must be 'accept', 'decline', 'tentatively_accept', 'propose_new_time', or 'delete'."
+            )
+
+    async def handle_manage_my_event(self, arguments: dict) -> list[types.TextContent]:
+        """Handle manage_my_event tool for managing user's own events: create, update, cancel, forward, reply."""
         action = arguments["action"]
 
         if action == "create":
@@ -375,25 +440,25 @@ class CalendarHandler(BaseHandler):
             return await self._handle_forward_event_action(arguments)
         elif action == "reply":
             return await self._handle_reply_event_action(arguments)
-        elif action == "accept":
-            return await self._handle_accept_event_action(arguments)
-        elif action == "decline":
-            return await self._handle_decline_event_action(arguments)
-        elif action == "tentatively_accept":
-            return await self._handle_tentatively_accept_event_action(arguments)
-        elif action == "propose_new_time":
-            return await self._handle_propose_new_time_action(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'create', 'update', 'cancel', 'forward', 'reply', 'accept', 'decline', 'tentatively_accept', or 'propose_new_time'."
+                f"Invalid action: {action}. Must be 'create', 'update', 'cancel', 'forward', or 'reply'."
             )
 
     async def _handle_create_event_action(self, arguments: dict) -> list[types.TextContent]:
         """Handle create event action."""
+        user_timezone = await graph_client.get_user_timezone()
+        
+        start_local = arguments["start"]
+        end_local = arguments["end"]
+        
+        start_utc = DateHandler.parse_local_date_to_utc(start_local, user_timezone)
+        end_utc = DateHandler.parse_local_date_to_utc(end_local, user_timezone)
+        
         event_data = {
             "subject": arguments["subject"],
-            "start": {"dateTime": arguments["start"], "timeZone": "UTC"},
-            "end": {"dateTime": arguments["end"], "timeZone": "UTC"},
+            "start": {"dateTime": start_utc, "timeZone": "UTC"},
+            "end": {"dateTime": end_utc, "timeZone": "UTC"},
         }
 
         if "body" in arguments:
@@ -411,20 +476,52 @@ class CalendarHandler(BaseHandler):
                 for email in arguments["attendees"]
             ]
 
+        is_online_meeting = arguments.get("isOnlineMeeting")
+        online_meeting_provider = arguments.get("onlineMeetingProvider")
+
+        teams_integration_warning = None
+        custom_link_note = None
+        
+        if is_online_meeting and online_meeting_provider:
+            if online_meeting_provider == "teamsForBusiness":
+                has_teams = await graph_client.calendar_client.check_teams_integration()
+                if not has_teams:
+                    teams_integration_warning = "Note: Current user does not have Teams integration. Teams meeting link may not be created if the organizer also lacks Teams access."
+            elif online_meeting_provider == "unknown":
+                custom_link_note = "Note: For 'unknown' provider, make sure to include the custom join link in the event body."
+
+            event_data["isOnlineMeeting"] = is_online_meeting
+            event_data["onlineMeetingProvider"] = online_meeting_provider
+
+        if "recurrence" in arguments:
+            event_data["recurrence"] = arguments["recurrence"]
+
         result = await graph_client.create_event(event_data)
-        return self._format_response(f"Event created successfully: {json.dumps(result, indent=2, ensure_ascii=False)}")
+        
+        response_message = f"Event created successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+        if teams_integration_warning:
+            response_message = f"{teams_integration_warning}\n\n{response_message}"
+        if custom_link_note:
+            response_message = f"{custom_link_note}\n\n{response_message}"
+        
+        return self._format_response(response_message)
 
     async def _handle_update_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle update event action."""
-        event_id = arguments["event_id"]
+        """Handle update event action using cache number."""
+        event_number = int(arguments["event_id"])
+        event_info = await self._resolve_event_id(event_number)
 
         event_data = {}
         if "subject" in arguments:
             event_data["subject"] = arguments["subject"]
         if "start" in arguments:
-            event_data["start"] = {"dateTime": arguments["start"], "timeZone": "UTC"}
+            user_timezone = await graph_client.get_user_timezone()
+            start_utc = DateHandler.parse_local_date_to_utc(arguments["start"], user_timezone)
+            event_data["start"] = {"dateTime": start_utc, "timeZone": "UTC"}
         if "end" in arguments:
-            event_data["end"] = {"dateTime": arguments["end"], "timeZone": "UTC"}
+            user_timezone = await graph_client.get_user_timezone()
+            end_utc = DateHandler.parse_local_date_to_utc(arguments["end"], user_timezone)
+            event_data["end"] = {"dateTime": end_utc, "timeZone": "UTC"}
         if "body" in arguments:
             event_data["body"] = {
                 "contentType": arguments.get("body_content_type", "HTML"),
@@ -438,22 +535,88 @@ class CalendarHandler(BaseHandler):
                 for email in arguments["attendees"]
             ]
 
-        result = await graph_client.update_event(event_id, event_data)
-        return self._format_response(f"Event updated successfully: {json.dumps(result, indent=2, ensure_ascii=False)}")
+        if "optional_attendees" in arguments:
+            if "attendees" not in event_data:
+                event_data["attendees"] = []
+            event_data["attendees"].extend([
+                {"emailAddress": {"address": email}, "type": "optional"}
+                for email in arguments["optional_attendees"]
+            ])
+
+        is_online_meeting = arguments.get("isOnlineMeeting")
+        online_meeting_provider = arguments.get("onlineMeetingProvider")
+
+        teams_integration_warning = None
+        custom_link_note = None
+        
+        if is_online_meeting is not None or online_meeting_provider is not None:
+            if online_meeting_provider == "teamsForBusiness":
+                has_teams = await graph_client.check_teams_integration()
+                if not has_teams:
+                    teams_integration_warning = "Note: Current user does not have Teams integration. Teams meeting link may not be created if the organizer also lacks Teams access."
+            elif online_meeting_provider == "unknown":
+                custom_link_note = "Note: For 'unknown' provider, make sure to include the custom join link in the event body."
+            
+            if is_online_meeting is not None:
+                event_data["isOnlineMeeting"] = is_online_meeting
+            if online_meeting_provider is not None:
+                event_data["onlineMeetingProvider"] = online_meeting_provider
+
+        if "recurrence" in arguments:
+            event_data["recurrence"] = arguments["recurrence"]
+
+        result = await graph_client.update_event(event_info["event_id"], event_data)
+        
+        response_message = f"Event updated successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+        if teams_integration_warning:
+            response_message = f"{teams_integration_warning}\n\n{response_message}"
+        if custom_link_note:
+            response_message = f"{custom_link_note}\n\n{response_message}"
+        
+        return self._format_response(response_message)
 
     async def _handle_cancel_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle cancel event action."""
-        event_id = arguments["event_id"]
+        """Handle cancel event action using cache number."""
+        event_number = int(arguments["event_id"])
         comment = arguments.get("comment")
+        event_info = await self._resolve_event_id(event_number)
 
-        await graph_client.cancel_event(event_id, comment)
+        await graph_client.cancel_event(event_info["event_id"], comment)
         return self._format_response(f"Event cancelled successfully. Cancellation notifications sent to attendees.")
 
+    async def _resolve_event_id(self, event_number: int) -> dict:
+        """Resolve cache event number to actual event ID and series information.
+
+        Args:
+            event_number: The cache number from browse_events
+
+        Returns:
+            Dictionary with event_id, series_master_id, and is_recurring
+
+        Raises:
+            ValueError: If event number not found in cache
+        """
+        cached_events = event_cache.get_cached_events()
+        for event in cached_events:
+            if event.get("number") == event_number:
+                return {
+                    "event_id": event.get("id"),
+                    "series_master_id": event.get("seriesMasterId"),
+                    "is_recurring": event.get("recurrence", False)
+                }
+        available_numbers = [e.get("number") for e in cached_events]
+        raise ValueError(
+            f"Event number {event_number} not found in cache. "
+            f"Available numbers: {available_numbers}. "
+            f"Please search for events first."
+        )
+
     async def _handle_forward_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle forward event action (add optional attendees)."""
-        event_id = arguments["event_id"]
+        """Handle forward event action (add optional attendees) using cache number."""
+        event_number = int(arguments["event_id"])
         attendees = arguments["attendees"]
         comment = arguments.get("comment")
+        event_info = await self._resolve_event_id(event_number)
 
         attendee_list = []
         for attendee in attendees:
@@ -462,28 +625,19 @@ class CalendarHandler(BaseHandler):
             elif isinstance(attendee, dict):
                 attendee_list.append(attendee)
 
-        await graph_client.forward_event(event_id, attendee_list, comment)
+        await graph_client.forward_event(event_info["event_id"], attendee_list, comment)
         return self._format_response(f"Event forwarded successfully to {len(attendee_list)} attendee(s).")
 
     async def _handle_reply_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle reply to event action (send email to attendees using event body as email content)."""
-        event_id = arguments["event_id"]
+        """Handle reply to event action (send email to attendees using event body as email content) using cache number."""
+        event_number = int(arguments["event_id"])
         subject = arguments.get("subject", "Re: Event")
         body = arguments.get("body")
         to_recipients = arguments.get("to")
         cc_recipients = arguments.get("cc")
+        event_info = await self._resolve_event_id(event_number)
 
-        cached_events = event_cache.get_cached_events()
-        event = None
-        for cached_event in cached_events:
-            if cached_event.get("id") == event_id:
-                event = cached_event
-                break
-
-        if not event:
-            return self._format_error(f"Event with ID {event_id} not found in cache. Please search for events first.")
-
-        full_event = await graph_client.get_event(event_id)
+        full_event = await graph_client.get_event(event_info["event_id"])
 
         if not body:
             event_body = full_event.get("body", {})
@@ -517,41 +671,87 @@ class CalendarHandler(BaseHandler):
         return self._format_response(f"Email sent successfully to event attendees: {result}")
 
     async def _handle_accept_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle accept event action."""
-        event_id = arguments["event_id"]
+        """Handle accept event action using cache number."""
+        event_number = int(arguments["event_id"])
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
+        series = arguments.get("series", False)
+        event_info = await self._resolve_event_id(event_number)
 
-        await graph_client.accept_event(event_id, comment, send_response)
+        if series and event_info["series_master_id"]:
+            await graph_client.accept_event(event_info["series_master_id"], comment, send_response, series)
+            return self._format_response(f"Entire recurring series accepted successfully.")
+        
+        await graph_client.accept_event(event_info["event_id"], comment, send_response, series)
         return self._format_response(f"Event accepted successfully.")
 
     async def _handle_decline_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle decline event action."""
-        event_id = arguments["event_id"]
+        """Handle decline event action using cache number."""
+        event_number = int(arguments["event_id"])
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
+        series = arguments.get("series", False)
+        event_info = await self._resolve_event_id(event_number)
 
-        await graph_client.decline_event(event_id, comment, send_response)
+        if series and event_info["series_master_id"]:
+            await graph_client.decline_event(event_info["series_master_id"], comment, send_response, series)
+            return self._format_response(f"Entire recurring series declined successfully.")
+        
+        await graph_client.decline_event(event_info["event_id"], comment, send_response, series)
         return self._format_response(f"Event declined successfully.")
 
     async def _handle_tentatively_accept_event_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle tentatively accept event action."""
-        event_id = arguments["event_id"]
+        """Handle tentatively accept event action using cache number."""
+        event_number = int(arguments["event_id"])
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
+        series = arguments.get("series", False)
+        event_info = await self._resolve_event_id(event_number)
 
-        await graph_client.tentatively_accept_event(event_id, comment, send_response)
+        if series and event_info["series_master_id"]:
+            await graph_client.tentatively_accept_event(event_info["series_master_id"], comment, send_response, series)
+            return self._format_response(f"Entire recurring series tentatively accepted successfully.")
+        
+        await graph_client.tentatively_accept_event(event_info["event_id"], comment, send_response, series)
         return self._format_response(f"Event tentatively accepted successfully.")
 
     async def _handle_propose_new_time_action(self, arguments: dict) -> list[types.TextContent]:
-        """Handle propose new time action (decline event and propose new time)."""
-        event_id = arguments["event_id"]
+        """Handle propose new time action (decline event and propose new time) using cache number."""
+        event_number = int(arguments["event_id"])
         propose_new_time = arguments["propose_new_time"]
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
+        event_info = await self._resolve_event_id(event_number)
 
-        await graph_client.propose_new_time(event_id, propose_new_time, comment, send_response)
-        return self._format_response(f"Event declined successfully with proposed new time: {propose_new_time.get('dateTime')} ({propose_new_time.get('timeZone')}).")
+        user_timezone = await graph_client.get_user_timezone()
+        
+        proposed_time_local = propose_new_time.get("dateTime")
+        proposed_time_utc = DateHandler.parse_local_date_to_utc(proposed_time_local, user_timezone)
+        
+        from datetime import timedelta
+        proposed_end_time_utc = (datetime.fromisoformat(proposed_time_utc.replace("Z", "+00:00")) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        
+        propose_new_time_data = {
+            "start": {
+                "dateTime": proposed_time_utc,
+                "timeZone": "UTC"
+            },
+            "end": {
+                "dateTime": proposed_end_time_utc,
+                "timeZone": "UTC"
+            }
+        }
+
+        await graph_client.propose_new_time(event_info["event_id"], propose_new_time_data, comment, send_response)
+        return self._format_response(f"Event declined successfully with proposed new time: {proposed_time_local} ({user_timezone}).")
+
+    async def _handle_delete_cancelled_event_action(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete cancelled event action using cache number."""
+        event_number = int(arguments["event_id"])
+        event_info = await self._resolve_event_id(event_number)
+
+        await graph_client.delete_event(event_info["event_id"])
+        return self._format_response(f"Cancelled event deleted successfully from your calendar.")
 
     async def handle_check_attendee_availability(self, arguments: dict) -> list[types.TextContent]:
         """Handle check_attendee_availability tool."""

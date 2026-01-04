@@ -187,6 +187,19 @@ class EmailHandler(BaseHandler):
         bcc_recipients = arguments.get("bcc")
         importance = arguments.get("importance")
 
+        from ..config import MAX_RECIPIENTS_LIMIT
+
+        to_count = len(to_recipients) if to_recipients else 0
+        cc_count = len(cc_recipients) if cc_recipients else 0
+        bcc_count = len(bcc_recipients) if bcc_recipients else 0
+
+        total_recipients = to_count + cc_count + bcc_count
+
+        if total_recipients > MAX_RECIPIENTS_LIMIT:
+            return self._format_error(
+                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
+            )
+
         result = await graph_client.send_email(
             to_recipients=to_recipients,
             subject=subject,
@@ -216,6 +229,19 @@ class EmailHandler(BaseHandler):
 
         email = cached_emails[emailNumber - 1]
         email_id = email["id"]
+
+        from ..config import MAX_RECIPIENTS_LIMIT
+
+        to_count = len(to_recipients) if to_recipients else 0
+        cc_count = len(cc_recipients) if cc_recipients else 0
+        bcc_count = len(bcc_recipients) if bcc_recipients else 0
+
+        total_recipients = to_count + cc_count + bcc_count
+
+        if total_recipients > MAX_RECIPIENTS_LIMIT:
+            return self._format_error(
+                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
+            )
 
         result = await graph_client.send_email(
             to_recipients=to_recipients,
@@ -271,49 +297,33 @@ class EmailHandler(BaseHandler):
             except Exception as e:
                 return self._format_error(f"Error reading BCC CSV file: {str(e)}")
 
-        all_bcc_recipients = bcc_recipients or []
-        max_bcc = settings.max_bcc_batch_size
-        total_bcc = len(all_bcc_recipients)
+        from ..config import MAX_RECIPIENTS_LIMIT
 
-        if total_bcc > max_bcc:
-            num_batches = (total_bcc + max_bcc - 1) // max_bcc
-            results = []
+        to_count = len(to_recipients) if to_recipients else 0
+        cc_count = len(cc_recipients) if cc_recipients else 0
+        bcc_count = len(bcc_recipients) if bcc_recipients else 0
 
-            for i in range(num_batches):
-                start_idx = i * max_bcc
-                end_idx = start_idx + max_bcc
-                batch_bcc = all_bcc_recipients[start_idx:end_idx]
+        total_recipients = to_count + cc_count + bcc_count
 
-                result = await graph_client.batch_forward_emails(
-                    to_recipients=to_recipients,
-                    subject=subject,
-                    body=body,
-                    email_ids=[email_id],
-                    cc_recipients=cc_recipients,
-                    bcc_recipients=batch_bcc,
-                    body_content_type="HTML",
-                    importance=importance,
-                )
-                results.append(
-                    {"batch": i + 1, "bcc_count": len(batch_bcc), "result": result}
-                )
-
-            response_message = f"Email forwarded successfully in {num_batches} batches (total {total_bcc} BCC recipients): {results}"
-        else:
-            result = await graph_client.batch_forward_emails(
-                to_recipients=to_recipients,
-                subject=subject,
-                body=body,
-                email_ids=[email_id],
-                cc_recipients=cc_recipients,
-                bcc_recipients=bcc_recipients,
-                body_content_type="HTML",
-                importance=importance,
+        if total_recipients > MAX_RECIPIENTS_LIMIT:
+            return self._format_error(
+                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
             )
 
-            response_message = f"Email forwarded successfully: {result}"
-            if bcc_recipients:
-                response_message = f"Email forwarded successfully to {len(bcc_recipients)} BCC recipients: {result}"
+        result = await graph_client.batch_forward_emails(
+            to_recipients=to_recipients,
+            subject=subject,
+            body=body,
+            email_ids=[email_id],
+            cc_recipients=cc_recipients,
+            bcc_recipients=bcc_recipients,
+            body_content_type="HTML",
+            importance=importance,
+        )
+
+        response_message = f"Email forwarded successfully: {result}"
+        if bcc_recipients:
+            response_message = f"Email forwarded successfully to {bcc_count} BCC recipients: {result}"
 
         return self._format_response(response_message)
 

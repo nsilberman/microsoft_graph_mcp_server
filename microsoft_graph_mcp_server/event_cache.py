@@ -220,13 +220,13 @@ class EventBrowsingCache:
         return self.cache["search_state"].copy()
 
     def get_cached_events(self) -> List[Dict[str, Any]]:
-        """Get cached events from current mode, sorted by start time (latest first)."""
+        """Get cached events from current mode, sorted by start time (earliest first)."""
         if self.cache["mode"] == "browse":
             metadata = self.cache["browse_state"]["metadata"].copy()
         else:
             metadata = self.cache["search_state"]["metadata"].copy()
 
-        sorted_events = sorted(metadata, key=lambda x: x.get("start_datetime", ""), reverse=True)
+        sorted_events = sorted(metadata, key=lambda x: x.get("start_datetime", ""))
         
         for idx, event in enumerate(sorted_events):
             event["number"] = idx + 1

@@ -9,6 +9,10 @@ except ImportError:
     from pydantic import BaseSettings, ConfigDict as SettingsConfigDict
 
 
+# Microsoft Graph API service limits
+MAX_RECIPIENTS_LIMIT = 500  # Maximum total recipients (TO + CC + BCC) per email
+
+
 class Settings(BaseSettings):
     """Application settings."""
 
@@ -48,11 +52,6 @@ class Settings(BaseSettings):
     contact_search_limit: int = int(
         os.getenv("CONTACT_SEARCH_LIMIT", "10")
     )  # Maximum contacts to return in search results
-
-    # Email forwarding settings
-    max_bcc_batch_size: int = int(
-        os.getenv("MAX_BCC_BATCH_SIZE", "500")
-    )  # Maximum BCC recipients per batch when forwarding emails
 
     model_config = SettingsConfigDict(
         env_file=".env",

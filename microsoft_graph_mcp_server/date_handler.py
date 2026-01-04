@@ -13,7 +13,6 @@ class DateHandler:
 
     WINDOWS_TO_IANA_TIMEZONES = {
         "China Standard Time": "Asia/Shanghai",
-        "China Standard Time": "Asia/Shanghai",
         "Pacific Standard Time": "America/Los_Angeles",
         "Eastern Standard Time": "America/New_York",
         "Central Standard Time": "America/Chicago",
@@ -91,6 +90,11 @@ class DateHandler:
 
         try:
             dt = datetime.fromisoformat(utc_datetime.replace("Z", "+00:00"))
+            
+            # If the datetime is naive (no timezone info), assume it's UTC
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            
             user_tz = DateHandler.get_user_timezone_object(timezone_str)
             dt_converted = dt.astimezone(user_tz)
             return dt_converted.strftime(format_str)
@@ -122,6 +126,37 @@ class DateHandler:
             return dt_converted.strftime(format_str)
         except Exception:
             return utc_datetime
+
+    @staticmethod
+    def format_user_timezone_datetime(
+        datetime_str: str,
+        timezone_str: str = "UTC",
+        format_str: str = "%a %m/%d/%Y %I:%M %p",
+    ) -> str:
+        """Format a datetime string that is already in the user's timezone.
+
+        This method is used when the datetime is already in the user's timezone
+        (e.g., from Graph API calendarView endpoint) and just needs formatting.
+
+        Args:
+            datetime_str: Datetime string in ISO format (already in user's timezone)
+            timezone_str: User timezone string (Windows or IANA format)
+            format_str: Output format string
+
+        Returns:
+            Formatted datetime string in user timezone
+        """
+        if not datetime_str:
+            return ""
+
+        try:
+            dt = datetime.fromisoformat(datetime_str)
+            user_tz = DateHandler.get_user_timezone_object(timezone_str)
+            dt_with_tz = dt.replace(tzinfo=user_tz)
+            return dt_with_tz.strftime(format_str)
+        except Exception as e:
+            logger.error(f"Error formatting user timezone datetime '{datetime_str}': {e}")
+            return datetime_str
 
     @staticmethod
     def get_current_utc_datetime() -> datetime:

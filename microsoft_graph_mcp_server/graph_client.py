@@ -422,6 +422,10 @@ class GraphClient:
         """Cancel a calendar event."""
         return await self.calendar_client.cancel_event(event_id, comment)
 
+    async def delete_event(self, event_id: str) -> None:
+        """Delete a calendar event from your calendar."""
+        return await self.calendar_client.delete_event(event_id)
+
     async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
         """Forward a calendar event."""
         return await self.calendar_client.forward_event(event_id, attendees, comment)
@@ -430,17 +434,17 @@ class GraphClient:
         """Reply to a calendar event."""
         return await self.calendar_client.reply_to_event(event_id, comment, reply_all)
 
-    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Accept a calendar event invitation."""
-        return await self.calendar_client.accept_event(event_id, comment, send_response)
+        return await self.calendar_client.accept_event(event_id, comment, send_response, series)
 
-    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Decline a calendar event invitation."""
-        return await self.calendar_client.decline_event(event_id, comment, send_response)
+        return await self.calendar_client.decline_event(event_id, comment, send_response, series)
 
-    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Tentatively accept a calendar event invitation."""
-        return await self.calendar_client.tentatively_accept_event(event_id, comment, send_response)
+        return await self.calendar_client.tentatively_accept_event(event_id, comment, send_response, series)
 
     async def propose_new_time(self, event_id: str, proposed_new_time: Dict[str, str], comment: Optional[str] = None, send_response: bool = True) -> None:
         """Decline an event and propose a new time to the organizer."""

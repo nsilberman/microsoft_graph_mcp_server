@@ -12,13 +12,14 @@ class UserClient(BaseGraphClient):
     """Client for user-related operations."""
 
     async def get_user_timezone(self) -> str:
-        """Get user's timezone identifier. Uses server local timezone."""
+        """Get user's timezone identifier from Microsoft Graph mailbox settings."""
         try:
-            local_tz = datetime.now().astimezone().tzinfo
-            if local_tz:
-                tz_str = str(local_tz)
-                if tz_str and tz_str != "UTC":
-                    return date_handler.convert_to_iana_timezone(tz_str)
+            params = {"$select": "mailboxSettings"}
+            result = await self.get("/me", params=params)
+            mailbox_settings = result.get("mailboxSettings", {})
+            timezone = mailbox_settings.get("timeZone")
+            if timezone:
+                return date_handler.convert_to_iana_timezone(timezone)
         except Exception:
             pass
         return date_handler.convert_to_iana_timezone(settings.user_timezone)

@@ -150,7 +150,7 @@ class CalendarClient(BaseGraphClient):
 
         params = {
             "$top": top,
-            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting",
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting,seriesMasterId",
         }
 
         if start_date and end_date:
@@ -198,6 +198,14 @@ class CalendarClient(BaseGraphClient):
                     meeting_type = "other"
                     has_meeting = True
 
+            response_time = event.get("responseStatus", {}).get("time")
+            if response_time:
+                response_time_converted = date_handler.convert_utc_to_user_timezone(
+                    response_time, user_timezone_str
+                )
+            else:
+                response_time_converted = None
+
             summary = {
                 "number": idx + 1,
                 "id": event.get("id"),
@@ -220,20 +228,27 @@ class CalendarClient(BaseGraphClient):
                     .get("address", ""),
                 },
                 "attendees": len(event.get("attendees", [])),
+                "attendees_list": event.get("attendees", []),
                 "isAllDay": event.get("isAllDay", False),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
-                "recurrence": event.get("recurrence") is not None,
+                "recurrence": event.get("recurrence") is not None or event.get("type") in ["occurrence", "seriesMaster"],
+                "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": {
                     "response": event.get("responseStatus", {}).get("response", "none"),
-                    "time": event.get("responseStatus", {}).get("time"),
+                    "time": response_time_converted,
                 },
                 "sensitivity": event.get("sensitivity", "normal"),
                 "meetingType": meeting_type,
                 "hasMeeting": has_meeting,
             }
             summaries.append(summary)
+
+        summaries.sort(key=lambda x: x["start_datetime"])
+
+        for idx, summary in enumerate(summaries):
+            summary["number"] = idx + 1
 
         return {
             "events": summaries,
@@ -253,13 +268,21 @@ class CalendarClient(BaseGraphClient):
         """Cancel a calendar event by ID, sending cancellation notifications to attendees.
         
         Args:
-            event_id: The ID of the event to cancel
+            event_id: The ID of event to cancel
             comment: Optional message to include in the cancellation notification
         """
         data = {}
         if comment:
             data["Comment"] = comment
         await self.post(f"/me/events/{event_id}/cancel", data=data)
+
+    async def delete_event(self, event_id: str) -> None:
+        """Delete a calendar event from your calendar without sending notifications.
+        
+        Args:
+            event_id: The ID of event to delete
+        """
+        await self.delete(f"/me/events/{event_id}")
 
     async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
         """Forward a calendar event by adding new optional attendees.
@@ -278,13 +301,14 @@ class CalendarClient(BaseGraphClient):
             data["Comment"] = comment
         await self.post(f"/me/events/{event_id}/forward", data=data)
 
-    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Accept a calendar event invitation.
         
         Args:
-            event_id: The ID of the event to accept
+            event_id: The ID of the event to accept (or series master ID if series=True)
             comment: Optional message to include in the response
             send_response: Whether to send response to organizer
+            series: If True, accept the entire recurring series (requires series master event ID)
         """
         data = {}
         if comment:
@@ -293,13 +317,14 @@ class CalendarClient(BaseGraphClient):
             data["SendResponse"] = False
         await self.post(f"/me/events/{event_id}/accept", data=data)
 
-    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Decline a calendar event invitation.
         
         Args:
-            event_id: The ID of the event to decline
+            event_id: The ID of the event to decline (or series master ID if series=True)
             comment: Optional message to include in the response
             send_response: Whether to send response to organizer
+            series: If True, decline the entire recurring series (requires series master event ID)
         """
         data = {}
         if comment:
@@ -308,13 +333,14 @@ class CalendarClient(BaseGraphClient):
             data["SendResponse"] = False
         await self.post(f"/me/events/{event_id}/decline", data=data)
 
-    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
         """Tentatively accept a calendar event invitation.
         
         Args:
-            event_id: The ID of the event to tentatively accept
+            event_id: The ID of the event to tentatively accept (or series master ID if series=True)
             comment: Optional message to include in the response
             send_response: Whether to send response to organizer
+            series: If True, tentatively accept the entire recurring series (requires series master event ID)
         """
         data = {}
         if comment:
@@ -401,3 +427,15 @@ class CalendarClient(BaseGraphClient):
     async def delete_event(self, event_id: str) -> None:
         """Delete a calendar event by ID (hard delete without sending notifications)."""
         await self.delete(f"/me/events/{event_id}")
+
+    async def check_teams_integration(self) -> bool:
+        """Check if the user has Teams integration enabled.
+        
+        Returns:
+            True if the user has Teams integration, False otherwise
+        """
+        try:
+            user = await self.get("/me")
+            return user.get("hasTeamsLicense", False) if "hasTeamsLicense" in user else True
+        except Exception:
+            return False

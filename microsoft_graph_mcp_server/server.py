@@ -71,6 +71,9 @@ class MicrosoftGraphMCPServer:
                     logger.info(f"Server: Routing to auth_handler with action: {arguments.get('action')}")
                     return await self.auth_handler.handle_auth(arguments)
 
+                elif name == "user_settings":
+                    return await self.user_handler.handle_user_settings(arguments)
+
                 elif name == "search_contacts":
                     return await self.user_handler.handle_search_contacts(arguments)
 
@@ -108,6 +111,12 @@ class MicrosoftGraphMCPServer:
 
                 elif name == "create_event":
                     return await self.calendar_handler.handle_create_event(arguments)
+
+                elif name == "respond_to_event":
+                    return await self.calendar_handler.handle_respond_to_event(arguments)
+
+                elif name == "manage_my_event":
+                    return await self.calendar_handler.handle_manage_my_event(arguments)
 
                 elif name == "list_files":
                     return await self.file_handler.handle_list_files(arguments)
