@@ -109,9 +109,6 @@ class MicrosoftGraphMCPServer:
                 elif name == "check_attendee_availability":
                     return await self.calendar_handler.handle_check_attendee_availability(arguments)
 
-                elif name == "create_event":
-                    return await self.calendar_handler.handle_create_event(arguments)
-
                 elif name == "respond_to_event":
                     return await self.calendar_handler.handle_respond_to_event(arguments)
 

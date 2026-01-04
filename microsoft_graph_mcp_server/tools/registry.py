@@ -32,15 +32,6 @@ class ToolRegistry:
         ]
 
     @staticmethod
-    def get_user_info() -> types.Tool:
-        """Get user info tool definition."""
-        return types.Tool(
-            name="get_user_info",
-            description="Get current user information from Microsoft Graph",
-            inputSchema={"type": "object", "properties": {}},
-        )
-
-    @staticmethod
     def user_settings() -> types.Tool:
         """User settings tool definition."""
         return types.Tool(
@@ -223,26 +214,6 @@ class ToolRegistry:
                     },
                 },
                 "required": ["action"],
-            },
-        )
-
-    @staticmethod
-    def list_recent_emails() -> types.Tool:
-        """List recent emails tool definition."""
-        return types.Tool(
-            name="list_recent_emails",
-            description="List recent emails from Inbox with optional days parameter. Loads emails from the last N days (default: 1 day, maximum: 7 days) into cache for browsing.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "days": {
-                        "type": "integer",
-                        "description": "Number of days to look back (default: 1, maximum: 7)",
-                        "default": 1,
-                        "minimum": 1,
-                        "maximum": 7,
-                    }
-                },
             },
         )
 
@@ -593,7 +564,6 @@ class ToolRegistry:
             },
         )
 
-    @staticmethod
     @staticmethod
     def respond_to_event() -> types.Tool:
         """Respond to event tool definition for responding to events organized by others."""

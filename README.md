@@ -167,29 +167,28 @@ Use an absolute path to your project directory:
   - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management
-- **get_user_info** - Get current user information from Microsoft Graph
+- **user_settings** - Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.
 - **search_contacts** - Search contacts and people relevant to you. Returns people you interact with most, including organization users and personal contacts. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.
 
 #### Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
 - **manage_emails** - Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple
-- **search_emails** - Search emails by sender, recipient, subject, or body text. If no search criteria provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days)
-- **browse_email_cache** - Browse emails in the cache with pagination (returns current_page and total_pages)
-- **get_email_content** - Get full email content by ID (with optional text-only mode)
-- **send_email** - Compose, reply to, or forward emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
+- **search_emails** - Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').
+- **browse_email_cache** - Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence.
+- **get_email_content** - Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
+- **send_email** - Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
 #### Calendar Management
-- **browse_events** - Browse calendar events with pagination
-- **get_event** - Get full calendar event by ID
-- **search_events** - Search calendar events by keywords
-- **create_event** - Create a calendar event
+- **browse_events** - Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.
+- **get_event_detail** - Get detailed information for a specific calendar event by its cache number
+- **search_events** - Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').
 - **check_attendee_availability** - Check availability of attendees for a given date. Automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. Automatically calculates time range based on all attendees' working hours. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Timezone defaults to user's mailbox settings, but can be explicitly specified.
 - **respond_to_event** - Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, and delete cancelled events. This tool is for responding to events that you are invited to, not events you organized yourself. Supports accepting/declining/tentatively accepting entire recurring series using the `series` parameter. The `delete` action is specifically for removing cancelled events from your calendar that were organized by others.
 - **manage_my_event** - Manage your own calendar events with multiple actions: create, update, cancel, forward, and reply. This tool is for events that you organized yourself, not events you were invited to. Use this tool to create new events, update or cancel events you created, forward events to others, or reply to event attendees.
 
 #### File and Team Management
-- **list_files** - List files and folders from OneDrive
-- **get_teams** - Get list of Microsoft Teams
+- **list_files** - List files and folders in OneDrive
+- **get_teams** - Get list of Teams that you are a member of
 - **get_team_channels** - Get channels for a specific Team
 
 ### Direct Run
