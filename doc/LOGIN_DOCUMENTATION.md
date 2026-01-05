@@ -148,6 +148,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 - `login`: Authenticate with Microsoft Graph using device code flow. Automatically saves device_code to disk for automatic retrieval.
 - `complete_login`: Complete the login process after browser authentication. Waits for authentication to complete and finalizes the login by acquiring the access token. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
 - `check_status`: Check current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
+- `extend_token`: Extend the access token by specified number of hours (1-12 hours) without requiring user login. Uses the refresh token to obtain a new access token. Can be called multiple times to extend further. Example: `auth action="extend_token" hours=12` to extend by 12 hours.
 - `logout`: Logout from Microsoft Graph and clear authentication state
 
 **Usage:**
@@ -189,13 +190,14 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
   "status": "authenticated",
   "authenticated": true,
   "message": "Successfully authenticated with Microsoft Graph.",
-  "token_expires_at": "2025-12-26T15:30:00Z",
+  "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
     "seconds": 3599,
     "minutes": 59,
     "hours": 0
   },
-  "refresh_available": true
+  "refresh_available": true,
+  "timezone": "America/New_York"
 }
 ```
 
@@ -225,17 +227,60 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 }
 ```
 
+**Response (action="extend_token"):**
+```json
+{
+  "status": "refreshed",
+  "authenticated": true,
+  "message": "Successfully extended access token by 12 hour(s).",
+  "token_expires_at": "2025-12-26T10:30:00-05:00",
+  "time_remaining": {
+    "seconds": 43200,
+    "minutes": 720,
+    "hours": 12
+  },
+  "refresh_available": true,
+  "timezone": "America/New_York",
+  "hours_extended": 12
+}
+```
+
 ## Token Management
 
 ### Access Token
 - **Lifetime**: Typically 1 hour (3600 seconds)
 - **Usage**: Used to call Microsoft Graph API
 - **Refresh**: Automatically refreshed using refresh_token when expired
+- **Extension**: Can be extended by 1-12 hours using `extend_token` action without user login
 
 ### Refresh Token
 - **Lifetime**: Can be valid for days to months (depends on Microsoft's policy)
 - **Usage**: Used to get new access tokens without user interaction
 - **Storage**: Saved to disk for session persistence
+- **Extension**: Used by `extend_token` action to extend access token lifetime
+
+### Token Extension
+The `extend_token` action allows you to extend your access token by 1-12 hours without requiring user login:
+
+**Usage:**
+```
+auth action="extend_token" hours=12
+```
+
+**Parameters:**
+- `hours`: Number of hours to extend (default: 1, maximum: 12)
+
+**How it works:**
+1. Uses the stored refresh token to obtain a new access token from Microsoft
+2. Repeats the refresh process for the specified number of hours
+3. Saves the new tokens to disk automatically
+4. Returns the new token expiry time in the user's local timezone
+
+**Benefits:**
+- No need to re-authenticate through the browser
+- Can extend session by up to 12 hours in a single call
+- Can be called multiple times to extend further
+- Works with existing refresh token mechanism
 
 ### Token Refresh Flow
 ```
@@ -247,6 +292,18 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
    - Save new tokens to disk
 4. Return new access_token
 5. Tool executes successfully
+```
+
+### Token Extension Flow
+```
+1. User calls auth with action="extend_token" hours=12
+2. GraphAuthManager.extend_token() validates hours parameter (1-12)
+3. For each hour in the requested extension:
+   - Call _refresh_token()
+   - Use refresh_token to get new access_token
+   - Save new tokens to disk
+4. Return new token expiry time in user's local timezone
+5. User can continue using tools without re-authentication
 ```
 
 ## Security Considerations
@@ -334,13 +391,14 @@ Server: {
   "status": "authenticated",
   "authenticated": true,
   "message": "Successfully authenticated with Microsoft Graph.",
-  "token_expires_at": "2025-12-26T15:30:00Z",
+  "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
     "seconds": 2700,
     "minutes": 45,
     "hours": 0
   },
-  "refresh_available": true
+  "refresh_available": true,
+  "timezone": "America/New_York"
 }
 ```
 
@@ -350,6 +408,25 @@ User: auth with action="logout"
 Server: {
   "status": "logged_out",
   "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared."
+}
+```
+
+### Extend Token
+```
+User: auth with action="extend_token" hours=12
+Server: {
+  "status": "refreshed",
+  "authenticated": true,
+  "message": "Successfully extended access token by 12 hour(s).",
+  "token_expires_at": "2025-12-26T10:30:00-05:00",
+  "time_remaining": {
+    "seconds": 43200,
+    "minutes": 720,
+    "hours": 12
+  },
+  "refresh_available": true,
+  "timezone": "America/New_York",
+  "hours_extended": 12
 }
 ```
 

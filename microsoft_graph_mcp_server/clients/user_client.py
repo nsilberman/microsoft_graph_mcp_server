@@ -1,5 +1,6 @@
 """User client for Microsoft Graph API."""
 
+import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -7,9 +8,42 @@ from .base_client import BaseGraphClient
 from ..date_handler import DateHandler as date_handler
 from ..config import settings
 
+logger = logging.getLogger(__name__)
+
 
 class UserClient(BaseGraphClient):
     """Client for user-related operations."""
+
+    def _get_system_timezone(self) -> str:
+        """Get the system's local timezone as a fallback.
+        
+        Returns:
+            IANA timezone name for the system's local timezone
+        """
+        try:
+            local_tz = datetime.now().astimezone().tzinfo
+            logger.debug(f"System timezone info: {local_tz}, type: {type(local_tz)}")
+            
+            if hasattr(local_tz, 'key'):
+                tz_key = str(local_tz.key)
+                logger.debug(f"System timezone key: {tz_key}")
+                if tz_key and tz_key != 'UTC':
+                    converted = date_handler.convert_to_iana_timezone(tz_key)
+                    logger.debug(f"Converted system timezone: {converted}")
+                    return converted
+            
+            tz_name = str(local_tz)
+            logger.debug(f"System timezone name: {tz_name}")
+            if tz_name and tz_name != 'UTC':
+                converted = date_handler.convert_to_iana_timezone(tz_name)
+                if converted != 'UTC':
+                    logger.debug(f"Converted system timezone from name: {converted}")
+                    return converted
+        except Exception as e:
+            logger.warning(f"Failed to get system timezone: {e}")
+        
+        logger.debug("Defaulting to UTC")
+        return "UTC"
 
     async def get_user_timezone(self) -> str:
         """Get user's timezone identifier from Microsoft Graph mailbox settings."""
@@ -19,10 +53,21 @@ class UserClient(BaseGraphClient):
             mailbox_settings = result.get("mailboxSettings", {})
             timezone = mailbox_settings.get("timeZone")
             if timezone:
-                return date_handler.convert_to_iana_timezone(timezone)
-        except Exception:
-            pass
-        return date_handler.convert_to_iana_timezone(settings.user_timezone)
+                iana_tz = date_handler.convert_to_iana_timezone(timezone)
+                logger.info(f"Retrieved timezone from Graph API: {timezone} -> {iana_tz}")
+                return iana_tz
+            logger.info("No timezone in Graph API mailbox settings")
+        except Exception as e:
+            logger.warning(f"Failed to get timezone from Graph API: {e}")
+        
+        user_tz = date_handler.convert_to_iana_timezone(settings.user_timezone)
+        if user_tz != "UTC":
+            logger.info(f"Using USER_TIMEZONE setting: {settings.user_timezone} -> {user_tz}")
+            return user_tz
+        
+        system_tz = self._get_system_timezone()
+        logger.info(f"Using system timezone as fallback: {system_tz}")
+        return system_tz
 
     async def get_users(
         self, filter_query: Optional[str] = None

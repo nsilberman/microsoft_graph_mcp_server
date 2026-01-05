@@ -14,7 +14,7 @@ class AuthHandler(BaseHandler):
     """Handler for authentication-related tools."""
 
     async def handle_auth(self, arguments: dict) -> list[types.TextContent]:
-        """Handle auth tool with login, complete_login, check_status, and logout actions."""
+        """Handle auth tool with login, complete_login, check_status, extend_token, and logout actions."""
         action = arguments.get("action")
 
         if action == "login":
@@ -23,11 +23,13 @@ class AuthHandler(BaseHandler):
             return await self._handle_complete_login(arguments)
         elif action == "check_status":
             return await self._handle_check_status()
+        elif action == "extend_token":
+            return await self._handle_extend_token(arguments)
         elif action == "logout":
             return await self._handle_logout()
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'login', 'complete_login', 'check_status', or 'logout'."
+                f"Invalid action: {action}. Must be 'login', 'complete_login', 'check_status', 'extend_token', or 'logout'."
             )
 
     async def _handle_login(self) -> list[types.TextContent]:
@@ -63,6 +65,18 @@ class AuthHandler(BaseHandler):
         except Exception as e:
             logger.error(f"AuthHandler: Check status failed with exception: {str(e)}")
             return self._format_error(f"Failed to check authentication status: {str(e)}")
+
+    async def _handle_extend_token(self, arguments: dict) -> list[types.TextContent]:
+        """Handle extend_token action."""
+        try:
+            hours = arguments.get("hours", 1)
+            logger.info(f"AuthHandler: Handling extend_token request with hours={hours}")
+            result = await auth_manager.extend_token(hours=hours)
+            logger.info(f"AuthHandler: Extend token result: {result.get('status')}")
+            return self._format_response(result)
+        except Exception as e:
+            logger.error(f"AuthHandler: Extend token failed with exception: {str(e)}")
+            return self._format_error(f"Failed to extend token: {str(e)}")
 
     async def _handle_logout(self) -> list[types.TextContent]:
         """Handle logout action."""

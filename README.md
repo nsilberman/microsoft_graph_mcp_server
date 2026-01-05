@@ -116,6 +116,56 @@ CONTACT_SEARCH_LIMIT=10
 
 **Note**: By default, Microsoft's public client ID is used, and no configuration is required.
 
+### Advanced Configuration: Token Lifetime
+
+By default, Microsoft Entra ID issues access tokens with a **1-hour lifetime**. You have two options to extend your session:
+
+#### Option 1: Use `extend_token` Action (Recommended for Most Users)
+
+The easiest way to extend your session is to use the `extend_token` action:
+
+```bash
+# Extend by 12 hours (maximum)
+auth action="extend_token" hours=12
+
+# Extend by 1 hour (default)
+auth action="extend_token"
+```
+
+This action:
+- Uses the refresh token to obtain a new access token
+- Can extend your session by 1-12 hours in a single call
+- Works without requiring user login or admin privileges
+- Can be called multiple times to extend further
+
+#### Option 2: Configure Microsoft Entra ID Token Lifetime Policy (Requires Admin Access)
+
+If you have Microsoft Entra ID admin privileges, you can configure a **Token Lifetime Policy** to extend the default access token lifetime beyond 1 hour (up to maximum 24 hours).
+
+**Steps to Configure:**
+
+1. **Visit Microsoft Entra Admin Center:**
+   - Go to: https://entra.microsoft.com/
+   - Sign in with your admin account
+
+2. **Create a Token Lifetime Policy:**
+   - Navigate to **Identity** → **Applications** → **App registrations**
+   - Find your application
+   - Configure token lifetime policies through the portal interface
+
+3. **Documentation:**
+   - Full configuration guide: https://docs.azure.cn/zh-cn/entra/identity-platform/configurable-token-lifetimes
+   - Alternative link: https://learn.microsoft.com/zh-cn/entra/identity-platform/configurable-token-lifetimes
+
+**Important Notes:**
+- This requires **Microsoft Entra ID admin privileges**
+- This is a **one-time configuration** - no code changes needed
+- Maximum configurable access token lifetime is **24 hours**
+- After configuration, new authentication flows will automatically use the extended lifetime
+- The `extend_token` action still works for further extensions if needed
+
+**Recommendation:** Most users should use the `extend_token` action (Option 1) as it doesn't require admin access and provides the same result - longer token lifetime.
+
 ## Usage
 
 ### Configure in Claude Desktop
@@ -163,15 +213,17 @@ Use an absolute path to your project directory:
 2. **Complete authentication in your browser** - Open the provided URL and enter the user code, then sign in with your Microsoft account
 3. **Call `complete_login`** - **Mandatory step** to verify your authentication status and complete the login process
 4. **Use other tools** - After successful authentication, all tools can be used normally
-5. **(Optional) Call `check_status`** - Check your authentication state and token expiry anytime without triggering actions
+5. **(Optional) Extend your session** - Access tokens expire after 1 hour by default. Use `auth action="extend_token" hours=12` to extend your session by up to 12 hours without requiring login again
+6. **(Optional) Call `check_status`** - Check your authentication state and token expiry anytime without triggering actions
 
 ### Available Tools
 
 #### Authentication Tools
-- **auth** - Manage authentication with Microsoft Graph. Supports four actions:
+- **auth** - Manage authentication with Microsoft Graph. Supports five actions:
   - `login`: Initiates device code flow authentication. Returns a verification URL and user code to complete authentication in your browser. Previous tokens are cleared on new login.
   - `complete_login`: Completes the login process after browser authentication. **Mandatory step** - must be called after login to verify authentication status and finalize the login. The device_code is automatically loaded from the latest login session.
-  - `check_status`: Checks current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
+  - `check_status`: Checks current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, refresh token availability, and user timezone. Useful for debugging and monitoring.
+  - `extend_token`: Extends the access token by specified number of hours (1-12 hours) without requiring user login. Uses the refresh token to obtain a new access token. This is useful when your token is about to expire and you want to extend your session without going through the login process again. By default, access tokens expire after 1 hour. You can extend by up to 12 hours in a single call. Example: `auth action="extend_token" hours=12` to extend by 12 hours.
   - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management

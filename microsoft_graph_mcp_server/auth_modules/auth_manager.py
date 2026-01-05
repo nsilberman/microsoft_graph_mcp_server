@@ -3,8 +3,10 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 import httpx
 from msal import PublicClientApplication
@@ -48,6 +50,74 @@ class GraphAuthManager:
 
         return self.token_manager.access_token
 
+    async def extend_token(self, hours: int = 1) -> Dict[str, Any]:
+        """Extend the access token by specified number of hours using the refresh token.
+
+        This method explicitly refreshes the access token without requiring user login.
+        It uses the stored refresh token to obtain a new access token from Microsoft.
+        Can extend the token by 1-12 hours in a single call.
+
+        Args:
+            hours: Number of hours to extend (default: 1, max: 12)
+
+        Returns:
+            Dict with refresh status and token information including:
+            - status: 'refreshed' if successful
+            - authenticated: true
+            - message: success message
+            - token_expires_at: ISO timestamp of new token expiry in user's local timezone
+            - time_remaining: dict with remaining time in seconds/minutes/hours
+            - refresh_available: boolean indicating if refresh token is still available
+            - hours_extended: number of hours the token was extended
+
+        Raises:
+            Exception: If not authenticated, no refresh token available, or invalid hours parameter
+        """
+        logger.info(f"AuthManager: extend_token called with hours={hours}")
+
+        if not self.token_manager.authenticated or not self.token_manager.access_token:
+            raise Exception(
+                "Not authenticated. Please call the login tool first to authenticate with Microsoft Graph."
+            )
+
+        if not self.token_manager.refresh_token:
+            raise Exception(
+                "No refresh token available. Please call the login tool to authenticate."
+            )
+
+        if hours < 1 or hours > 12:
+            raise Exception(
+                "Invalid hours parameter. Must be between 1 and 12 hours."
+            )
+
+        for i in range(hours):
+            logger.info(f"AuthManager: Extending token by 1 hour ({i+1}/{hours})")
+            await self._refresh_token()
+
+        expiry_info = self.token_manager.get_token_expiry_info()
+
+        from ..graph_client import graph_client
+        user_timezone = await graph_client.get_user_timezone()
+
+        utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
+        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(user_timezone))
+        token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
+
+        return {
+            "status": "refreshed",
+            "authenticated": True,
+            "message": f"Successfully extended access token by {hours} hour(s).",
+            "token_expires_at": token_expires_at_local,
+            "time_remaining": {
+                "seconds": expiry_info["remaining_seconds"],
+                "minutes": expiry_info["remaining_minutes"],
+                "hours": expiry_info["remaining_hours"],
+            },
+            "refresh_available": self.token_manager.refresh_token is not None,
+            "timezone": user_timezone,
+            "hours_extended": hours,
+        }
+
     async def logout(self) -> Dict[str, Any]:
         """Logout and clear authentication state."""
         self.token_manager.clear_tokens()
@@ -67,9 +137,10 @@ class GraphAuthManager:
         Returns:
             Dict with status information including:
             - authenticated: boolean indicating if authenticated
-            - token_expires_at: ISO timestamp of token expiry (if authenticated)
+            - token_expires_at: ISO timestamp of token expiry in user's local timezone (if authenticated)
             - time_remaining: dict with remaining time in seconds/minutes/hours
             - refresh_available: boolean indicating if refresh token is available
+            - timezone: user's timezone (if authenticated)
         """
         logger.info("AuthManager: check_status called (read-only)")
 
@@ -89,19 +160,25 @@ class GraphAuthManager:
                 "message": "Authentication token has expired. Please call the login tool again.",
             }
 
+        from ..graph_client import graph_client
+        user_timezone = await graph_client.get_user_timezone()
+
+        utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
+        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(user_timezone))
+        token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
+
         return {
             "status": "authenticated",
             "authenticated": True,
             "message": "Successfully authenticated with Microsoft Graph.",
-            "token_expires_at": time.strftime(
-                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.token_manager.token_expiry)
-            ),
+            "token_expires_at": token_expires_at_local,
             "time_remaining": {
                 "seconds": expiry_info["remaining_seconds"],
                 "minutes": expiry_info["remaining_minutes"],
                 "hours": expiry_info["remaining_hours"],
             },
             "refresh_available": self.token_manager.refresh_token is not None,
+            "timezone": user_timezone,
         }
 
     async def complete_login(self, device_code: Optional[str] = None) -> Dict[str, Any]:
