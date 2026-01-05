@@ -33,7 +33,6 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
   - Users provide natural language update instructions to LLM
   - LLM retrieves full HTML and applies changes while maintaining formatting
   - Users verify changes in simple text before sending
-- Template variable support (e.g., `{{name}}`, `{{date}}`) for dynamic content
 - Ideal for recurring emails like newsletters, meeting reminders, and status reports
 
 ### Calendar Management
@@ -349,7 +348,6 @@ Example: "Send this template to john@example.com"
 - **Simple Text View**: Users can view templates in simple text format for easy reading and editing instructions
 - **Original Preservation**: Sending a template creates a copy and sends it, leaving the original template unchanged
 - **Soft Delete**: Deleted templates are moved to the Deleted Items folder and can be recovered
-- **Template Variables**: You can define variables in templates (e.g., `{{name}}`, `{{date}}`) and replace them when sending
 
 #### Example: Creating a Weekly Newsletter Template
 
@@ -375,17 +373,16 @@ Example: "Send this template to john@example.com"
 {
   "action": "update",
   "template_number": 1,
-  "htmlbody": "<html><body><h1>Weekly Newsletter - Week {{week_number}}</h1><p>Hello {{name}},</p>...</body></html>"
+  "htmlbody": "<html><body><h1>Weekly Newsletter - Week 52</h1><p>Hello Team,</p>...</body></html>"
 }
 ```
 
-4. **Send the template with variable replacements:**
+4. **Send the template:**
 ```json
 {
   "action": "send",
   "template_number": 1,
-  "to": ["team@example.com"],
-  "htmlbody": "<html><body><h1>Weekly Newsletter - Week 52</h1><p>Hello Team,</p>...</body></html>"
+  "to": ["team@example.com"]
 }
 ```
 
