@@ -526,11 +526,19 @@ class EmailHandler(BaseHandler):
                 "Error: No valid email ID found. Please check the cache and try again."
             )
 
-        result = await graph_client.delete_email(email_id)
-
-        await email_cache.remove_email(email_id)
-
-        return self._format_response(result)
+        try:
+            result = await graph_client.delete_email(email_id)
+            await email_cache.remove_email(email_id)
+            return self._format_response(result)
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg or "ErrorItemNotFound" in error_msg:
+                await email_cache.remove_email(email_id)
+                return self._format_error(
+                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
+                )
+            else:
+                return self._format_error(f"Error deleting email: {error_msg}")
 
     async def _handle_delete_multiple_emails(
         self, arguments: dict
@@ -574,6 +582,19 @@ class EmailHandler(BaseHandler):
             )
 
         result = await graph_client.batch_delete_emails(email_ids)
+
+        deleted_count = result.get("deleted_count", 0)
+        failed_count = result.get("failed_count", 0)
+        errors = result.get("errors", [])
+
+        if failed_count > 0:
+            for error in errors:
+                if "404" in error or "ErrorItemNotFound" in error:
+                    for email_id in email_ids:
+                        await email_cache.remove_email(email_id)
+            return self._format_error(
+                f"Error: Some emails could not be deleted. Deleted: {deleted_count}, Failed: {failed_count}. Errors: {errors}"
+            )
 
         for email_id in email_ids:
             await email_cache.remove_email(email_id)
@@ -670,11 +691,19 @@ class EmailHandler(BaseHandler):
                 "Error: No valid email ID found. Please check the cache and try again."
             )
 
-        result = await graph_client.archive_email(email_id)
-
-        await email_cache.remove_email(email_id)
-
-        return self._format_response(result)
+        try:
+            result = await graph_client.archive_email(email_id)
+            await email_cache.remove_email(email_id)
+            return self._format_response(result)
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg or "ErrorItemNotFound" in error_msg:
+                await email_cache.remove_email(email_id)
+                return self._format_error(
+                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
+                )
+            else:
+                return self._format_error(f"Error archiving email: {error_msg}")
 
     async def _handle_archive_multiple_emails(
         self, arguments: dict
