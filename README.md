@@ -268,6 +268,120 @@ Use an absolute path to your project directory:
 - **get_teams** - Get list of Teams that you are a member of
 - **get_team_channels** - Get channels for a specific Team
 
+### Template Management Workflow
+
+The template management system allows you to create, edit, and send email templates stored as drafts in a Templates folder. Templates are useful for emails you send regularly with similar content.
+
+#### Template Actions
+
+1. **Create from Email** - Copy an existing email as a template
+2. **List** - Browse all templates with pagination
+3. **Get** - View template details (simple text or full HTML)
+4. **Update** - Edit template content
+5. **Delete** - Remove a template (soft delete - moves to Deleted Items folder)
+6. **Send** - Send a template while preserving the original
+
+#### Template Update Workflow
+
+The smart update workflow allows users to view simple text content and provide natural language update instructions, while the LLM handles the full HTML formatting:
+
+**Step 1: User views template in simple text**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": true
+}
+```
+
+**Step 2: User provides update instructions to LLM**
+Example: "Change the meeting time to 2:00 PM and update the agenda to include the new project discussion"
+
+**Step 3: LLM retrieves full HTML**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": false
+}
+```
+
+**Step 4: LLM updates and saves complete HTML**
+```json
+{
+  "action": "update",
+  "template_number": 1,
+  "htmlbody": "<html>...</html>"
+}
+```
+
+**Step 5: User verifies changes in simple text**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": true
+}
+```
+
+**Step 6: User gives command to send**
+Example: "Send this template to john@example.com"
+
+**Step 7: LLM sends template and saves a copy**
+```json
+{
+  "action": "send",
+  "template_number": 1,
+  "to": ["john@example.com"]
+}
+```
+
+#### Key Features
+
+- **HTML Formatting Preservation**: The LLM updates the full HTML while maintaining the original formatting, styles, and structure
+- **Simple Text View**: Users can view templates in simple text format for easy reading and editing instructions
+- **Original Preservation**: Sending a template creates a copy and sends it, leaving the original template unchanged
+- **Soft Delete**: Deleted templates are moved to the Deleted Items folder and can be recovered
+- **Template Variables**: You can define variables in templates (e.g., `{{name}}`, `{{date}}`) and replace them when sending
+
+#### Example: Creating a Weekly Newsletter Template
+
+1. **Create from an existing email:**
+```json
+{
+  "action": "create_from_email",
+  "email_number": 5
+}
+```
+
+2. **View the template:**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": true
+}
+```
+
+3. **Update the template:**
+```json
+{
+  "action": "update",
+  "template_number": 1,
+  "htmlbody": "<html><body><h1>Weekly Newsletter - Week {{week_number}}</h1><p>Hello {{name}},</p>...</body></html>"
+}
+```
+
+4. **Send the template with variable replacements:**
+```json
+{
+  "action": "send",
+  "template_number": 1,
+  "to": ["team@example.com"],
+  "htmlbody": "<html><body><h1>Weekly Newsletter - Week 52</h1><p>Hello Team,</p>...</body></html>"
+}
+```
+
 ### Direct Run
 
 #### Using UVX (Recommended)
