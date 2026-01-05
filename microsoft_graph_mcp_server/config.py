@@ -53,10 +53,7 @@ class Settings(BaseSettings):
         os.getenv("CONTACT_SEARCH_LIMIT", "10")
     )  # Maximum contacts to return in search results
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 # Global settings instance

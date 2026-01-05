@@ -227,10 +227,10 @@ class EventBrowsingCache:
             metadata = self.cache["search_state"]["metadata"].copy()
 
         sorted_events = sorted(metadata, key=lambda x: x.get("start_datetime", ""))
-        
+
         for idx, event in enumerate(sorted_events):
             event["number"] = idx + 1
-        
+
         return sorted_events
 
     def should_refresh_total_count(self) -> bool:

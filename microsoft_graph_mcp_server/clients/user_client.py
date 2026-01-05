@@ -16,32 +16,32 @@ class UserClient(BaseGraphClient):
 
     def _get_system_timezone(self) -> str:
         """Get the system's local timezone as a fallback.
-        
+
         Returns:
             IANA timezone name for the system's local timezone
         """
         try:
             local_tz = datetime.now().astimezone().tzinfo
             logger.debug(f"System timezone info: {local_tz}, type: {type(local_tz)}")
-            
-            if hasattr(local_tz, 'key'):
+
+            if hasattr(local_tz, "key"):
                 tz_key = str(local_tz.key)
                 logger.debug(f"System timezone key: {tz_key}")
-                if tz_key and tz_key != 'UTC':
+                if tz_key and tz_key != "UTC":
                     converted = date_handler.convert_to_iana_timezone(tz_key)
                     logger.debug(f"Converted system timezone: {converted}")
                     return converted
-            
+
             tz_name = str(local_tz)
             logger.debug(f"System timezone name: {tz_name}")
-            if tz_name and tz_name != 'UTC':
+            if tz_name and tz_name != "UTC":
                 converted = date_handler.convert_to_iana_timezone(tz_name)
-                if converted != 'UTC':
+                if converted != "UTC":
                     logger.debug(f"Converted system timezone from name: {converted}")
                     return converted
         except Exception as e:
             logger.warning(f"Failed to get system timezone: {e}")
-        
+
         logger.debug("Defaulting to UTC")
         return "UTC"
 
@@ -54,17 +54,21 @@ class UserClient(BaseGraphClient):
             timezone = mailbox_settings.get("timeZone")
             if timezone:
                 iana_tz = date_handler.convert_to_iana_timezone(timezone)
-                logger.info(f"Retrieved timezone from Graph API: {timezone} -> {iana_tz}")
+                logger.info(
+                    f"Retrieved timezone from Graph API: {timezone} -> {iana_tz}"
+                )
                 return iana_tz
             logger.info("No timezone in Graph API mailbox settings")
         except Exception as e:
             logger.warning(f"Failed to get timezone from Graph API: {e}")
-        
+
         user_tz = date_handler.convert_to_iana_timezone(settings.user_timezone)
         if user_tz != "UTC":
-            logger.info(f"Using USER_TIMEZONE setting: {settings.user_timezone} -> {user_tz}")
+            logger.info(
+                f"Using USER_TIMEZONE setting: {settings.user_timezone} -> {user_tz}"
+            )
             return user_tz
-        
+
         system_tz = self._get_system_timezone()
         logger.info(f"Using system timezone as fallback: {system_tz}")
         return system_tz
@@ -89,7 +93,7 @@ class UserClient(BaseGraphClient):
         try:
             params = {
                 "$filter": f"mail eq '{email}'",
-                "$select": "id,displayName,mail,mailboxSettings"
+                "$select": "id,displayName,mail,mailboxSettings",
             }
             result = await self.get("/users", params=params)
             users = result.get("value", [])

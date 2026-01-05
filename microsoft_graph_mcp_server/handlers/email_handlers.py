@@ -181,22 +181,22 @@ class EmailHandler(BaseHandler):
         return self._format_response(email_content["content"])
 
     async def handle_send_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle send_email tool with compose, reply, and forward actions."""
+        """Handle send_email tool with send_new, reply, and forward actions."""
         action = arguments.get("action")
 
-        if action == "compose":
-            return await self._handle_compose_email(arguments)
+        if action == "send_new":
+            return await self._handle_send_new_email(arguments)
         elif action == "reply":
             return await self._handle_reply_email(arguments)
         elif action == "forward":
             return await self._handle_forward_email(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'compose', 'reply', or 'forward'."
+                f"Invalid action: {action}. Must be 'send_new', 'reply', or 'forward'."
             )
 
-    async def _handle_compose_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle compose email action."""
+    async def _handle_send_new_email(self, arguments: dict) -> list[types.TextContent]:
+        """Handle send_new email action."""
         to_recipients = arguments["to"]
         subject = arguments["subject"]
         body = arguments["htmlbody"]
@@ -226,7 +226,7 @@ class EmailHandler(BaseHandler):
             body_content_type="HTML",
             importance=importance,
         )
-        return self._format_response(f"Email composed and sent successfully: {result}")
+        return self._format_response(f"Email sent successfully: {result}")
 
     async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle reply email action."""

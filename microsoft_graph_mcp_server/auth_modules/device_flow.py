@@ -36,16 +36,18 @@ class DeviceFlowManager:
             try:
                 # Clear any existing device flow before initiating a new one
                 self.device_flow = None
-                logger.info(f"Initiating device code flow (attempt {attempt + 1}/{max_retries})")
+                logger.info(
+                    f"Initiating device code flow (attempt {attempt + 1}/{max_retries})"
+                )
 
                 loop = asyncio.get_event_loop()
                 flow = await asyncio.wait_for(
                     loop.run_in_executor(
                         None,
                         self.client_app.initiate_device_flow,
-                        ["https://graph.microsoft.com/.default"]
+                        ["https://graph.microsoft.com/.default"],
                     ),
-                    timeout=30.0
+                    timeout=30.0,
                 )
 
                 if "error" in flow:
@@ -54,12 +56,14 @@ class DeviceFlowManager:
                 self.device_flow = flow
                 device_code = flow.get("device_code", "")
                 user_code = flow.get("user_code", "")
-                logger.info(f"Device code flow initiated successfully. user_code: {user_code}, device_code: {device_code[:50]}")
-                
+                logger.info(
+                    f"Device code flow initiated successfully. user_code: {user_code}, device_code: {device_code[:50]}"
+                )
+
                 # Add expires_at timestamp to the flow
                 expires_in = flow.get("expires_in", 900)
                 flow["expires_at"] = time.time() + expires_in
-                
+
                 # Save device flow to disk for later retrieval using device_code
                 if device_code:
                     self.token_manager.save_device_flow(device_code, flow)
@@ -74,7 +78,9 @@ class DeviceFlowManager:
                 print(f"\n{flow['user_code']}")
                 print("\n" + "=" * 70)
                 print("NOTE: Previous tokens have been cleared.")
-                print("IMPORTANT: After completing authentication, you MUST call complete_login")
+                print(
+                    "IMPORTANT: After completing authentication, you MUST call complete_login"
+                )
                 print("to complete the authentication process.")
                 print("=" * 70 + "\n")
 
@@ -88,7 +94,9 @@ class DeviceFlowManager:
                 }
             except asyncio.TimeoutError:
                 if attempt < max_retries - 1:
-                    print(f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})")
+                    print(
+                        f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})"
+                    )
                     await asyncio.sleep(retry_delay)
                 else:
                     raise Exception(
@@ -97,7 +105,7 @@ class DeviceFlowManager:
             except Exception as e:
                 error_msg = str(e)
                 error_lower = error_msg.lower()
-                
+
                 network_errors = [
                     "connection aborted",
                     "remote disconnected",
@@ -108,11 +116,11 @@ class DeviceFlowManager:
                     "timeout",
                     "no route to host",
                     "name or service not known",
-                    "temporary failure"
+                    "temporary failure",
                 ]
-                
+
                 is_network_error = any(err in error_lower for err in network_errors)
-                
+
                 if is_network_error and attempt < max_retries - 1:
                     print(f"Network error: {error_msg}")
                     print(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
@@ -127,7 +135,7 @@ class DeviceFlowManager:
                         "status": "failed",
                         "message": f"Authentication failed: {error_msg}",
                     }
-        
+
         # This should never be reached, but added to satisfy type checker
         raise Exception("Unexpected: No return in initiate_device_code")
 
@@ -165,9 +173,9 @@ class DeviceFlowManager:
                     loop.run_in_executor(
                         None,
                         self.client_app.initiate_device_flow,
-                        ["https://graph.microsoft.com/.default"]
+                        ["https://graph.microsoft.com/.default"],
                     ),
-                    timeout=30.0
+                    timeout=30.0,
                 )
 
                 if "error" in flow:
@@ -183,7 +191,9 @@ class DeviceFlowManager:
                 print(f"\nAnd enter the code:")
                 print(f"\n{flow['user_code']}")
                 print("\n" + "=" * 70)
-                print(f"Waiting for authentication (timeout: {max_wait_time} seconds)...")
+                print(
+                    f"Waiting for authentication (timeout: {max_wait_time} seconds)..."
+                )
                 print("=" * 70 + "\n")
 
                 elapsed = 0
@@ -233,20 +243,33 @@ class DeviceFlowManager:
                             }
                         else:
                             error = result.get("error", "")
-                            error_description = result.get("error_description", "").lower()
+                            error_description = result.get(
+                                "error_description", ""
+                            ).lower()
                             if error not in ["authorization_pending", "timeout"]:
                                 self.device_flow = None
                                 if "already redeemed" in error_description:
                                     self.token_manager.load_tokens_from_disk()
-                                    if self.token_manager.authenticated and self.token_manager.access_token:
-                                        expiry_info = self.token_manager.get_token_expiry_info()
-                                        expiry_datetime = datetime.datetime.fromtimestamp(
-                                            self.token_manager.token_expiry
+                                    if (
+                                        self.token_manager.authenticated
+                                        and self.token_manager.access_token
+                                    ):
+                                        expiry_info = (
+                                            self.token_manager.get_token_expiry_info()
                                         )
-                                        expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                                        expiry_datetime = (
+                                            datetime.datetime.fromtimestamp(
+                                                self.token_manager.token_expiry
+                                            )
+                                        )
+                                        expiry_str = expiry_datetime.strftime(
+                                            "%Y-%m-%d %H:%M:%S"
+                                        )
 
                                         remaining_hours = expiry_info["remaining_hours"]
-                                        remaining_minutes = expiry_info["remaining_minutes"]
+                                        remaining_minutes = expiry_info[
+                                            "remaining_minutes"
+                                        ]
 
                                         if remaining_hours > 0:
                                             time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
@@ -276,7 +299,9 @@ class DeviceFlowManager:
 
                     if elapsed - last_progress >= progress_interval:
                         remaining = max_wait_time - elapsed
-                        print(f"Still waiting for authentication... {remaining} seconds remaining")
+                        print(
+                            f"Still waiting for authentication... {remaining} seconds remaining"
+                        )
                         last_progress = elapsed
 
                 remaining = max_wait_time - elapsed
@@ -291,7 +316,9 @@ class DeviceFlowManager:
                 }
             except asyncio.TimeoutError:
                 if attempt < max_retries - 1:
-                    print(f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})")
+                    print(
+                        f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})"
+                    )
                     await asyncio.sleep(retry_delay)
                 else:
                     raise Exception(
@@ -300,7 +327,7 @@ class DeviceFlowManager:
             except Exception as e:
                 error_msg = str(e)
                 error_lower = error_msg.lower()
-                
+
                 network_errors = [
                     "connection aborted",
                     "remote disconnected",
@@ -311,11 +338,11 @@ class DeviceFlowManager:
                     "timeout",
                     "no route to host",
                     "name or service not known",
-                    "temporary failure"
+                    "temporary failure",
                 ]
-                
+
                 is_network_error = any(err in error_lower for err in network_errors)
-                
+
                 if is_network_error and attempt < max_retries - 1:
                     print(f"Network error: {error_msg}")
                     print(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
@@ -328,7 +355,10 @@ class DeviceFlowManager:
                     self.device_flow = None
                     if "already redeemed" in error_lower:
                         self.token_manager.load_tokens_from_disk()
-                        if self.token_manager.authenticated and self.token_manager.access_token:
+                        if (
+                            self.token_manager.authenticated
+                            and self.token_manager.access_token
+                        ):
                             expiry_info = self.token_manager.get_token_expiry_info()
                             expiry_datetime = datetime.datetime.fromtimestamp(
                                 self.token_manager.token_expiry
@@ -360,7 +390,7 @@ class DeviceFlowManager:
                             "status": "failed",
                             "message": f"Authentication failed: {error_msg}",
                         }
-        
+
         # This should never be reached, but added to satisfy type checker
         raise Exception("Unexpected: No return in initiate_and_wait_for_completion")
 
@@ -376,7 +406,9 @@ class DeviceFlowManager:
         try:
             loop = asyncio.get_event_loop()
             device_code_from_flow = self.device_flow.get("device_code", "")
-            logger.info(f"check_authentication_status called with device_code: {device_code_from_flow[:50]}")
+            logger.info(
+                f"check_authentication_status called with device_code: {device_code_from_flow[:50]}"
+            )
 
             async def acquire_with_timeout():
                 try:
@@ -396,7 +428,9 @@ class DeviceFlowManager:
                     }
 
             result = await acquire_with_timeout()
-            logger.info(f"acquire_token_by_device_flow result error: {result.get('error', 'none')}")
+            logger.info(
+                f"acquire_token_by_device_flow result error: {result.get('error', 'none')}"
+            )
 
             if "access_token" in result:
                 self.token_manager.update_token(
@@ -441,7 +475,10 @@ class DeviceFlowManager:
                 elif "already redeemed" in result.get("error_description", "").lower():
                     self.device_flow = None
                     self.token_manager.load_tokens_from_disk()
-                    if self.token_manager.authenticated and self.token_manager.access_token:
+                    if (
+                        self.token_manager.authenticated
+                        and self.token_manager.access_token
+                    ):
                         expiry_info = self.token_manager.get_token_expiry_info()
                         expiry_datetime = datetime.datetime.fromtimestamp(
                             self.token_manager.token_expiry
@@ -514,7 +551,9 @@ class DeviceFlowManager:
                     "message": f"Authentication failed: {error_msg}",
                 }
 
-    async def check_login_status(self, device_code: Optional[str] = None) -> Dict[str, Any]:
+    async def check_login_status(
+        self, device_code: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Check the current login status.
 
         Args:
@@ -524,12 +563,14 @@ class DeviceFlowManager:
         logger.info("=" * 70)
         logger.info("check_login_status called!")
         logger.info(f"  device_code: {device_code[:50] if device_code else 'None'}")
-        
+
         # If device_code is not provided, try to load the latest one from disk
         if not device_code:
             device_code = self.token_manager.get_latest_device_code()
-            logger.info(f"  Auto-loaded device_code from disk: {device_code[:50] if device_code else 'None'}")
-        
+            logger.info(
+                f"  Auto-loaded device_code from disk: {device_code[:50] if device_code else 'None'}"
+            )
+
         logger.info("=" * 70)
 
         # Clean up expired device flows first
@@ -539,7 +580,9 @@ class DeviceFlowManager:
         # This prevents "already redeemed" errors when check_status is called multiple times
         if device_code:
             self.token_manager.load_tokens_from_disk()
-            logger.info(f"Token loaded from disk - authenticated: {self.token_manager.authenticated}, has_token: {bool(self.token_manager.access_token)}")
+            logger.info(
+                f"Token loaded from disk - authenticated: {self.token_manager.authenticated}, has_token: {bool(self.token_manager.access_token)}"
+            )
 
             if self.token_manager.authenticated and self.token_manager.access_token:
                 # Already have a valid token, return authentication status
@@ -619,18 +662,25 @@ class DeviceFlowManager:
                 # Save the device_code before calling check_authentication_status
                 # because it will set self.device_flow = None on success
                 flow_device_code = self.device_flow.get("device_code", "")
-                logger.info(f"Processing device flow with device_code: {flow_device_code[:50]}")
+                logger.info(
+                    f"Processing device flow with device_code: {flow_device_code[:50]}"
+                )
 
                 # CRITICAL FIX: Check if flow still exists on disk before calling MSAL
                 # If it doesn't exist, it means it was already used and deleted
-                flow_still_on_disk = self.token_manager.load_device_flow(flow_device_code) is not None
+                flow_still_on_disk = (
+                    self.token_manager.load_device_flow(flow_device_code) is not None
+                )
                 logger.info(f"Flow still on disk: {flow_still_on_disk}")
 
                 if not flow_still_on_disk:
                     # Flow was already used, try to load tokens
                     logger.info("Flow not on disk, attempting to load tokens directly")
                     self.token_manager.load_tokens_from_disk()
-                    if self.token_manager.authenticated and self.token_manager.access_token:
+                    if (
+                        self.token_manager.authenticated
+                        and self.token_manager.access_token
+                    ):
                         expiry_info = self.token_manager.get_token_expiry_info()
                         expiry_datetime = datetime.datetime.fromtimestamp(
                             self.token_manager.token_expiry
@@ -679,11 +729,16 @@ class DeviceFlowManager:
                 except Exception as e:
                     # If check_authentication_status raised an exception, handle it here
                     error_msg = str(e)
-                    logger.error(f"check_authentication_status exception: {error_msg[:200]}")
+                    logger.error(
+                        f"check_authentication_status exception: {error_msg[:200]}"
+                    )
                     if "already redeemed" in error_msg.lower():
                         # Device code was already used, try to load tokens from disk
                         self.token_manager.load_tokens_from_disk()
-                        if self.token_manager.authenticated and self.token_manager.access_token:
+                        if (
+                            self.token_manager.authenticated
+                            and self.token_manager.access_token
+                        ):
                             expiry_info = self.token_manager.get_token_expiry_info()
                             expiry_datetime = datetime.datetime.fromtimestamp(
                                 self.token_manager.token_expiry
@@ -724,7 +779,7 @@ class DeviceFlowManager:
             # No device_code provided, clear any in-memory device flow to prevent using stale flows
             if self.device_flow is not None:
                 self.clear_device_flow()
-        
+
         # No device_code provided or flow failed, check disk for existing tokens
         if not self.token_manager.authenticated or not self.token_manager.access_token:
             return {

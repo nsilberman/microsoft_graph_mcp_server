@@ -122,7 +122,7 @@ class TokenManager:
             if DEVICE_FLOW_FILE.exists():
                 with open(DEVICE_FLOW_FILE, "r") as f:
                     flows = json.load(f)
-            
+
             flows[device_code] = device_flow
             with open(DEVICE_FLOW_FILE, "w") as f:
                 json.dump(flows, f, indent=2)
@@ -137,7 +137,7 @@ class TokenManager:
         try:
             with open(DEVICE_FLOW_FILE, "r") as f:
                 flows = json.load(f)
-            
+
             return flows.get(device_code)
         except Exception as e:
             print(f"Warning: Failed to load device flow from disk: {e}")
@@ -149,7 +149,7 @@ class TokenManager:
             if DEVICE_FLOW_FILE.exists():
                 with open(DEVICE_FLOW_FILE, "r") as f:
                     flows = json.load(f)
-                
+
                 if device_code in flows:
                     del flows[device_code]
                     with open(DEVICE_FLOW_FILE, "w") as f:
@@ -165,19 +165,19 @@ class TokenManager:
         try:
             with open(DEVICE_FLOW_FILE, "r") as f:
                 flows = json.load(f)
-            
+
             current_time = time.time()
             flows_to_delete = []
-            
+
             for device_code, flow in flows.items():
                 expires_at = flow.get("expires_at")
                 if expires_at and current_time >= expires_at:
                     flows_to_delete.append(device_code)
-            
+
             if flows_to_delete:
                 for device_code in flows_to_delete:
                     del flows[device_code]
-                
+
                 with open(DEVICE_FLOW_FILE, "w") as f:
                     json.dump(flows, f, indent=2)
         except Exception as e:
@@ -200,9 +200,9 @@ class TokenManager:
         try:
             with open(LATEST_DEVICE_CODE_FILE, "r") as f:
                 data = json.load(f)
-            
+
             device_code = data.get("device_code")
-            
+
             if device_code:
                 return device_code
             return None

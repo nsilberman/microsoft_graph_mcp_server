@@ -329,17 +329,17 @@ class ToolRegistry:
 
     @staticmethod
     def send_email() -> types.Tool:
-        """Compose, reply, or forward email tool definition."""
+        """Send email tool definition."""
         return types.Tool(
             name="send_email",
-            description="Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.",
+            description="Send emails directly without creating drafts. Supports three actions: 'send_new' to send a new email, 'reply' to reply to an existing email, and 'forward' to forward an existing email. All actions send emails immediately - no drafts are created. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["compose", "reply", "forward"],
-                        "description": "Action to perform: 'compose' for new email, 'reply' to reply to existing email, 'forward' to forward existing email",
+                        "enum": ["send_new", "reply", "forward"],
+                        "description": "Action to perform: 'send_new' to send a new email immediately (no draft), 'reply' to reply to existing email, 'forward' to forward existing email",
                     },
                     "to": {
                         "type": "array",
@@ -348,7 +348,7 @@ class ToolRegistry:
                     },
                     "subject": {
                         "type": "string",
-                        "description": "Email subject (required for compose, optional for reply/forward)",
+                        "description": "Email subject (required for send_new, optional for reply/forward)",
                     },
                     "htmlbody": {
                         "type": "string",

@@ -1553,7 +1553,7 @@ Subject: {original_subject}
         body_content_type: str = "Text",
         importance: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Unified backend function to send emails (compose, reply, or forward).
+        """Unified backend function to send emails (send_new, reply, or forward).
 
         Args:
             to_recipients: List of recipient email addresses

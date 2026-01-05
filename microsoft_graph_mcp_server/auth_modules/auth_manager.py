@@ -87,10 +87,13 @@ class GraphAuthManager:
         expiry_info = self.token_manager.get_token_expiry_info()
 
         from ..graph_client import graph_client
+
         user_timezone = await graph_client.get_user_timezone()
 
         utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
-        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(user_timezone))
+        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(
+            ZoneInfo(user_timezone)
+        )
         token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
 
         return {
@@ -150,10 +153,13 @@ class GraphAuthManager:
             }
 
         from ..graph_client import graph_client
+
         user_timezone = await graph_client.get_user_timezone()
 
         utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
-        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(user_timezone))
+        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(
+            ZoneInfo(user_timezone)
+        )
         token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
 
         return {
@@ -179,7 +185,9 @@ class GraphAuthManager:
         Args:
             device_code: Optional device_code to load device flow from disk
         """
-        logger.info(f"AuthManager: complete_login called with device_code: {device_code[:20] if device_code else 'None'}...")
+        logger.info(
+            f"AuthManager: complete_login called with device_code: {device_code[:20] if device_code else 'None'}..."
+        )
         return await self.device_flow_manager.check_login_status(device_code)
 
     async def login(self) -> Dict[str, Any]:
@@ -192,7 +200,9 @@ class GraphAuthManager:
         # Create new device flow
         logger.info("AuthManager: Initiating device flow")
         result = await self.device_flow_manager.initiate_device_flow_only()
-        logger.info(f"AuthManager: Device flow initiated with status: {result.get('status')}")
+        logger.info(
+            f"AuthManager: Device flow initiated with status: {result.get('status')}"
+        )
         return result
 
     async def _acquire_token(self) -> None:
@@ -259,13 +269,9 @@ class GraphAuthManager:
                 )
             else:
                 error_msg = result.get("error_description", "Unknown error")
-                raise Exception(
-                    f"Failed to refresh token: {error_msg}"
-                )
+                raise Exception(f"Failed to refresh token: {error_msg}")
         except Exception as e:
-            raise Exception(
-                f"Failed to refresh token: {str(e)}"
-            )
+            raise Exception(f"Failed to refresh token: {str(e)}")
 
     def get_auth_url(self, state: Optional[str] = None) -> str:
         """Get the authorization URL for interactive authentication."""

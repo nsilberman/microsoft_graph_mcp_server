@@ -47,7 +47,9 @@ class AuthHandler(BaseHandler):
         """Handle complete_login action."""
         try:
             device_code = arguments.get("device_code")
-            logger.info(f"AuthHandler: Handling complete_login with device_code: {device_code[:20] if device_code else 'None'}...")
+            logger.info(
+                f"AuthHandler: Handling complete_login with device_code: {device_code[:20] if device_code else 'None'}..."
+            )
             result = await auth_manager.complete_login(device_code)
             logger.info(f"AuthHandler: Complete login result: {result.get('status')}")
             return self._format_response(result)
@@ -64,7 +66,9 @@ class AuthHandler(BaseHandler):
             return self._format_response(result)
         except Exception as e:
             logger.error(f"AuthHandler: Check status failed with exception: {str(e)}")
-            return self._format_error(f"Failed to check authentication status: {str(e)}")
+            return self._format_error(
+                f"Failed to check authentication status: {str(e)}"
+            )
 
     async def _handle_extend_token(self, arguments: dict) -> list[types.TextContent]:
         """Handle extend_token action."""

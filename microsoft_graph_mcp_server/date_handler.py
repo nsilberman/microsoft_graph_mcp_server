@@ -90,11 +90,11 @@ class DateHandler:
 
         try:
             dt = datetime.fromisoformat(utc_datetime.replace("Z", "+00:00"))
-            
+
             # If the datetime is naive (no timezone info), assume it's UTC
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-            
+
             user_tz = DateHandler.get_user_timezone_object(timezone_str)
             dt_converted = dt.astimezone(user_tz)
             return dt_converted.strftime(format_str)
@@ -155,7 +155,9 @@ class DateHandler:
             dt_with_tz = dt.replace(tzinfo=user_tz)
             return dt_with_tz.strftime(format_str)
         except Exception as e:
-            logger.error(f"Error formatting user timezone datetime '{datetime_str}': {e}")
+            logger.error(
+                f"Error formatting user timezone datetime '{datetime_str}': {e}"
+            )
             return datetime_str
 
     @staticmethod
@@ -207,12 +209,12 @@ class DateHandler:
 
         try:
             user_tz = DateHandler.get_user_timezone_object(timezone_str)
-            
-            if 'T' in date_str:
+
+            if "T" in date_str:
                 dt = datetime.fromisoformat(date_str)
             else:
                 dt = datetime.fromisoformat(f"{date_str}T00:00:00")
-            
+
             dt = dt.replace(tzinfo=user_tz)
             dt_utc = dt.astimezone(ZoneInfo("UTC"))
             return dt_utc.isoformat().replace("+00:00", "Z")
@@ -221,7 +223,9 @@ class DateHandler:
             return None
 
     @staticmethod
-    def parse_date_range(date_range: str, timezone_str: str = "UTC") -> Tuple[str, str, str]:
+    def parse_date_range(
+        date_range: str, timezone_str: str = "UTC"
+    ) -> Tuple[str, str, str]:
         """Parse date_range parameter and return formatted display string and UTC dates.
 
         Args:
@@ -233,29 +237,31 @@ class DateHandler:
         """
         user_tz = DateHandler.get_user_timezone_object(timezone_str)
         now = datetime.now(user_tz)
-        
+
         if date_range == "today":
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=1)
             display = "Today"
-            
+
         elif date_range == "tomorrow":
-            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            start_date = now.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ) + timedelta(days=1)
             end_date = start_date + timedelta(days=1)
             display = "Tomorrow"
-            
+
         elif date_range == "this_week":
             start_date = now - timedelta(days=now.weekday())
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=7)
             display = "This Week"
-            
+
         elif date_range == "next_week":
             start_date = now - timedelta(days=now.weekday()) + timedelta(days=7)
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=7)
             display = "Next Week"
-            
+
         elif date_range == "this_month":
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             if now.month == 12:
@@ -263,19 +269,34 @@ class DateHandler:
             else:
                 end_date = start_date.replace(month=now.month + 1)
             display = "This Month"
-                
+
         elif date_range == "next_month":
             if now.month == 12:
-                start_date = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                start_date = now.replace(
+                    year=now.year + 1,
+                    month=1,
+                    day=1,
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
                 end_date = start_date.replace(month=2)
             else:
-                start_date = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                start_date = now.replace(
+                    month=now.month + 1,
+                    day=1,
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
                 if start_date.month == 12:
                     end_date = start_date.replace(year=start_date.year + 1, month=1)
                 else:
                     end_date = start_date.replace(month=start_date.month + 1)
             display = "Next Month"
-                    
+
         else:
             raise ValueError(f"Invalid date_range: {date_range}")
 
@@ -340,7 +361,9 @@ class DateHandler:
         Returns:
             Formatted datetime string with weekday in user timezone
         """
-        return DateHandler.convert_utc_to_user_timezone(utc_datetime, timezone_str, format_str)
+        return DateHandler.convert_utc_to_user_timezone(
+            utc_datetime, timezone_str, format_str
+        )
 
     @staticmethod
     def get_today_date(

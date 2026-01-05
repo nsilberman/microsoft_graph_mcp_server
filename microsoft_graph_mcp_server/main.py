@@ -6,6 +6,7 @@ import os
 
 try:
     from pathlib import Path
+
     log_file = Path(__file__).resolve().parent / "mcp_server_auth.log"
 except:
     log_file = Path.cwd() / "mcp_server_auth.log"
@@ -26,11 +27,11 @@ with open(log_file, "a") as f:
 import logging
 
 # Create handlers FIRST
-file_handler = logging.FileHandler(log_file, mode='a')
+file_handler = logging.FileHandler(log_file, mode="a")
 console_handler = logging.StreamHandler(sys.stdout)
 
 # Set format
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 
@@ -50,13 +51,17 @@ from .server import MicrosoftGraphMCPServer
 from .config import settings
 
 # Configure specific loggers AFTER they are imported
-device_flow_logger = logging.getLogger('microsoft_graph_mcp_server.auth_modules.device_flow')
+device_flow_logger = logging.getLogger(
+    "microsoft_graph_mcp_server.auth_modules.device_flow"
+)
 device_flow_logger.setLevel(logging.DEBUG)
 device_flow_logger.addHandler(file_handler)
 device_flow_logger.addHandler(console_handler)
 device_flow_logger.propagate = False  # Don't duplicate logs
 
-auth_manager_logger = logging.getLogger('microsoft_graph_mcp_server.auth_modules.auth_manager')
+auth_manager_logger = logging.getLogger(
+    "microsoft_graph_mcp_server.auth_modules.auth_manager"
+)
 auth_manager_logger.setLevel(logging.DEBUG)
 auth_manager_logger.addHandler(file_handler)
 auth_manager_logger.addHandler(console_handler)
@@ -104,7 +109,7 @@ def main(client_id: str, tenant_id: str):
     click.echo("-" * 50)
 
     logging.info("Initializing MicrosoftGraphMCPServer...")
-    
+
     try:
         server = MicrosoftGraphMCPServer()
         logging.info("Starting server.run()...")

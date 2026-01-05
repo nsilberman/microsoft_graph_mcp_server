@@ -35,7 +35,7 @@ class MicrosoftGraphMCPServer:
         logger.info(f"Server name: {settings.server_name}")
         logger.info(f"Server version: {settings.server_version}")
         logger.info("=" * 70)
-        
+
         self.server = Server("microsoft-graph-mcp-server")
         self.auth_handler = AuthHandler()
         self.user_handler = UserHandler()
@@ -44,7 +44,7 @@ class MicrosoftGraphMCPServer:
         self.file_handler = FileHandler()
         self.teams_handler = TeamsHandler()
         self._register_handlers()
-        
+
         logger.info("Handlers registered successfully")
 
     def _register_handlers(self):
@@ -68,7 +68,9 @@ class MicrosoftGraphMCPServer:
 
             try:
                 if name == "auth":
-                    logger.info(f"Server: Routing to auth_handler with action: {arguments.get('action')}")
+                    logger.info(
+                        f"Server: Routing to auth_handler with action: {arguments.get('action')}"
+                    )
                     return await self.auth_handler.handle_auth(arguments)
 
                 elif name == "user_settings":
@@ -93,9 +95,7 @@ class MicrosoftGraphMCPServer:
                     return await self.email_handler.handle_get_email_content(arguments)
 
                 elif name == "send_email":
-                    return await self.email_handler.handle_send_email(
-                        arguments
-                    )
+                    return await self.email_handler.handle_send_email(arguments)
 
                 elif name == "browse_events":
                     return await self.calendar_handler.handle_browse_events(arguments)
@@ -107,10 +107,16 @@ class MicrosoftGraphMCPServer:
                     return await self.calendar_handler.handle_search_events(arguments)
 
                 elif name == "check_attendee_availability":
-                    return await self.calendar_handler.handle_check_attendee_availability(arguments)
+                    return (
+                        await self.calendar_handler.handle_check_attendee_availability(
+                            arguments
+                        )
+                    )
 
                 elif name == "respond_to_event":
-                    return await self.calendar_handler.handle_respond_to_event(arguments)
+                    return await self.calendar_handler.handle_respond_to_event(
+                        arguments
+                    )
 
                 elif name == "manage_my_event":
                     return await self.calendar_handler.handle_manage_my_event(arguments)
@@ -139,7 +145,7 @@ class MicrosoftGraphMCPServer:
         logger.info("=" * 70)
         logger.info("MicrosoftGraphMCPServer.run() called - Starting MCP server")
         logger.info("=" * 70)
-        
+
         try:
             async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
                 logger.info("stdio_server acquired, starting server.run()...")

@@ -46,12 +46,12 @@ class CalendarClient(BaseGraphClient):
             online_meeting = event.get("onlineMeeting", {})
             meeting_type = "none"
             has_meeting = False
-            
+
             if online_meeting:
                 has_meeting = True
                 if online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl"):
                     meeting_type = "teams"
-            
+
             if not has_meeting:
                 location_display = event.get("location", {}).get("displayName", "")
                 if "zoom.us" in location_display.lower():
@@ -136,13 +136,13 @@ class CalendarClient(BaseGraphClient):
         top: int = 20,
     ) -> Dict[str, Any]:
         """Search or list calendar events by keywords. Note: Pagination with skip is not supported with search.
-        
+
         Args:
             query: Search query for keywords in event fields
             start_date: Start date in UTC ISO format (converted from user local time by handler)
             end_date: End date in UTC ISO format (converted from user local time by handler)
             top: Number of results to return
-            
+
         Returns:
             Dictionary with event summaries, count, and timezone
         """
@@ -174,12 +174,12 @@ class CalendarClient(BaseGraphClient):
             online_meeting = event.get("onlineMeeting", {})
             meeting_type = "none"
             has_meeting = False
-            
+
             if online_meeting:
                 has_meeting = True
                 if online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl"):
                     meeting_type = "teams"
-            
+
             if not has_meeting:
                 location_display = event.get("location", {}).get("displayName", "")
                 if "zoom.us" in location_display.lower():
@@ -233,7 +233,8 @@ class CalendarClient(BaseGraphClient):
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
-                "recurrence": event.get("recurrence") is not None or event.get("type") in ["occurrence", "seriesMaster"],
+                "recurrence": event.get("recurrence") is not None
+                or event.get("type") in ["occurrence", "seriesMaster"],
                 "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": {
                     "response": event.get("responseStatus", {}).get("response", "none"),
@@ -260,13 +261,15 @@ class CalendarClient(BaseGraphClient):
         """Create a calendar event."""
         return await self.post("/me/events", data=event_data)
 
-    async def update_event(self, event_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_event(
+        self, event_id: str, event_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Update an existing calendar event."""
         return await self.patch(f"/me/events/{event_id}", data=event_data)
 
     async def cancel_event(self, event_id: str, comment: Optional[str] = None) -> None:
         """Cancel a calendar event by ID, sending cancellation notifications to attendees.
-        
+
         Args:
             event_id: The ID of event to cancel
             comment: Optional message to include in the cancellation notification
@@ -278,32 +281,39 @@ class CalendarClient(BaseGraphClient):
 
     async def delete_event(self, event_id: str) -> None:
         """Delete a calendar event from your calendar without sending notifications.
-        
+
         Args:
             event_id: The ID of event to delete
         """
         await self.delete(f"/me/events/{event_id}")
 
-    async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
+    async def forward_event(
+        self,
+        event_id: str,
+        attendees: List[Dict[str, str]],
+        comment: Optional[str] = None,
+    ) -> None:
         """Forward a calendar event by adding new optional attendees.
-        
+
         Args:
             event_id: The ID of the event to forward
             attendees: List of attendees to add (each with 'address' and optional 'name')
             comment: Optional message to include in the invitation
         """
-        data = {
-            "ToRecipients": [
-                {"emailAddress": attendee} for attendee in attendees
-            ]
-        }
+        data = {"ToRecipients": [{"emailAddress": attendee} for attendee in attendees]}
         if comment:
             data["Comment"] = comment
         await self.post(f"/me/events/{event_id}/forward", data=data)
 
-    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def accept_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Accept a calendar event invitation.
-        
+
         Args:
             event_id: The ID of the event to accept (or series master ID if series=True)
             comment: Optional message to include in the response
@@ -317,9 +327,15 @@ class CalendarClient(BaseGraphClient):
             data["SendResponse"] = False
         await self.post(f"/me/events/{event_id}/accept", data=data)
 
-    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def decline_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Decline a calendar event invitation.
-        
+
         Args:
             event_id: The ID of the event to decline (or series master ID if series=True)
             comment: Optional message to include in the response
@@ -333,9 +349,15 @@ class CalendarClient(BaseGraphClient):
             data["SendResponse"] = False
         await self.post(f"/me/events/{event_id}/decline", data=data)
 
-    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def tentatively_accept_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Tentatively accept a calendar event invitation.
-        
+
         Args:
             event_id: The ID of the event to tentatively accept (or series master ID if series=True)
             comment: Optional message to include in the response
@@ -349,18 +371,22 @@ class CalendarClient(BaseGraphClient):
             data["SendResponse"] = False
         await self.post(f"/me/events/{event_id}/tentativelyAccept", data=data)
 
-    async def propose_new_time(self, event_id: str, proposed_new_time: Dict[str, str], comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def propose_new_time(
+        self,
+        event_id: str,
+        proposed_new_time: Dict[str, str],
+        comment: Optional[str] = None,
+        send_response: bool = True,
+    ) -> None:
         """Decline an event and propose a new time to the organizer.
-        
+
         Args:
             event_id: The ID of the event to decline with proposed new time
             proposed_new_time: Proposed new time with dateTime and timeZone
             comment: Optional message to include in the response
             send_response: Whether to send response to organizer
         """
-        data = {
-            "ProposedNewTime": proposed_new_time
-        }
+        data = {"ProposedNewTime": proposed_new_time}
         if comment:
             data["Comment"] = comment
         if not send_response:
@@ -373,52 +399,42 @@ class CalendarClient(BaseGraphClient):
         start_time: Optional[Dict[str, str]],
         end_time: Optional[Dict[str, str]],
         availability_view_interval: Optional[int] = None,
-        date: Optional[str] = None
+        date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Check availability of attendees for a given time range.
-        
+
         Args:
             schedules: List of attendee email addresses
             start_time: Start time with dateTime and timeZone (optional if date is provided)
             end_time: End time with dateTime and timeZone (optional if date is provided)
             availability_view_interval: Time interval in minutes for availability view (optional, default 30)
             date: Date in ISO format (e.g., '2024-01-01') to calculate time range (optional if start/end provided)
-        
+
         Returns:
             Dictionary containing schedule information for each attendee
         """
         if date:
             from datetime import datetime, timedelta
             from zoneinfo import ZoneInfo
-            
+
             date_obj = datetime.strptime(date, "%Y-%m-%d").date()
-            
-            start_time = {
-                "dateTime": f"{date}T00:00:00",
-                "timeZone": "UTC"
-            }
-            end_time = {
-                "dateTime": f"{date}T23:59:59",
-                "timeZone": "UTC"
-            }
-        
-        data = {
-            "schedules": schedules,
-            "startTime": start_time,
-            "endTime": end_time
-        }
-        
+
+            start_time = {"dateTime": f"{date}T00:00:00", "timeZone": "UTC"}
+            end_time = {"dateTime": f"{date}T23:59:59", "timeZone": "UTC"}
+
+        data = {"schedules": schedules, "startTime": start_time, "endTime": end_time}
+
         if availability_view_interval:
             data["availabilityViewInterval"] = availability_view_interval
-        
+
         return await self.post("/me/calendar/getSchedule", data=data)
 
     async def get_mailbox_settings(self, email: str) -> Dict[str, Any]:
         """Get mailbox settings for a specific user including working hours.
-        
+
         Args:
             email: Email address of the user
-        
+
         Returns:
             Dictionary containing mailbox settings including working hours
         """
@@ -430,12 +446,16 @@ class CalendarClient(BaseGraphClient):
 
     async def check_teams_integration(self) -> bool:
         """Check if the user has Teams integration enabled.
-        
+
         Returns:
             True if the user has Teams integration, False otherwise
         """
         try:
             user = await self.get("/me")
-            return user.get("hasTeamsLicense", False) if "hasTeamsLicense" in user else True
+            return (
+                user.get("hasTeamsLicense", False)
+                if "hasTeamsLicense" in user
+                else True
+            )
         except Exception:
             return False

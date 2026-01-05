@@ -7,7 +7,7 @@ This document describes the email-related functions available in the Microsoft G
 1. [Search Emails](#search-emails)
 2. [Browse Email Cache](#browse-email-cache)
 3. [Get Email Content](#get-email-content)
-4. [Compose Reply Forward Email](#compose-reply-forward-email)
+4. [Send Email](#send-email)
 5. [Manage Mail Folder](#manage-mail-folder)
 6. [Manage Emails](#manage-emails)
 7. [Manage Templates](#manage-templates)
@@ -280,18 +280,18 @@ result = await get_email_content(emailNumber=1, text_only=false)
 
 ---
 
-## Compose Reply Forward Email
+## Send Email
 
 ### Description
-Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
+Send emails directly without creating drafts. Supports three actions: 'send_new' to send a new email, 'reply' to reply to an existing email, and 'forward' to forward an existing email. All actions send emails immediately - no drafts are created. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
 ### Parameters
 - `action` (required, string): Action to perform
-  - Values: "compose", "reply", "forward"
+  - Values: "send_new", "reply", "forward"
 - `to` (required, array of strings): List of recipient email addresses
 - `htmlbody` (required, string): Email body content in HTML format. Use HTML tags like <p>, <br>, <strong>, <em>, <ul>, <li>, etc. Example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><br><p>Best regards</p>'
 - `subject` (optional, string): Email subject
-  - Required for: "compose" action
+  - Required for: "send_new" action
   - Optional for: "reply" and "forward" actions
 - `emailNumber` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
   - Required for: "reply" and "forward" actions
@@ -303,11 +303,11 @@ Unified tool for composing, replying to, and forwarding emails. Supports multipl
 
 ### Actions
 
-#### Compose Email (action="compose")
-Composes and sends a new email.
+#### Send New Email (action="send_new")
+Sends a new email immediately without creating a draft.
 
 **Parameters:**
-- `action`: "compose"
+- `action`: "send_new"
 - `to`: List of recipient email addresses
 - `subject`: Email subject
 - `htmlbody`: Email body content (HTML format)
@@ -317,14 +317,14 @@ Composes and sends a new email.
 **Returns:**
 ```json
 {
-  "message": "Email composed and sent successfully: {result}"
+  "message": "Email sent successfully: {result}"
 }
 ```
 
 **Example Usage:**
 ```python
 result = await send_email(
-    action="compose",
+    action="send_new",
     to=["recipient@example.com"],
     subject="Meeting Tomorrow",
     htmlbody="<p>Hi, let's meet tomorrow at 2 PM.</p>",
@@ -1261,7 +1261,7 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
 
-4. **Use HTML format for email bodies**: When using `send_email`, ensure the htmlbody parameter is in HTML format for all actions (compose, reply, forward).
+4. **Use HTML format for email bodies**: When using `send_email`, ensure the htmlbody parameter is in HTML format for all actions (send_new, reply, forward).
 
 5. **Respect parameter limits**: 
    - `days` parameter for recent emails: maximum 7
@@ -1282,9 +1282,9 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 - Occurs when trying to browse cache without loading emails first
 - Solution: Use `search_emails` first (with or without search_type and query)
 
-**"Invalid action: X. Must be 'compose', 'reply', or 'forward'."**
+**"Invalid action: X. Must be 'send_new', 'reply', or 'forward'."**
 - Occurs when an invalid action is provided to `send_email`
-- Solution: Use one of the valid actions: "compose", "reply", or "forward"
+- Solution: Use one of the valid actions: "send_new", "reply", or "forward"
 
 **"Error: Email number X is out of range"**
 - Occurs when an invalid email number is provided to `send_email` for reply or forward actions
