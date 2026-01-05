@@ -20,14 +20,21 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Bulk email operations (move, delete, archive, flag, categorize)
 - Email caching with pagination for efficient browsing
 - Timezone-aware email timestamps and filtering
-- Template management system:
-  - Create templates from existing emails
-  - Browse templates with pagination
-  - View templates in simple text or full HTML format
-  - Update templates while preserving HTML formatting
-  - Send templates while preserving the original
-  - Soft delete (move to Deleted Items folder for recovery)
-  - Smart update workflow: Users view simple text, provide instructions to LLM, LLM updates full HTML
+
+### Template Management
+- Create email templates from existing emails stored in a Templates folder
+- Browse templates with pagination support
+- View templates in simple text or full HTML format
+- Update templates while preserving HTML formatting and structure
+- Send templates while preserving the original (creates a copy to send)
+- Soft delete functionality (moves to Deleted Items folder for recovery)
+- Smart update workflow:
+  - Users view simple text content for easy reading
+  - Users provide natural language update instructions to LLM
+  - LLM retrieves full HTML and applies changes while maintaining formatting
+  - Users verify changes in simple text before sending
+- Template variable support (e.g., `{{name}}`, `{{date}}`) for dynamic content
+- Ideal for recurring emails like newsletters, meeting reminders, and status reports
 
 ### Calendar Management
 - Search and browse calendar events with pagination
