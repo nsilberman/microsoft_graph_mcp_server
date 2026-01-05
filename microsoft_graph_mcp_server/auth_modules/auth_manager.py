@@ -50,15 +50,12 @@ class GraphAuthManager:
 
         return self.token_manager.access_token
 
-    async def extend_token(self, hours: int = 1) -> Dict[str, Any]:
-        """Extend the access token by specified number of hours using the refresh token.
+    async def extend_token(self) -> Dict[str, Any]:
+        """Refresh the access token using the refresh token.
 
         This method explicitly refreshes the access token without requiring user login.
         It uses the stored refresh token to obtain a new access token from Microsoft.
-        Can extend the token by 1-12 hours in a single call.
-
-        Args:
-            hours: Number of hours to extend (default: 1, max: 12)
+        The new token will have a fresh lifetime (typically 1 hour).
 
         Returns:
             Dict with refresh status and token information including:
@@ -68,12 +65,11 @@ class GraphAuthManager:
             - token_expires_at: ISO timestamp of new token expiry in user's local timezone
             - time_remaining: dict with remaining time in seconds/minutes/hours
             - refresh_available: boolean indicating if refresh token is still available
-            - hours_extended: number of hours the token was extended
 
         Raises:
-            Exception: If not authenticated, no refresh token available, or invalid hours parameter
+            Exception: If not authenticated or no refresh token available
         """
-        logger.info(f"AuthManager: extend_token called with hours={hours}")
+        logger.info("AuthManager: extend_token called")
 
         if not self.token_manager.authenticated or not self.token_manager.access_token:
             raise Exception(
@@ -85,14 +81,8 @@ class GraphAuthManager:
                 "No refresh token available. Please call the login tool to authenticate."
             )
 
-        if hours < 1 or hours > 12:
-            raise Exception(
-                "Invalid hours parameter. Must be between 1 and 12 hours."
-            )
-
-        for i in range(hours):
-            logger.info(f"AuthManager: Extending token by 1 hour ({i+1}/{hours})")
-            await self._refresh_token()
+        logger.info("AuthManager: Refreshing token")
+        await self._refresh_token()
 
         expiry_info = self.token_manager.get_token_expiry_info()
 
@@ -106,7 +96,7 @@ class GraphAuthManager:
         return {
             "status": "refreshed",
             "authenticated": True,
-            "message": f"Successfully extended access token by {hours} hour(s).",
+            "message": "Successfully refreshed access token.",
             "token_expires_at": token_expires_at_local,
             "time_remaining": {
                 "seconds": expiry_info["remaining_seconds"],
@@ -115,7 +105,6 @@ class GraphAuthManager:
             },
             "refresh_available": self.token_manager.refresh_token is not None,
             "timezone": user_timezone,
-            "hours_extended": hours,
         }
 
     async def logout(self) -> Dict[str, Any]:
@@ -244,10 +233,15 @@ class GraphAuthManager:
             raise Exception(f"Authentication failed: {str(e)}")
 
     async def _refresh_token(self) -> None:
-        """Refresh the access token using the refresh token."""
+        """Refresh the access token using the refresh token.
+
+        Raises:
+            Exception: If refresh token is not available or refresh fails
+        """
         if not self.token_manager.refresh_token:
-            await self._acquire_token()
-            return
+            raise Exception(
+                "No refresh token available. Please call the login tool to authenticate."
+            )
 
         try:
             result = self.client_app.acquire_token_by_refresh_token(
@@ -264,9 +258,14 @@ class GraphAuthManager:
                     ),
                 )
             else:
-                await self._acquire_token()
-        except Exception:
-            await self._acquire_token()
+                error_msg = result.get("error_description", "Unknown error")
+                raise Exception(
+                    f"Failed to refresh token: {error_msg}"
+                )
+        except Exception as e:
+            raise Exception(
+                f"Failed to refresh token: {str(e)}"
+            )
 
     def get_auth_url(self, state: Optional[str] = None) -> str:
         """Get the authorization URL for interactive authentication."""

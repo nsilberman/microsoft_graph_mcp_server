@@ -148,7 +148,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 - `login`: Authenticate with Microsoft Graph using device code flow. Automatically saves device_code to disk for automatic retrieval.
 - `complete_login`: Complete the login process after browser authentication. Waits for authentication to complete and finalizes the login by acquiring the access token. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
 - `check_status`: Check current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
-- `extend_token`: Extend the access token by specified number of hours (1-12 hours) without requiring user login. Uses the refresh token to obtain a new access token. Can be called multiple times to extend further. Example: `auth action="extend_token" hours=12` to extend by 12 hours.
+- `extend_token`: Refresh the access token using the refresh token without requiring user login. Gives you a fresh token with a new 1-hour lifetime. Can be called multiple times to refresh further.
 - `logout`: Logout from Microsoft Graph and clear authentication state
 
 **Usage:**
@@ -232,16 +232,15 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 {
   "status": "refreshed",
   "authenticated": true,
-  "message": "Successfully extended access token by 12 hour(s).",
+  "message": "Successfully refreshed access token.",
   "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
-    "seconds": 43200,
-    "minutes": 720,
-    "hours": 12
+    "seconds": 3600,
+    "minutes": 60,
+    "hours": 1
   },
   "refresh_available": true,
-  "timezone": "America/New_York",
-  "hours_extended": 12
+  "timezone": "America/New_York"
 }
 ```
 
@@ -251,36 +250,36 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 - **Lifetime**: Typically 1 hour (3600 seconds)
 - **Usage**: Used to call Microsoft Graph API
 - **Refresh**: Automatically refreshed using refresh_token when expired
-- **Extension**: Can be extended by 1-12 hours using `extend_token` action without user login
+- **Extension**: Can be refreshed using `extend_token` action without user login
 
 ### Refresh Token
 - **Lifetime**: Can be valid for days to months (depends on Microsoft's policy)
 - **Usage**: Used to get new access tokens without user interaction
 - **Storage**: Saved to disk for session persistence
-- **Extension**: Used by `extend_token` action to extend access token lifetime
+- **Extension**: Used by `extend_token` action to refresh access token
 
-### Token Extension
-The `extend_token` action allows you to extend your access token by 1-12 hours without requiring user login:
+### Token Refresh
+The `extend_token` action allows you to refresh your access token without requiring user login:
 
 **Usage:**
 ```
-auth action="extend_token" hours=12
+auth action="extend_token"
 ```
-
-**Parameters:**
-- `hours`: Number of hours to extend (default: 1, maximum: 12)
 
 **How it works:**
 1. Uses the stored refresh token to obtain a new access token from Microsoft
-2. Repeats the refresh process for the specified number of hours
+2. The new token has a fresh lifetime (typically 1 hour)
 3. Saves the new tokens to disk automatically
 4. Returns the new token expiry time in the user's local timezone
 
 **Benefits:**
 - No need to re-authenticate through the browser
-- Can extend session by up to 12 hours in a single call
-- Can be called multiple times to extend further
+- Gives you a fresh token with a new 1-hour lifetime
+- Can be called multiple times to refresh further
 - Works with existing refresh token mechanism
+
+**Important Note:**
+The token lifetime is determined by Microsoft Entra ID policies. The `extend_token` action refreshes your token but does not change the token lifetime policy. To extend the default 1-hour lifetime beyond 1 hour, you need to configure a Token Lifetime Policy in Microsoft Entra ID (requires admin access).
 
 ### Token Refresh Flow
 ```
@@ -296,14 +295,12 @@ auth action="extend_token" hours=12
 
 ### Token Extension Flow
 ```
-1. User calls auth with action="extend_token" hours=12
-2. GraphAuthManager.extend_token() validates hours parameter (1-12)
-3. For each hour in the requested extension:
-   - Call _refresh_token()
-   - Use refresh_token to get new access_token
-   - Save new tokens to disk
-4. Return new token expiry time in user's local timezone
-5. User can continue using tools without re-authentication
+1. User calls auth with action="extend_token"
+2. GraphAuthManager.extend_token() validates authentication state
+3. Call _refresh_token() to get a new access_token
+4. Save new tokens to disk
+5. Return new token expiry time in user's local timezone
+6. User can continue using tools without re-authentication
 ```
 
 ## Security Considerations

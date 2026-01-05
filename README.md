@@ -122,21 +122,18 @@ By default, Microsoft Entra ID issues access tokens with a **1-hour lifetime**. 
 
 #### Option 1: Use `extend_token` Action (Recommended for Most Users)
 
-The easiest way to extend your session is to use the `extend_token` action:
+The easiest way to refresh your session is to use the `extend_token` action:
 
 ```bash
-# Extend by 12 hours (maximum)
-auth action="extend_token" hours=12
-
-# Extend by 1 hour (default)
+# Refresh the access token
 auth action="extend_token"
 ```
 
 This action:
 - Uses the refresh token to obtain a new access token
-- Can extend your session by 1-12 hours in a single call
+- Gives you a fresh token with a new 1-hour lifetime starting from the time you call it (does NOT extend the old token's expiry time)
 - Works without requiring user login or admin privileges
-- Can be called multiple times to extend further
+- Can be called multiple times to refresh further
 
 #### Option 2: Configure Microsoft Entra ID Token Lifetime Policy (Requires Admin Access)
 
@@ -213,7 +210,7 @@ Use an absolute path to your project directory:
 2. **Complete authentication in your browser** - Open the provided URL and enter the user code, then sign in with your Microsoft account
 3. **Call `complete_login`** - **Mandatory step** to verify your authentication status and complete the login process
 4. **Use other tools** - After successful authentication, all tools can be used normally
-5. **(Optional) Extend your session** - Access tokens expire after 1 hour by default. Use `auth action="extend_token" hours=12` to extend your session by up to 12 hours without requiring login again
+5. **(Optional) Extend your session** - Access tokens expire after 1 hour by default. Use `auth action="extend_token"` to refresh your access token without requiring login again. This provides a fresh 1-hour token starting from the time you call it.
 6. **(Optional) Call `check_status`** - Check your authentication state and token expiry anytime without triggering actions
 
 ### Available Tools
@@ -223,7 +220,7 @@ Use an absolute path to your project directory:
   - `login`: Initiates device code flow authentication. Returns a verification URL and user code to complete authentication in your browser. Previous tokens are cleared on new login.
   - `complete_login`: Completes the login process after browser authentication. **Mandatory step** - must be called after login to verify authentication status and finalize the login. The device_code is automatically loaded from the latest login session.
   - `check_status`: Checks current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, refresh token availability, and user timezone. Useful for debugging and monitoring.
-  - `extend_token`: Extends the access token by specified number of hours (1-12 hours) without requiring user login. Uses the refresh token to obtain a new access token. This is useful when your token is about to expire and you want to extend your session without going through the login process again. By default, access tokens expire after 1 hour. You can extend by up to 12 hours in a single call. Example: `auth action="extend_token" hours=12` to extend by 12 hours.
+  - `extend_token`: Refreshes the access token using the refresh token without requiring user login. This provides a fresh access token with a new 1-hour lifetime starting from the time you call it (does NOT extend the old token's expiry time). This is useful when your token is about to expire and you want to refresh your session without going through the login process again. By default, access tokens expire after 1 hour. Example: `auth action="extend_token"` to refresh your token.
   - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management

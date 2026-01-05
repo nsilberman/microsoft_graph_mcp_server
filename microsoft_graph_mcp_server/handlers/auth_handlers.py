@@ -69,9 +69,8 @@ class AuthHandler(BaseHandler):
     async def _handle_extend_token(self, arguments: dict) -> list[types.TextContent]:
         """Handle extend_token action."""
         try:
-            hours = arguments.get("hours", 1)
-            logger.info(f"AuthHandler: Handling extend_token request with hours={hours}")
-            result = await auth_manager.extend_token(hours=hours)
+            logger.info("AuthHandler: Handling extend_token request")
+            result = await auth_manager.extend_token()
             logger.info(f"AuthHandler: Extend token result: {result.get('status')}")
             return self._format_response(result)
         except Exception as e:
