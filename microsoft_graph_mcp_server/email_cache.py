@@ -246,6 +246,24 @@ class EmailBrowsingCache:
             metadata, key=lambda x: x.get("receivedDateTimeOriginal", ""), reverse=True
         )
 
+    async def remove_email(self, email_id: str):
+        """Remove an email from the cache by its ID.
+
+        Args:
+            email_id: ID of the email to remove from cache
+        """
+        if self.cache["mode"] == "list":
+            state = self.cache["list_state"]
+        else:
+            state = self.cache["search_state"]
+
+        state["metadata"] = [
+            email for email in state["metadata"] if email.get("id") != email_id
+        ]
+        state["total_count"] = len(state["metadata"])
+
+        await self._save_cache()
+
     def should_refresh_total_count(self) -> bool:
         """Check if total_count needs to be refreshed."""
         state = (

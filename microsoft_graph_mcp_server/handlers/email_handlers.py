@@ -528,7 +528,7 @@ class EmailHandler(BaseHandler):
 
         result = await graph_client.delete_email(email_id)
 
-        email_cache.remove_email(email_id)
+        await email_cache.remove_email(email_id)
 
         return self._format_response(result)
 
@@ -576,7 +576,7 @@ class EmailHandler(BaseHandler):
         result = await graph_client.batch_delete_emails(email_ids)
 
         for email_id in email_ids:
-            email_cache.remove_email(email_id)
+            await email_cache.remove_email(email_id)
 
         return self._format_response(result)
 
@@ -587,6 +587,16 @@ class EmailHandler(BaseHandler):
         source_folder = arguments["source_folder"]
 
         result = await graph_client.delete_all_emails_from_folder(source_folder)
+
+        current_mode = email_cache.get_mode()
+        if current_mode == "list":
+            cached_folder = email_cache.get_list_state()["folder"]
+            if cached_folder == source_folder:
+                email_cache.invalidate_list_state()
+        elif current_mode == "search":
+            cached_folder = email_cache.get_search_state()["folder"]
+            if cached_folder == source_folder:
+                email_cache.invalidate_search_state()
 
         return self._format_response(result)
 
@@ -662,7 +672,7 @@ class EmailHandler(BaseHandler):
 
         result = await graph_client.archive_email(email_id)
 
-        email_cache.remove_email(email_id)
+        await email_cache.remove_email(email_id)
 
         return self._format_response(result)
 
@@ -710,7 +720,7 @@ class EmailHandler(BaseHandler):
         result = await graph_client.batch_archive_emails(email_ids)
 
         for email_id in email_ids:
-            email_cache.remove_email(email_id)
+            await email_cache.remove_email(email_id)
 
         return self._format_response(result)
 
