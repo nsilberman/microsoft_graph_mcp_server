@@ -5,28 +5,45 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 ## Features
 
 ### Authentication and User Settings
-- Interactive device code flow authentication with Microsoft Graph
+- Interactive device code flow authentication with Microsoft Graph (no Azure app registration required)
 - User settings management including timezone, search days, and page sizes
 - Authentication status checking and token management
+- Token refresh with `extend_token` action to extend sessions without re-login
+- Support for custom Azure app registration via `.env` configuration
 
 ### Email Management
 - Search and browse emails with advanced filtering (by sender, recipient, subject, body)
+- Configurable search range (default: 90 days, adjustable via `DEFAULT_SEARCH_DAYS`)
 - Compose, reply, and forward emails with HTML support
+- Inline attachment support for embedded images and content
 - Manage email folders (create, delete, rename, move)
 - Bulk email operations (move, delete, archive, flag, categorize)
 - Email caching with pagination for efficient browsing
-- Template management (create, edit, and send email templates stored as drafts)
+- Timezone-aware email timestamps and filtering
+- Template management system:
+  - Create templates from existing emails
+  - Browse templates with pagination
+  - View templates in simple text or full HTML format
+  - Update templates while preserving HTML formatting
+  - Send templates while preserving the original
+  - Soft delete (move to Deleted Items folder for recovery)
+  - Smart update workflow: Users view simple text, provide instructions to LLM, LLM updates full HTML
 
 ### Calendar Management
 - Search and browse calendar events with pagination
 - Create, update, and cancel your own events
+- Create recurring events with flexible patterns (daily, weekly, monthly, yearly)
 - Respond to events organized by others (accept, decline, tentatively accept, propose new time)
+- Accept/decline entire recurring series with `series` parameter
+- Delete cancelled events from your calendar
 - Check attendee availability for scheduling
 - Forward events and reply to event attendees
+- Timezone-aware event scheduling
 
 ### Contact Management
 - Search contacts and people relevant to you
 - Returns organization users and personal contacts
+- Configurable search limit (default: 10)
 
 ### File and Team Management
 - List files and folders in OneDrive
@@ -37,6 +54,7 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Optimized email search with configurable limits
 - Timezone-aware date and time handling
 - Disk-based caching for persistence
+- API propagation delay handling for reliable operations
 
 ## Installation
 
