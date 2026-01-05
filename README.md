@@ -15,6 +15,7 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Manage email folders (create, delete, rename, move)
 - Bulk email operations (move, delete, archive, flag, categorize)
 - Email caching with pagination for efficient browsing
+- Template management (create, edit, and send email templates stored as drafts)
 
 ### Calendar Management
 - Search and browse calendar events with pagination
@@ -234,6 +235,7 @@ Use an absolute path to your project directory:
 - **browse_email_cache** - Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence.
 - **get_email_content** - Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
 - **send_email** - Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
+- **manage_templates** - Manage email templates stored as drafts in a Templates folder. Actions include: create_from_email (copy an email as a template), list (browse templates), get (view template details with simple text or full HTML), update (edit template content), delete (remove a template - soft delete, moves to Deleted Items folder), and send (send a template while preserving the original). The template update workflow allows users to view simple text, provide update instructions to an LLM, and have the LLM apply changes to the full HTML while preserving formatting.
 
 #### Calendar Management
 - **browse_events** - Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.
@@ -442,9 +444,53 @@ The email search functionality has been optimized for handling large batches of 
 - **Scalable Performance**: Processing rate improves with larger batches due to amortized overhead
 
 **Safety Features**:
-- All email search methods enforce the MAX_EMAIL_SEARCH_LIMIT email limit
+- All email search methods enforce of MAX_EMAIL_SEARCH_LIMIT email limit
 - Clear error messages when limit is exceeded
 - Consistent validation across all search functions (search_emails, search_emails_by_sender, search_emails_by_recipient, search_emails_by_subject, search_emails_by_body, load_emails_by_folder)
+
+### Template Management System
+
+A comprehensive template management system has been implemented for creating, editing, and sending email templates:
+
+**Features**:
+- **Template Creation**: Copy any email as a template from the email cache
+- **Template Storage**: Templates stored as draft emails in a Templates folder (auto-created if missing)
+- **Template Browsing**: List and browse templates with pagination support
+- **Template Viewing**: View templates with simple text (user-friendly) or full HTML (for LLM processing)
+- **Template Editing**: Update template content while preserving HTML formatting
+- **Template Sending**: Send templates while preserving the original (creates a copy and sends it)
+
+**Template Update Workflow**:
+The 7-step workflow allows users to easily update templates while maintaining HTML formatting:
+1. User calls get with text_only=true - views simple text for easy reading
+2. User provides update instructions to LLM - describes desired changes
+3. LLM calls get with text_only=false - retrieves full HTML body
+4. LLM calls update with htmlbody - applies changes and provides complete updated HTML
+5. User calls get with text_only=true - verifies changes in simple text format
+6. User gives command to send - approves the template for sending
+7. LLM calls send - sends the template and saves a copy in the Templates folder
+
+**Key Benefits**:
+- Users can view simple, readable text without HTML complexity
+- LLMs can work with full HTML to preserve formatting and structure
+- Original templates are never modified when sending (creates copies)
+- Automatic folder creation ensures Templates folder always exists
+- Disk-based cache provides persistence across sessions
+
+**Example JSON Requests**:
+```json
+// User views template (simple text)
+{"action": "get", "template_number": 1, "text_only": true}
+
+// LLM retrieves full HTML for editing
+{"action": "get", "template_number": 1, "text_only": false}
+
+// LLM updates template with complete HTML
+{"action": "update", "template_number": 1, "htmlbody": "<html><body>Updated content</body></html>"}
+
+// Send template (preserves original)
+{"action": "send", "template_number": 1}
+```
 
 **Example Usage**:
 ```

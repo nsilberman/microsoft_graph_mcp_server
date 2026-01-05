@@ -10,6 +10,7 @@ This document describes the email-related functions available in the Microsoft G
 4. [Compose Reply Forward Email](#compose-reply-forward-email)
 5. [Manage Mail Folder](#manage-mail-folder)
 6. [Manage Emails](#manage-emails)
+7. [Manage Templates](#manage-templates)
 
 ---
 
@@ -952,6 +953,284 @@ result = await manage_emails(
 - Categories are user-defined labels that help organize emails
 - Batch operations use batch processing for efficiency (20 emails per batch)
 - All operations return status, count, and error information for tracking
+
+---
+
+## Manage Templates
+
+### Description
+Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. Actions include: create_from_email, list, get, update, delete, and send.
+
+### Parameters
+- `action` (required, string): Action to perform
+  - Values: "create_from_email", "list", "get", "update", "delete", "send"
+- `email_number` (optional, integer): Email number from browse_email_cache to copy as template
+  - Required for: "create_from_email" action
+- `template_number` (optional, integer): Template cache number
+  - Required for: "get", "update", "delete", and "send" actions
+- `subject` (optional, string): Email subject (title)
+  - Optional for: "update" action
+- `to` (optional, array of strings): List of recipient email addresses
+  - Optional for: "update" action - if not provided, keeps existing recipients
+- `cc` (optional, array of strings): List of CC recipient email addresses
+  - Optional for: "update" action
+- `bcc` (optional, array of strings): List of BCC recipient email addresses
+  - Optional for: "update" action
+- `htmlbody` (optional, string): Email body content in HTML format
+  - Optional for: "update" action - if not provided, keeps existing body
+  - Note: When updating body, you should first call get with text_only=false to get the full HTML, then provide the complete updated HTML here
+- `text_only` (optional, boolean): For "get" action: if true, returns simple text body (default). If false, returns full HTML body.
+  - Default: true
+
+### Actions
+
+#### Create Template from Email (action="create_from_email")
+Copies an existing email as a template in the Templates folder.
+
+**Parameters:**
+- `action`: "create_from_email"
+- `email_number`: Email number from browse_email_cache
+
+**Returns:**
+```json
+{
+  "message": "Template created successfully",
+  "template_id": "template-id",
+  "subject": "Email Subject",
+  "folder": "Templates"
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_templates(
+    action="create_from_email",
+    email_number=1
+)
+```
+
+#### List Templates (action="list")
+Lists all templates in the Templates folder with pagination.
+
+**Parameters:**
+- `action`: "list"
+
+**Returns:**
+```json
+{
+  "templates": [
+    {
+      "number": 1,
+      "id": "template-id",
+      "subject": "Weekly Newsletter",
+      "folder": "Templates",
+      "createdDateTime": "Fri 01/03/2026 10:00 AM",
+      "lastModifiedDateTime": "Fri 01/03/2026 10:00 AM"
+    }
+  ],
+  "count": 1,
+  "total_count": 1,
+  "page": 1,
+  "pages": 1
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_templates(action="list")
+```
+
+#### Get Template (action="get")
+Retrieves template details. Returns simple text body by default, or full HTML when text_only=false.
+
+**Parameters:**
+- `action`: "get"
+- `template_number`: Template cache number
+- `text_only` (optional): If true, returns simple text body. If false, returns full HTML body.
+
+**Returns (text_only=true):**
+```json
+{
+  "template_number": 1,
+  "id": "template-id",
+  "subject": "Weekly Newsletter",
+  "to": ["recipient@example.com"],
+  "cc": [],
+  "body": "Hello, this is a simple text version of the email body.",
+  "createdDateTime": "Fri 01/03/2026 10:00 AM",
+  "lastModifiedDateTime": "Fri 01/03/2026 10:00 AM"
+}
+```
+
+**Returns (text_only=false):**
+```json
+{
+  "template_number": 1,
+  "id": "template-id",
+  "subject": "Weekly Newsletter",
+  "to": ["recipient@example.com"],
+  "cc": [],
+  "body": {
+    "contentType": "html",
+    "content": "<html><body><p>Hello, this is the full HTML version.</p></body></html>"
+  },
+  "createdDateTime": "Fri 01/03/2026 10:00 AM",
+  "lastModifiedDateTime": "Fri 01/03/2026 10:00 AM"
+}
+```
+
+**Example Usage:**
+```python
+# Get simple text body (default)
+result = await manage_templates(
+    action="get",
+    template_number=1
+)
+
+# Get full HTML body
+result = await manage_templates(
+    action="get",
+    template_number=1,
+    text_only=false
+)
+```
+
+#### Update Template (action="update")
+Updates template content. Requires the complete updated HTML body for any body changes.
+
+**Parameters:**
+- `action`: "update"
+- `template_number`: Template cache number
+- `subject` (optional): New email subject
+- `to` (optional): New list of recipient email addresses
+- `cc` (optional): New list of CC recipient email addresses
+- `bcc` (optional): New list of BCC recipient email addresses
+- `htmlbody` (optional): Complete updated HTML body content
+
+**Returns:**
+```json
+{
+  "message": "Template updated successfully",
+  "template_id": "template-id",
+  "subject": "Updated Subject",
+  "folder": "Templates"
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_templates(
+    action="update",
+    template_number=1,
+    subject="Updated Subject",
+    htmlbody="<html><body><p>Updated content here.</p></body></html>"
+)
+```
+
+#### Delete Template (action="delete")
+Deletes a template by moving it to the Deleted Items folder (soft delete).
+
+**Parameters:**
+- `action`: "delete"
+- `template_number`: Template cache number
+
+**Returns:**
+```json
+{
+  "message": "Template moved to Deleted Items",
+  "template_id": "template-id",
+  "deleted": true
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_templates(
+    action="delete",
+    template_number=1
+)
+```
+
+**Note:** This is a soft delete - the template is moved to the Deleted Items folder and can be recovered if needed.
+
+#### Send Template (action="send")
+Sends a template (creates a copy and sends it, preserving the original template).
+
+**Parameters:**
+- `action`: "send"
+- `template_number`: Template cache number
+- `to` (optional): Override recipient email addresses
+- `cc` (optional): Override CC recipient email addresses
+- `bcc` (optional): Override BCC recipient email addresses
+
+**Returns:**
+```json
+{
+  "message": "Template sent successfully",
+  "subject": "Weekly Newsletter",
+  "to": ["recipient@example.com"],
+  "sent": true,
+  "savedCopyId": "saved-copy-id"
+}
+```
+
+**Example Usage:**
+```python
+result = await manage_templates(
+    action="send",
+    template_number=1
+)
+```
+
+### Template Update Workflow
+
+The recommended workflow for updating templates involves a 7-step process:
+
+1. **User calls get with text_only=true** - Gets simple text body for easy reading
+2. **User provides update instructions to LLM** - Describes what changes they want
+3. **LLM calls get with text_only=false** - Retrieves the full HTML body
+4. **LLM calls update with htmlbody** - Applies user's changes and provides complete updated HTML
+5. **User calls get with text_only=true** - Verifies the changes in simple text format
+6. **User gives command to send** - Approves the template for sending
+7. **LLM calls send** - Sends the template and saves a copy in the Templates folder
+
+**JSON Examples:**
+
+**User calls get action (simple text):**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": true
+}
+```
+
+**LLM calls get action (full HTML):**
+```json
+{
+  "action": "get",
+  "template_number": 1,
+  "text_only": false
+}
+```
+
+**LLM calls update action (complete HTML):**
+```json
+{
+  "action": "update",
+  "template_number": 1,
+  "htmlbody": "<html><body><p>Updated content with all HTML preserved.</p></body></html>"
+}
+```
+
+### Notes
+- Templates are stored as draft emails in the Templates folder
+- The Templates folder is automatically created if it doesn't exist
+- Use `text_only=true` for user-friendly simple text viewing
+- Use `text_only=false` when LLM needs to work with full HTML
+- When updating body, always provide the complete HTML (not partial updates)
+- Sending a template creates a copy and sends it, preserving the original template
+- The saved copy is also stored in the Templates folder for reference
 
 ---
 

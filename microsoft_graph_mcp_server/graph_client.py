@@ -371,17 +371,80 @@ class GraphClient:
         """Flag or unflag an email."""
         return await self.email_client.flag_email(email_id, flag_status)
 
-    async def batch_flag_emails(self, email_ids: List[str], flag_status: str) -> Dict[str, Any]:
+    async def batch_flag_emails(
+        self, email_ids: List[str], flag_status: str
+    ) -> Dict[str, Any]:
         """Flag multiple emails using batch operations."""
         return await self.email_client.batch_flag_emails(email_ids, flag_status)
 
-    async def categorize_email(self, email_id: str, categories: List[str]) -> Dict[str, Any]:
+    async def categorize_email(
+        self, email_id: str, categories: List[str]
+    ) -> Dict[str, Any]:
         """Add categories to an email."""
         return await self.email_client.categorize_email(email_id, categories)
 
-    async def batch_categorize_emails(self, email_ids: List[str], categories: List[str]) -> Dict[str, Any]:
+    async def batch_categorize_emails(
+        self, email_ids: List[str], categories: List[str]
+    ) -> Dict[str, Any]:
         """Categorize multiple emails using batch operations."""
         return await self.email_client.batch_categorize_emails(email_ids, categories)
+
+    # Template management methods - delegated to EmailClient
+    async def create_template_from_email(
+        self,
+        email_id: str,
+        template_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a template by copying an email to the Templates folder."""
+        return await self.email_client.create_template_from_email(
+            email_id, template_name
+        )
+
+    async def list_templates(
+        self,
+        top: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """List all templates in the Templates folder."""
+        return await self.email_client.list_templates(top)
+
+    async def get_template(
+        self,
+        template_id: str,
+        text_only: bool = True,
+    ) -> Dict[str, Any]:
+        """Get a template by ID."""
+        return await self.email_client.get_template(template_id, text_only)
+
+    async def update_template(
+        self,
+        template_id: str,
+        subject: Optional[str] = None,
+        body: Optional[str] = None,
+        to_recipients: Optional[List[Dict[str, str]]] = None,
+        cc_recipients: Optional[List[Dict[str, str]]] = None,
+        bcc_recipients: Optional[List[Dict[str, str]]] = None,
+    ) -> Dict[str, Any]:
+        """Update a template."""
+        return await self.email_client.update_template(
+            template_id, subject, body, to_recipients, cc_recipients, bcc_recipients
+        )
+
+    async def delete_template(
+        self,
+        template_id: str,
+    ) -> Dict[str, Any]:
+        """Delete a template."""
+        return await self.email_client.delete_template(template_id)
+
+    async def send_template(
+        self,
+        template_id: str,
+        to: Optional[List[str]] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Send a template (creates a copy and sends it, preserving the original template)."""
+        return await self.email_client.send_template(template_id, to, cc, bcc)
 
     # Calendar management methods - delegated to CalendarClient
     async def browse_events(
@@ -414,7 +477,9 @@ class GraphClient:
         """Create a calendar event."""
         return await self.calendar_client.create_event(event_data)
 
-    async def update_event(self, event_id: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_event(
+        self, event_id: str, event_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Update a calendar event."""
         return await self.calendar_client.update_event(event_id, event_data)
 
@@ -426,29 +491,68 @@ class GraphClient:
         """Delete a calendar event from your calendar."""
         return await self.calendar_client.delete_event(event_id)
 
-    async def forward_event(self, event_id: str, attendees: List[Dict[str, str]], comment: Optional[str] = None) -> None:
+    async def forward_event(
+        self,
+        event_id: str,
+        attendees: List[Dict[str, str]],
+        comment: Optional[str] = None,
+    ) -> None:
         """Forward a calendar event."""
         return await self.calendar_client.forward_event(event_id, attendees, comment)
 
-    async def reply_to_event(self, event_id: str, comment: str, reply_all: bool = False) -> None:
+    async def reply_to_event(
+        self, event_id: str, comment: str, reply_all: bool = False
+    ) -> None:
         """Reply to a calendar event."""
         return await self.calendar_client.reply_to_event(event_id, comment, reply_all)
 
-    async def accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def accept_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Accept a calendar event invitation."""
-        return await self.calendar_client.accept_event(event_id, comment, send_response, series)
+        return await self.calendar_client.accept_event(
+            event_id, comment, send_response, series
+        )
 
-    async def decline_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def decline_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Decline a calendar event invitation."""
-        return await self.calendar_client.decline_event(event_id, comment, send_response, series)
+        return await self.calendar_client.decline_event(
+            event_id, comment, send_response, series
+        )
 
-    async def tentatively_accept_event(self, event_id: str, comment: Optional[str] = None, send_response: bool = True, series: bool = False) -> None:
+    async def tentatively_accept_event(
+        self,
+        event_id: str,
+        comment: Optional[str] = None,
+        send_response: bool = True,
+        series: bool = False,
+    ) -> None:
         """Tentatively accept a calendar event invitation."""
-        return await self.calendar_client.tentatively_accept_event(event_id, comment, send_response, series)
+        return await self.calendar_client.tentatively_accept_event(
+            event_id, comment, send_response, series
+        )
 
-    async def propose_new_time(self, event_id: str, proposed_new_time: Dict[str, str], comment: Optional[str] = None, send_response: bool = True) -> None:
+    async def propose_new_time(
+        self,
+        event_id: str,
+        proposed_new_time: Dict[str, str],
+        comment: Optional[str] = None,
+        send_response: bool = True,
+    ) -> None:
         """Decline an event and propose a new time to the organizer."""
-        return await self.calendar_client.propose_new_time(event_id, proposed_new_time, comment, send_response)
+        return await self.calendar_client.propose_new_time(
+            event_id, proposed_new_time, comment, send_response
+        )
 
     async def check_availability(
         self,
@@ -456,10 +560,12 @@ class GraphClient:
         start_time: Optional[Dict[str, str]],
         end_time: Optional[Dict[str, str]],
         availability_view_interval: Optional[int] = None,
-        date: Optional[str] = None
+        date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Check availability of attendees for a given time range."""
-        return await self.calendar_client.check_availability(schedules, start_time, end_time, availability_view_interval, date)
+        return await self.calendar_client.check_availability(
+            schedules, start_time, end_time, availability_view_interval, date
+        )
 
     # File management methods - delegated to FileClient
     async def get_drive_items(self, folder_path: str = "") -> List[Dict[str, Any]]:

@@ -68,6 +68,9 @@ class EmailBrowsingCache:
                 "total_count": 0,
                 "metadata": [],
             },
+            "templates_state": {
+                "templates": [],
+            },
             "metadata": {
                 "user_id": None,
                 "expires_at": (

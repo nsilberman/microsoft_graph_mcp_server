@@ -4,6 +4,7 @@ import mcp.types as types
 from .base import BaseHandler
 from ..utils import read_bcc_from_csv
 from ..email_cache import email_cache
+from ..template_cache import template_cache
 from ..graph_client import graph_client
 from ..date_handler import date_handler
 from ..config import settings
@@ -71,28 +72,46 @@ class EmailHandler(BaseHandler):
         time_range = arguments.get("time_range")
         page_size = MAX_EMAIL_SEARCH_LIMIT
 
-        if days > 7:
-            return self._format_error("Error: Days parameter must be 7 or less.")
+        if days > settings.default_search_days:
+            return self._format_error(
+                f"Error: Days parameter must be {settings.default_search_days} or less."
+            )
 
         email_cache.clear_cache()
         user_timezone = await graph_client.get_user_timezone()
         today_date = date_handler.get_today_date(user_timezone)
-        
+
         if time_range:
-            display_range, start_date, end_date = date_handler.parse_date_range(time_range, user_timezone)
-            start_date_display = date_handler.format_date_with_weekday(start_date, user_timezone)
-            end_date_display = date_handler.format_date_with_weekday(end_date, user_timezone)
+            display_range, start_date, end_date = date_handler.parse_date_range(
+                time_range, user_timezone
+            )
+            start_date_display = date_handler.format_date_with_weekday(
+                start_date, user_timezone
+            )
+            end_date_display = date_handler.format_date_with_weekday(
+                end_date, user_timezone
+            )
         elif not start_date and not end_date:
             start_date, end_date = date_handler.get_filter_date_range(days)
-            start_date_display = date_handler.format_date_with_weekday(start_date, user_timezone)
-            end_date_display = date_handler.format_date_with_weekday(end_date, user_timezone)
+            start_date_display = date_handler.format_date_with_weekday(
+                start_date, user_timezone
+            )
+            end_date_display = date_handler.format_date_with_weekday(
+                end_date, user_timezone
+            )
         else:
             if start_date:
-                start_date = date_handler.parse_local_date_to_utc(start_date, user_timezone)
-                start_date_display = date_handler.format_date_with_weekday(start_date, user_timezone)
+                start_date = date_handler.parse_local_date_to_utc(
+                    start_date, user_timezone
+                )
+                start_date_display = date_handler.format_date_with_weekday(
+                    start_date, user_timezone
+                )
             if end_date:
                 end_date = date_handler.parse_local_date_to_utc(end_date, user_timezone)
-                end_date_display = date_handler.format_date_with_weekday(end_date, user_timezone)
+                end_date_display = date_handler.format_date_with_weekday(
+                    end_date, user_timezone
+                )
 
         result = await graph_client.search_emails(
             query, search_type, start_date, end_date, folder, page_size
@@ -118,7 +137,7 @@ class EmailHandler(BaseHandler):
             "today": today_date,
             "hint": f"Found {result['count']} emails. Use browse_email_cache to view the results.",
         }
-        
+
         if time_range or start_date:
             response_data["start_date"] = start_date
             response_data["start_date_display"] = start_date_display
@@ -161,9 +180,7 @@ class EmailHandler(BaseHandler):
         )
         return self._format_response(email_content["content"])
 
-    async def handle_send_email(
-        self, arguments: dict
-    ) -> list[types.TextContent]:
+    async def handle_send_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle send_email tool with compose, reply, and forward actions."""
         action = arguments.get("action")
 
@@ -323,7 +340,9 @@ class EmailHandler(BaseHandler):
 
         response_message = f"Email forwarded successfully: {result}"
         if bcc_recipients:
-            response_message = f"Email forwarded successfully to {bcc_count} BCC recipients: {result}"
+            response_message = (
+                f"Email forwarded successfully to {bcc_count} BCC recipients: {result}"
+            )
 
         return self._format_response(response_message)
 
@@ -466,9 +485,7 @@ class EmailHandler(BaseHandler):
             }
         )
 
-    async def handle_manage_emails(
-        self, arguments: dict
-    ) -> list[types.TextContent]:
+    async def handle_manage_emails(self, arguments: dict) -> list[types.TextContent]:
         """Handle manage_emails tool with multiple actions."""
         action = arguments.get("action")
 
@@ -908,3 +925,223 @@ class EmailHandler(BaseHandler):
         result = await graph_client.batch_categorize_emails(email_ids, categories)
 
         return self._format_response(result)
+
+    async def handle_manage_templates(self, arguments: dict) -> list[types.TextContent]:
+        """Handle manage_templates tool with multiple actions."""
+        action = arguments.get("action")
+
+        if action == "create_from_email":
+            return await self._handle_create_template_from_email(arguments)
+        elif action == "list":
+            return await self._handle_list_templates(arguments)
+        elif action == "get":
+            return await self._handle_get_template(arguments)
+        elif action == "update":
+            return await self._handle_update_template(arguments)
+        elif action == "delete":
+            return await self._handle_delete_template(arguments)
+        elif action == "send":
+            return await self._handle_send_template(arguments)
+        else:
+            return self._format_error(
+                f"Invalid action: {action}. Must be 'create_from_email', 'list', 'get', 'update', 'delete', or 'send'."
+            )
+
+    async def _handle_create_template_from_email(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle create template from email action."""
+        email_number = arguments["email_number"]
+        template_name = arguments.get("template_name")
+
+        cached_emails = email_cache.get_cached_emails()
+        total_count = len(cached_emails)
+
+        if total_count == 0:
+            return self._format_error(
+                "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
+            )
+
+        if email_number < 1 or email_number > total_count:
+            return self._format_error(
+                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+            )
+
+        email = cached_emails[email_number - 1]
+        email_id = email.get("id")
+
+        if not email_id:
+            return self._format_error(
+                "Error: No valid email ID found. Please check the cache and try again."
+            )
+
+        try:
+            result = await graph_client.create_template_from_email(
+                email_id, template_name
+            )
+            await template_cache.add_template(
+                {
+                    "id": result["id"],
+                    "subject": result["subject"],
+                    "folder": result["folder"],
+                }
+            )
+            return self._format_response(result)
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg or "ErrorItemNotFound" in error_msg:
+                return self._format_error(
+                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved."
+                )
+            else:
+                return self._format_error(f"Error creating template: {error_msg}")
+
+    async def _handle_list_templates(self, arguments: dict) -> list[types.TextContent]:
+        """Handle list templates action."""
+        try:
+            templates = await graph_client.list_templates()
+
+            await template_cache.clear_cache()
+            for template in templates:
+                await template_cache.add_template(template)
+
+            return self._format_response(
+                {
+                    "templates": templates,
+                    "count": len(templates),
+                }
+            )
+        except Exception as e:
+            return self._format_error(f"Error listing templates: {str(e)}")
+
+    async def _handle_get_template(self, arguments: dict) -> list[types.TextContent]:
+        """Handle get template action."""
+        template_number = arguments["template_number"]
+        text_only = arguments.get("text_only", True)
+
+        template = template_cache.get_template_by_number(template_number)
+
+        if not template:
+            return self._format_error(
+                f"Error: Invalid template number: {template_number}. Please use valid number from list_templates."
+            )
+
+        template_id = template.get("id")
+
+        if not template_id:
+            return self._format_error(
+                "Error: No valid template ID found. Please check the cache and try again."
+            )
+
+        try:
+            result = await graph_client.get_template(template_id, text_only)
+            return self._format_response(result)
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg or "ErrorItemNotFound" in error_msg:
+                await template_cache.remove_template(template_id)
+                return self._format_error(
+                    f"Error: Template number {template_number} no longer exists. It may have been deleted. The cache has been updated."
+                )
+            else:
+                return self._format_error(f"Error getting template: {error_msg}")
+
+    async def _handle_update_template(self, arguments: dict) -> list[types.TextContent]:
+        """Handle update template action."""
+        template_number = arguments["template_number"]
+        subject = arguments.get("subject")
+        htmlbody = arguments.get("htmlbody")
+        to = arguments.get("to")
+        cc = arguments.get("cc")
+        bcc = arguments.get("bcc")
+
+        template = template_cache.get_template_by_number(template_number)
+
+        if not template:
+            return self._format_error(
+                f"Error: Invalid template number: {template_number}. Please use valid number from list_templates."
+            )
+
+        template_id = template.get("id")
+
+        if not template_id:
+            return self._format_error(
+                "Error: No valid template ID found. Please check the cache and try again."
+            )
+
+        try:
+            to_recipients = [{"email": email} for email in to] if to else None
+            cc_recipients = [{"email": email} for email in cc] if cc else None
+            bcc_recipients = [{"email": email} for email in bcc] if bcc else None
+
+            result = await graph_client.update_template(
+                template_id,
+                subject=subject,
+                body=htmlbody,
+                to_recipients=to_recipients,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+            )
+
+            return self._format_response(result)
+        except Exception as e:
+            return self._format_error(f"Error updating template: {str(e)}")
+
+    async def _handle_delete_template(self, arguments: dict) -> list[types.TextContent]:
+        """Handle delete template action."""
+        template_number = arguments["template_number"]
+
+        template = template_cache.get_template_by_number(template_number)
+
+        if not template:
+            return self._format_error(
+                f"Error: Invalid template number: {template_number}. Please use valid number from list_templates."
+            )
+
+        template_id = template.get("id")
+
+        if not template_id:
+            return self._format_error(
+                "Error: No valid template ID found. Please check the cache and try again."
+            )
+
+        try:
+            result = await graph_client.delete_template(template_id)
+            await template_cache.remove_template(template_id)
+            return self._format_response(result)
+        except Exception as e:
+            error_msg = str(e)
+            if "404" in error_msg or "ErrorItemNotFound" in error_msg:
+                await template_cache.remove_template(template_id)
+                return self._format_error(
+                    f"Error: Template number {template_number} no longer exists. It may have been deleted. The cache has been updated."
+                )
+            else:
+                return self._format_error(f"Error deleting template: {error_msg}")
+
+    async def _handle_send_template(self, arguments: dict) -> list[types.TextContent]:
+        """Handle send template action."""
+        template_number = arguments["template_number"]
+        to = arguments.get("to")
+        cc = arguments.get("cc")
+        bcc = arguments.get("bcc")
+
+        template = template_cache.get_template_by_number(template_number)
+
+        if not template:
+            return self._format_error(
+                f"Error: Invalid template number: {template_number}. Please use valid number from list_templates."
+            )
+
+        template_id = template.get("id")
+
+        if not template_id:
+            return self._format_error(
+                "Error: No valid template ID found. Please check the cache and try again."
+            )
+
+        try:
+            result = await graph_client.send_template(template_id, to, cc, bcc)
+            return self._format_response(result)
+        except Exception as e:
+            return self._format_error(f"Error sending template: {str(e)}")

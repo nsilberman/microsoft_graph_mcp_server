@@ -3,6 +3,8 @@
 import mcp.types as types
 from typing import List
 
+from ..config import settings
+
 
 class ToolRegistry:
     """Central registry for all MCP tool definitions."""
@@ -29,6 +31,7 @@ class ToolRegistry:
             ToolRegistry.list_files(),
             ToolRegistry.get_teams(),
             ToolRegistry.get_team_channels(),
+            ToolRegistry.manage_templates(),
         ]
 
     @staticmethod
@@ -101,13 +104,19 @@ class ToolRegistry:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["login", "complete_login", "check_status", "extend_token", "logout"],
+                        "enum": [
+                            "login",
+                            "complete_login",
+                            "check_status",
+                            "extend_token",
+                            "logout",
+                        ],
                         "description": "Action to perform: 'login' to initiate authentication and get verification URL/code, 'complete_login' to complete the login process after browser authentication (MUST call this after login), 'check_status' to check current authentication state and token expiry (read-only, no actions), 'extend_token' to refresh the access token using the refresh token without requiring user login - provides a fresh token with a new 1-hour lifetime from the time you call it (does NOT extend the old token's expiry time), 'logout' to clear authentication",
                     },
                     "device_code": {
                         "type": "string",
                         "description": "Device code returned from the login action. Optional for 'complete_login' - if not provided, will automatically use the latest device_code from the login session. Not used for other actions.",
-                    }
+                    },
                 },
                 "required": ["action"],
             },
@@ -246,7 +255,7 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
+            description="Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -266,23 +275,30 @@ class ToolRegistry:
                     },
                     "start_date": {
                         "type": "string",
-                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30') (optional)",
+                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30') (optional). Overridden by time_range if both are provided.",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59') (optional)",
+                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59') (optional). Overridden by time_range if both are provided.",
                     },
                     "time_range": {
                         "type": "string",
-                        "enum": ["today", "tomorrow", "this_week", "next_week", "this_month", "next_month"],
-                        "description": "Time range type (optional, in your local timezone). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
+                        "enum": [
+                            "today",
+                            "tomorrow",
+                            "this_week",
+                            "next_week",
+                            "this_month",
+                            "next_month",
+                        ],
+                        "description": "Time range type (optional, in your local timezone). HIGHEST PRIORITY: If provided, overrides start_date, end_date, and days. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
                     },
                     "days": {
                         "type": "integer",
-                        "description": "Number of days to look back (default: 1, maximum: 7). Used when no time range or date parameters are provided",
+                        "description": f"Number of days to look back (default: 1, maximum: {settings.default_search_days}). LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
                         "default": 1,
                         "minimum": 1,
-                        "maximum": 7,
+                        "maximum": settings.default_search_days,
                     },
                 },
             },
@@ -400,7 +416,10 @@ class ToolRegistry:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "event_id": {"type": "string", "description": "Event cache number (e.g., '1', '2', '3')"}
+                    "event_id": {
+                        "type": "string",
+                        "description": "Event cache number (e.g., '1', '2', '3')",
+                    }
                 },
                 "required": ["event_id"],
             },
@@ -429,7 +448,14 @@ class ToolRegistry:
                     },
                     "time_range": {
                         "type": "string",
-                        "enum": ["today", "tomorrow", "this_week", "next_week", "this_month", "next_month"],
+                        "enum": [
+                            "today",
+                            "tomorrow",
+                            "this_week",
+                            "next_week",
+                            "this_month",
+                            "next_month",
+                        ],
                         "description": "Time range type (optional, in your local timezone). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
                     },
                 },
@@ -575,7 +601,13 @@ class ToolRegistry:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["accept", "decline", "tentatively_accept", "propose_new_time", "delete"],
+                        "enum": [
+                            "accept",
+                            "decline",
+                            "tentatively_accept",
+                            "propose_new_time",
+                            "delete",
+                        ],
                         "description": "Action to perform on the event",
                     },
                     "event_id": {
@@ -673,7 +705,12 @@ class ToolRegistry:
                     },
                     "onlineMeetingProvider": {
                         "type": "string",
-                        "enum": ["teamsForBusiness", "skypeForBusiness", "skypeForConsumer", "unknown"],
+                        "enum": [
+                            "teamsForBusiness",
+                            "skypeForBusiness",
+                            "skypeForConsumer",
+                            "unknown",
+                        ],
                         "description": "Online meeting provider (optional for create, update). Use 'teamsForBusiness' for Teams meetings, 'skypeForBusiness' for Skype for Business, 'skypeForConsumer' for Skype Consumer, or 'unknown' for other providers. For 'unknown' or other providers (Zoom, Google Meet, etc.), include the join link in the body field. Requires isOnlineMeeting to be true",
                     },
                     "recurrence": {
@@ -686,7 +723,14 @@ class ToolRegistry:
                                 "properties": {
                                     "type": {
                                         "type": "string",
-                                        "enum": ["daily", "weekly", "absoluteMonthly", "relativeMonthly", "absoluteYearly", "relativeYearly"],
+                                        "enum": [
+                                            "daily",
+                                            "weekly",
+                                            "absoluteMonthly",
+                                            "relativeMonthly",
+                                            "absoluteYearly",
+                                            "relativeYearly",
+                                        ],
                                         "description": "The recurrence type: daily, weekly, absoluteMonthly (e.g., 'day 15 of every month'), relativeMonthly (e.g., 'second Tuesday of every month'), absoluteYearly (e.g., 'April 15 of every year'), relativeYearly (e.g., 'third Tuesday of April of every year')",
                                     },
                                     "interval": {
@@ -696,7 +740,18 @@ class ToolRegistry:
                                     },
                                     "daysOfWeek": {
                                         "type": "array",
-                                        "items": {"type": "string", "enum": ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]},
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "sunday",
+                                                "monday",
+                                                "tuesday",
+                                                "wednesday",
+                                                "thursday",
+                                                "friday",
+                                                "saturday",
+                                            ],
+                                        },
                                         "description": "Days of the week for weekly or relativeMonthly/relativeYearly patterns",
                                     },
                                     "dayOfMonth": {
@@ -713,7 +768,13 @@ class ToolRegistry:
                                     },
                                     "index": {
                                         "type": "string",
-                                        "enum": ["first", "second", "third", "fourth", "last"],
+                                        "enum": [
+                                            "first",
+                                            "second",
+                                            "third",
+                                            "fourth",
+                                            "last",
+                                        ],
                                         "description": "Index for relativeMonthly or relativeYearly patterns (e.g., 'first', 'second', 'last')",
                                     },
                                 },
@@ -807,5 +868,66 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {"team_id": {"type": "string", "description": "Team ID"}},
                 "required": ["team_id"],
+            },
+        )
+
+    @staticmethod
+    def manage_templates() -> types.Tool:
+        """Manage email templates tool definition."""
+        return types.Tool(
+            name="manage_templates",
+            description="Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. Actions: 'create_from_email' to copy an existing email as a template, 'list' to browse templates, 'get' to view template details, 'update' to edit template content, 'delete' to remove a template (soft delete - moves to Deleted Items folder), 'send' to send a template (creates a copy and sends it, preserving the original template). WORKFLOW: 1) User calls get with text_only=true to view simple text body, 2) User provides update instructions to LLM, 3) LLM calls get with text_only=false to retrieve full HTML, 4) LLM applies user's updates and calls update with complete updated HTML in htmlbody parameter, 5) User calls get with text_only=true to verify changes, 6) User gives command to send, 7) LLM calls send to send template (creates a copy and sends it, preserving original). NOTE: text_only parameter is for get action (simple text vs full HTML), htmlbody parameter is for update action (complete updated HTML).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "create_from_email",
+                            "list",
+                            "get",
+                            "update",
+                            "delete",
+                            "send",
+                        ],
+                        "description": "Action to perform on templates",
+                    },
+                    "email_number": {
+                        "type": "integer",
+                        "description": "Email number from browse_email_cache to copy as template. Required for 'create_from_email' action.",
+                    },
+                    "template_number": {
+                        "type": "integer",
+                        "description": "Template cache number. Required for 'get', 'update', 'delete', and 'send' actions.",
+                    },
+                    "subject": {
+                        "type": "string",
+                        "description": "Email subject (title). Optional for 'update' action.",
+                    },
+                    "to": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of recipient email addresses. Optional for 'update' action - if not provided, keeps existing recipients.",
+                    },
+                    "cc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of CC recipient email addresses. Optional for 'update' action.",
+                    },
+                    "bcc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of BCC recipient email addresses. Optional for 'update' action.",
+                    },
+                    "htmlbody": {
+                        "type": "string",
+                        "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. Note: When updating body, you should first call get with text_only=false to get the full HTML, then provide the complete updated HTML here.",
+                    },
+                    "text_only": {
+                        "type": "boolean",
+                        "description": "For 'get' action: if true, returns simple text body (default). If false, returns full HTML body. Default: true",
+                    },
+                },
+                "required": ["action"],
             },
         )

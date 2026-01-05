@@ -26,18 +26,22 @@ class EmailClient(BaseGraphClient):
         """Get user's timezone identifier. Uses server local timezone with caching."""
         if self._user_timezone_cache is not None:
             return self._user_timezone_cache
-        
+
         try:
             local_tz = datetime.now().astimezone().tzinfo
             if local_tz:
                 tz_str = str(local_tz)
                 if tz_str and tz_str != "UTC":
-                    self._user_timezone_cache = date_handler.convert_to_iana_timezone(tz_str)
+                    self._user_timezone_cache = date_handler.convert_to_iana_timezone(
+                        tz_str
+                    )
                     return self._user_timezone_cache
         except Exception:
             pass
-        
-        self._user_timezone_cache = date_handler.convert_to_iana_timezone(settings.user_timezone)
+
+        self._user_timezone_cache = date_handler.convert_to_iana_timezone(
+            settings.user_timezone
+        )
         return self._user_timezone_cache
 
     async def get_messages(
@@ -192,6 +196,19 @@ class EmailClient(BaseGraphClient):
         self._folder_cache[cache_key] = current_folder_id
         return current_folder_id
 
+    async def _get_or_create_templates_folder(self) -> str:
+        """Get or create the Templates folder.
+
+        Returns:
+            Folder ID of the Templates folder
+        """
+        try:
+            return await self._get_folder_id_by_path("Templates")
+        except ValueError:
+            await self.create_folder("Templates")
+            await asyncio.sleep(2.0)
+            return await self._get_folder_id_by_path("Templates")
+
     async def load_emails_by_folder(
         self,
         folder: str = "Inbox",
@@ -208,7 +225,9 @@ class EmailClient(BaseGraphClient):
             raise ValueError("Days parameter must be less than 30")
 
         if top is not None and top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
 
         folder_id = await self._get_folder_id_by_path(folder)
         user_timezone_str = await self.get_user_timezone()
@@ -233,7 +252,9 @@ class EmailClient(BaseGraphClient):
         else:
             params["$top"] = 100
 
-        params["$select"] = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview"
+        params["$select"] = (
+            "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview"
+        )
 
         result = await self.get(f"/me/mailFolders/{folder_id}/messages", params=params)
         emails = result.get("value", [])
@@ -319,15 +340,34 @@ class EmailClient(BaseGraphClient):
         text = html_content
 
         text = re.sub(
-            r"<(head|style|script).*?>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE
+            r"<(head|style|script).*?>.*?</\1>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
         )
-        text = re.sub(r'\s*(style|class|id|data-outlook-trace)="[^"]*"', "", text, flags=re.IGNORECASE)
-        text = re.sub(r'<(img|hr)[^>]*>', "", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r'\s*(style|class|id|data-outlook-trace)="[^"]*"',
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r"<(img|hr)[^>]*>", "", text, flags=re.IGNORECASE)
         text = re.sub(r"<[^>]+>", "", text)
-        text = re.sub(r"&(nbsp|amp|lt|gt|quot|#39);", lambda m: {"nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": '"', "#39": "'"}[m.group(1)], text)
+        text = re.sub(
+            r"&(nbsp|amp|lt|gt|quot|#39);",
+            lambda m: {
+                "nbsp": " ",
+                "amp": "&",
+                "lt": "<",
+                "gt": ">",
+                "quot": '"',
+                "#39": "'",
+            }[m.group(1)],
+            text,
+        )
         text = re.sub(r"\s+", " ", text)
         text = re.sub(r"(\n\s*){3,}", "\n\n", text)
-        
+
         return text.strip()
 
     async def get_email_count(
@@ -353,7 +393,7 @@ class EmailClient(BaseGraphClient):
 
         params = {
             "$select": "subject,from,toRecipients,ccRecipients,bccRecipients,body,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,isDraft,internetMessageId,conversationId,parentFolderId,flag",
-            "$expand": "attachments($select=name,size,contentType,isInline)"
+            "$expand": "attachments($select=name,size,contentType,isInline)",
         }
 
         email = await self.get(f"/me/messages/{email_id}", params=params)
@@ -443,8 +483,10 @@ class EmailClient(BaseGraphClient):
     ) -> Dict[str, Any]:
         """Search or list emails by keywords, sender, recipient, subject, or body with date filtering."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         params = {
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
@@ -485,7 +527,7 @@ class EmailClient(BaseGraphClient):
                 for email in emails
                 if email.get("receivedDateTime", "") <= end_date
             ]
-        
+
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)
             for idx, email in enumerate(emails)
@@ -508,6 +550,361 @@ class EmailClient(BaseGraphClient):
             "date_range": date_range,
         }
 
+    async def create_template_from_email(
+        self,
+        email_id: str,
+        template_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a template by copying an email to the Templates folder.
+
+        Args:
+            email_id: ID of the email to copy
+            template_name: Optional name for the template (defaults to email subject)
+
+        Returns:
+            Created template information
+        """
+        templates_folder_id = await self._get_folder_id_by_path("Templates")
+
+        email = await self.get(
+            f"/me/messages/{email_id}",
+            params={
+                "$select": "subject,from,toRecipients,ccRecipients,bccRecipients,body,attachments",
+                "$expand": "attachments",
+            },
+        )
+
+        template_data = {
+            "subject": template_name or email.get("subject", ""),
+            "body": email.get("body", {}),
+            "isDraft": True,
+            "toRecipients": email.get("toRecipients", []),
+            "ccRecipients": email.get("ccRecipients", []),
+            "bccRecipients": email.get("bccRecipients", []),
+        }
+
+        result = await self.post(
+            f"/me/mailFolders/{templates_folder_id}/messages", json=template_data
+        )
+
+        template_id = result.get("id", "")
+        attachments = email.get("attachments", [])
+
+        for attachment in attachments:
+            if attachment.get("@odata.type") == "#microsoft.graph.fileAttachment":
+                attachment_data = {
+                    "@odata.type": "#microsoft.graph.fileAttachment",
+                    "name": attachment.get("name"),
+                    "contentBytes": attachment.get("contentBytes"),
+                    "isInline": attachment.get("isInline", False),
+                }
+                await self.post(
+                    f"/me/messages/{template_id}/attachments", json=attachment_data
+                )
+
+        return {
+            "id": template_id,
+            "subject": template_data["subject"],
+            "folder": "Templates",
+        }
+
+    async def list_templates(
+        self,
+        top: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """List all templates in the Templates folder.
+
+        Args:
+            top: Maximum number of templates to return
+
+        Returns:
+            List of template summaries
+        """
+        templates_folder_id = await self._get_folder_id_by_path("Templates")
+        user_timezone_str = await self.get_user_timezone()
+        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
+
+        params = {
+            "$top": top,
+            "$filter": "isDraft eq true",
+            "$select": "id,subject,createdDateTime,lastModifiedDateTime,toRecipients,ccRecipients,hasAttachments,bodyPreview",
+            "$orderby": "lastModifiedDateTime desc",
+        }
+
+        result = await self.get(
+            f"/me/mailFolders/{templates_folder_id}/messages", params=params
+        )
+
+        templates = result.get("value", [])
+
+        summaries = []
+        for idx, template in enumerate(templates):
+            created_datetime = date_handler.convert_utc_to_timezone(
+                template.get("createdDateTime", ""), user_tz
+            )
+            modified_datetime = date_handler.convert_utc_to_timezone(
+                template.get("lastModifiedDateTime", ""), user_tz
+            )
+
+            summaries.append(
+                {
+                    "number": idx + 1,
+                    "id": template.get("id", ""),
+                    "subject": template.get("subject", ""),
+                    "createdDateTime": created_datetime,
+                    "lastModifiedDateTime": modified_datetime,
+                    "toRecipients": [
+                        r.get("emailAddress", {}).get("address", "")
+                        for r in template.get("toRecipients", [])
+                    ],
+                    "ccRecipients": [
+                        r.get("emailAddress", {}).get("address", "")
+                        for r in template.get("ccRecipients", [])
+                    ],
+                    "hasAttachments": template.get("hasAttachments", False),
+                    "bodyPreview": template.get("bodyPreview", ""),
+                }
+            )
+
+        return summaries
+
+    async def get_template(
+        self,
+        template_id: str,
+        text_only: bool = True,
+    ) -> Dict[str, Any]:
+        """Get a template by ID.
+
+        Args:
+            template_id: ID of the template
+            text_only: If true, returns simple text body. If false, returns full HTML body.
+
+        Returns:
+            Template details
+        """
+        params = {
+            "$select": "subject,toRecipients,ccRecipients,bccRecipients,body,createdDateTime,lastModifiedDateTime,hasAttachments",
+            "$expand": "attachments($select=name,size,contentType,isInline)",
+        }
+
+        template = await self.get(f"/me/messages/{template_id}", params=params)
+
+        body_content = template.get("body", {}).get("content", "")
+        body_type = template.get("body", {}).get("contentType", "Text")
+
+        if text_only and body_type.lower() == "html":
+            body_content = self._extract_text_from_html(body_content)
+
+        to_recipients = [
+            {
+                "name": r.get("emailAddress", {}).get("name", ""),
+                "email": r.get("emailAddress", {}).get("address", ""),
+            }
+            for r in template.get("toRecipients", [])
+        ]
+        cc_recipients = [
+            {
+                "name": r.get("emailAddress", {}).get("name", ""),
+                "email": r.get("emailAddress", {}).get("address", ""),
+            }
+            for r in template.get("ccRecipients", [])
+        ]
+        bcc_recipients = [
+            {
+                "name": r.get("emailAddress", {}).get("name", ""),
+                "email": r.get("emailAddress", {}).get("address", ""),
+            }
+            for r in template.get("bccRecipients", [])
+        ]
+
+        attachments = []
+        for attachment in template.get("attachments", []):
+            if attachment.get("@odata.type") == "#microsoft.graph.fileAttachment":
+                attachments.append(
+                    {
+                        "name": attachment.get("name"),
+                        "size": attachment.get("size"),
+                        "contentType": attachment.get("contentType"),
+                        "isInline": attachment.get("isInline", False),
+                    }
+                )
+
+        user_timezone_str = await self.get_user_timezone()
+
+        return {
+            "content": {
+                "subject": template.get("subject", ""),
+                "to": to_recipients,
+                "cc": cc_recipients,
+                "bcc": bcc_recipients,
+                "body": body_content,
+                "bodyType": body_type,
+                "attachments": attachments,
+            },
+            "metadata": {
+                "id": template.get("id", ""),
+                "createdDateTime": date_handler.convert_utc_to_user_timezone(
+                    template.get("createdDateTime", ""), user_timezone_str
+                ),
+                "lastModifiedDateTime": date_handler.convert_utc_to_user_timezone(
+                    template.get("lastModifiedDateTime", ""), user_timezone_str
+                ),
+                "hasAttachments": template.get("hasAttachments", False),
+            },
+        }
+
+    async def update_template(
+        self,
+        template_id: str,
+        subject: Optional[str] = None,
+        body: Optional[str] = None,
+        to_recipients: Optional[List[Dict[str, str]]] = None,
+        cc_recipients: Optional[List[Dict[str, str]]] = None,
+        bcc_recipients: Optional[List[Dict[str, str]]] = None,
+    ) -> Dict[str, Any]:
+        """Update a template.
+
+        Args:
+            template_id: ID of the template to update
+            subject: New subject (optional)
+            body: New body content (optional)
+            to_recipients: New to recipients (optional)
+            cc_recipients: New cc recipients (optional)
+            bcc_recipients: New bcc recipients (optional)
+
+        Returns:
+            Updated template information
+        """
+        update_data = {}
+
+        if subject is not None:
+            update_data["subject"] = subject
+
+        if body is not None:
+            update_data["body"] = {"contentType": "HTML", "content": body}
+
+        if to_recipients is not None:
+            update_data["toRecipients"] = [
+                {"emailAddress": {"address": r.get("email", r.get("address"))}}
+                for r in to_recipients
+            ]
+
+        if cc_recipients is not None:
+            update_data["ccRecipients"] = [
+                {"emailAddress": {"address": r.get("email", r.get("address"))}}
+                for r in cc_recipients
+            ]
+
+        if bcc_recipients is not None:
+            update_data["bccRecipients"] = [
+                {"emailAddress": {"address": r.get("email", r.get("address"))}}
+                for r in bcc_recipients
+            ]
+
+        result = await self.patch(f"/me/messages/{template_id}", json=update_data)
+
+        return {
+            "id": template_id,
+            "subject": result.get("subject", ""),
+            "updated": True,
+        }
+
+    async def delete_template(
+        self,
+        template_id: str,
+    ) -> Dict[str, Any]:
+        """Delete a template by moving it to Deleted Items (soft delete).
+
+        Args:
+            template_id: ID of the template to delete
+
+        Returns:
+            Deletion confirmation
+        """
+        deleted_items_id = await self._get_folder_id_by_path("Deleted Items")
+        move_data = {"destinationId": deleted_items_id}
+        await self.post(f"/me/messages/{template_id}/move", data=move_data)
+        await asyncio.sleep(2.0)
+
+        return {
+            "id": template_id,
+            "deleted": True,
+            "message": "Template moved to Deleted Items",
+        }
+
+    async def send_template(
+        self,
+        template_id: str,
+        to: Optional[List[str]] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Send a template (creates a copy and sends it, preserving the original template).
+
+        Args:
+            template_id: ID of the template to send
+            to: Optional list of recipient email addresses (overrides template's to)
+            cc: Optional list of cc recipient email addresses (overrides template's cc)
+            bcc: Optional list of bcc recipient email addresses (overrides template's bcc)
+
+        Returns:
+            Sent email information including the saved copy ID
+        """
+        template = await self.get(
+            f"/me/messages/{template_id}",
+            params={
+                "$select": "subject,body,toRecipients,ccRecipients,bccRecipients,attachments",
+                "$expand": "attachments",
+            },
+        )
+
+        email_data = {
+            "subject": template.get("subject", ""),
+            "body": template.get("body", {}),
+            "toRecipients": template.get("toRecipients", []),
+            "ccRecipients": template.get("ccRecipients", []),
+            "bccRecipients": template.get("bccRecipients", []),
+        }
+
+        if to:
+            email_data["toRecipients"] = [
+                {"emailAddress": {"address": email}} for email in to
+            ]
+
+        if cc:
+            email_data["ccRecipients"] = [
+                {"emailAddress": {"address": email}} for email in cc
+            ]
+
+        if bcc:
+            email_data["bccRecipients"] = [
+                {"emailAddress": {"address": email}} for email in bcc
+            ]
+
+        templates_folder_id = await self._get_or_create_templates_folder()
+
+        copy_data = {
+            "destinationId": templates_folder_id,
+        }
+
+        copy_result = await self.post(
+            f"/me/messages/{template_id}/copy", json=copy_data
+        )
+
+        saved_copy_id = copy_result.get("id")
+
+        await self.post(f"/me/messages/{saved_copy_id}/send")
+
+        return {
+            "subject": email_data["subject"],
+            "to": [
+                r.get("emailAddress", {}).get("address", "")
+                for r in email_data["toRecipients"]
+            ],
+            "sent": True,
+            "savedCopyId": saved_copy_id,
+        }
+
     async def search_emails_by_sender(
         self,
         sender: str,
@@ -517,8 +914,10 @@ class EmailClient(BaseGraphClient):
     ) -> Dict[str, Any]:
         """Search emails by sender."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         params = {
             "$search": f'"from:{sender}"',
             "$top": top,
@@ -580,8 +979,10 @@ class EmailClient(BaseGraphClient):
     ) -> Dict[str, Any]:
         """Search emails by recipient."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         params = {
             "$search": f'"to:{recipient}"',
             "$top": top,
@@ -643,8 +1044,10 @@ class EmailClient(BaseGraphClient):
     ) -> Dict[str, Any]:
         """Search emails by subject."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         params = {
             "$search": f'"subject:{subject}"',
             "$top": top,
@@ -706,8 +1109,10 @@ class EmailClient(BaseGraphClient):
     ) -> Dict[str, Any]:
         """Search emails by body content."""
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         params = {
             "$search": f'"{body}"',
             "$top": top,
@@ -773,9 +1178,9 @@ class EmailClient(BaseGraphClient):
         folder: str = "Inbox",
         top: int = 20,
     ) -> Dict[str, Any]:
-        """Search or list emails by keywords, sender, recipient, subject, or body. 
+        """Search or list emails by keywords, sender, recipient, subject, or body.
         Follows the same pattern as search_events for consistency.
-        
+
         Args:
             query: Search query (keywords for general search, or specific value for search_type)
             search_type: Type of search (sender, recipient, subject, body). If None, does general search.
@@ -783,13 +1188,15 @@ class EmailClient(BaseGraphClient):
             end_date: End date in UTC ISO format (converted from user local time by handler)
             folder: Folder to search in (default: "Inbox")
             top: Number of results to return
-            
+
         Returns:
             Dictionary with email summaries, count, and timezone
         """
         if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}")
-        
+            raise ValueError(
+                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
+            )
+
         user_timezone_str = await self.get_user_timezone()
         user_tz = date_handler.get_user_timezone_object(user_timezone_str)
 
@@ -819,7 +1226,7 @@ class EmailClient(BaseGraphClient):
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
-        
+
         if start_date and end_date:
             emails = [
                 email
@@ -1865,11 +2272,7 @@ Subject: {original_subject}
         Returns:
             Success message
         """
-        flag_data = {
-            "flag": {
-                "flagStatus": flag_status
-            }
-        }
+        flag_data = {"flag": {"flagStatus": flag_status}}
         await self.patch(f"/me/messages/{email_id}", data=flag_data)
         await asyncio.sleep(2.0)
         return {"status": "success", "message": f"Email {flag_status}"}
@@ -1906,11 +2309,7 @@ Subject: {original_subject}
                         "method": "PATCH",
                         "url": f"/me/messages/{email_id}",
                         "headers": {"Content-Type": "application/json"},
-                        "body": {
-                            "flag": {
-                                "flagStatus": flag_status
-                            }
-                        },
+                        "body": {"flag": {"flagStatus": flag_status}},
                     }
                 )
 
@@ -1961,7 +2360,9 @@ Subject: {original_subject}
             "errors": errors if errors else None,
         }
 
-    async def categorize_email(self, email_id: str, categories: List[str]) -> Dict[str, Any]:
+    async def categorize_email(
+        self, email_id: str, categories: List[str]
+    ) -> Dict[str, Any]:
         """Add categories to an email.
 
         Args:
@@ -1971,12 +2372,13 @@ Subject: {original_subject}
         Returns:
             Success message
         """
-        category_data = {
-            "categories": categories
-        }
+        category_data = {"categories": categories}
         await self.patch(f"/me/messages/{email_id}", data=category_data)
         await asyncio.sleep(2.0)
-        return {"status": "success", "message": f"Email categorized with: {', '.join(categories)}"}
+        return {
+            "status": "success",
+            "message": f"Email categorized with: {', '.join(categories)}",
+        }
 
     async def batch_categorize_emails(
         self, email_ids: List[str], categories: List[str]
@@ -2010,9 +2412,7 @@ Subject: {original_subject}
                         "method": "PATCH",
                         "url": f"/me/messages/{email_id}",
                         "headers": {"Content-Type": "application/json"},
-                        "body": {
-                            "categories": categories
-                        },
+                        "body": {"categories": categories},
                     }
                 )
 
