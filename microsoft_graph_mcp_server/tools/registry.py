@@ -651,7 +651,7 @@ class ToolRegistry:
         """Manage my event tool definition for managing user's own events."""
         return types.Tool(
             name="manage_my_event",
-            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event by cache number. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). The event_id parameter uses the cache number from browse_events or search_events results.",
+            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event by cache number or event ID. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). The event_id parameter accepts either a cache number (integer) from browse_events or search_events results, or an actual event ID (string) from create event response.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -662,7 +662,7 @@ class ToolRegistry:
                     },
                     "event_id": {
                         "type": "string",
-                        "description": "Event cache number from browse_events or search_events (required for update, cancel, forward, reply actions)",
+                        "description": "Event identifier: either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response (required for update, cancel, forward, reply actions)",
                     },
                     "subject": {
                         "type": "string",

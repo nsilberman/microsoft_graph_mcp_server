@@ -150,6 +150,7 @@ Each event in the cache contains:
 ```json
 {
   "number": 1,
+  "id": "AAMkADc4MDRiMTA2...",
   "subject": "Team Meeting",
   "start": "Mon 01/06/2026 02:00 PM",
   "end": "Mon 01/06/2026 03:00 PM",
@@ -206,10 +207,10 @@ result = await browse_events(page_number=1, mode="llm")
 ## Get Event Detail
 
 ### Description
-Get detailed information for a specific calendar event by its cache number. Use the event number from browse_events (e.g., 1, 2, 3) to retrieve complete event details.
+Get detailed information for a specific calendar event by its cache number or event ID. Use the event number from browse_events (e.g., 1, 2, 3) or the event ID from create event response to retrieve complete event details.
 
 ### Parameters
-- `event_id` (required, string): Event cache number (e.g., '1', '2', '3')
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 
 ### Returns
 ```json
@@ -313,7 +314,7 @@ Respond to calendar events organized by others with multiple actions: accept, de
 #### Common Parameters (All Actions)
 - `action` (required, string): Action to perform
   - Values: "accept", "decline", "tentatively_accept", "propose_new_time", "delete"
-- `event_id` (required, string): Event cache number from browse_events or search_events (e.g., '1', '2', '3')
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 
 #### Accept Action Parameters
 - `comment` (optional, string): Message to include in response
@@ -524,7 +525,7 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
     - `numberOfOccurrences`: Number of occurrences for type "numbered"
 
 #### Update Action Parameters
-- `event_id` (required, string): Event cache number from browse_events or search_events
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 - `subject` (optional, string): Updated event subject
 - `start` (optional, string): Updated event start date and time in your local timezone
 - `end` (optional, string): Updated event end date and time in your local timezone
@@ -537,16 +538,16 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 - `onlineMeetingProvider` (optional, string): Online meeting provider
 
 #### Cancel Action Parameters
-- `event_id` (required, string): Event cache number from browse_events or search_events
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 - `comment` (optional, string): Message to include in cancellation notification
 
 #### Forward Action Parameters
-- `event_id` (required, string): Event cache number from browse_events or search_events
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 - `attendees` (required, array): List of attendee email addresses to add as optional attendees
 - `comment` (optional, string): Message to include in forward
 
 #### Reply Action Parameters
-- `event_id` (required, string): Event cache number from browse_events or search_events
+- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
 - `subject` (optional, string): Email subject (default: "Re: Event")
 - `body` (optional, string): Email body content (default: event body content)
 - `to` (optional, array): List of TO recipient email addresses (default: required attendees)

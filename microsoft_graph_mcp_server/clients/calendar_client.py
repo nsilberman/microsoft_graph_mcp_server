@@ -1,6 +1,7 @@
 """Calendar client for Microsoft Graph API."""
 
 from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
 
 from .base_client import BaseGraphClient
 from ..date_handler import DateHandler as date_handler
@@ -126,6 +127,13 @@ class CalendarClient(BaseGraphClient):
 
         event["timezone"] = user_timezone_str
 
+        recurrence = event.get("recurrence")
+        if recurrence:
+            event["recurrenceInfo"] = self._format_recurrence_info(recurrence, user_timezone_str)
+            next_occurrences = await self._get_next_occurrences(event.get("id"), user_timezone_str, count=5)
+            if next_occurrences:
+                event["recurrenceInfo"]["nextOccurrences"] = next_occurrences
+
         return event
 
     async def search_events(
@@ -206,6 +214,24 @@ class CalendarClient(BaseGraphClient):
             else:
                 response_time_converted = None
 
+            recurrence = event.get("recurrence")
+            recurrence_info = None
+            
+            if not recurrence and event.get("type") == "occurrence":
+                series_master_id = event.get("seriesMasterId")
+                if series_master_id:
+                    try:
+                        series_master = await self.get(f"/me/events/{series_master_id}", params={"$select": "recurrence"})
+                        recurrence = series_master.get("recurrence")
+                    except Exception:
+                        pass
+            
+            if recurrence:
+                recurrence_info = self._format_recurrence_info(recurrence, user_timezone_str)
+                next_occurrences = await self._get_next_occurrences(series_master_id or event.get("id"), user_timezone_str, count=5)
+                if next_occurrences:
+                    recurrence_info["nextOccurrences"] = next_occurrences
+
             summary = {
                 "number": idx + 1,
                 "id": event.get("id"),
@@ -233,8 +259,9 @@ class CalendarClient(BaseGraphClient):
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
-                "recurrence": event.get("recurrence") is not None
+                "recurrence": recurrence is not None
                 or event.get("type") in ["occurrence", "seriesMaster"],
+                "recurrenceInfo": recurrence_info,
                 "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": {
                     "response": event.get("responseStatus", {}).get("response", "none"),
@@ -256,6 +283,124 @@ class CalendarClient(BaseGraphClient):
             "count": len(summaries),
             "timezone": user_timezone_str,
         }
+
+    def _format_recurrence_info(self, recurrence: dict, timezone_str: str) -> dict:
+        """Format recurrence information for display.
+
+        Args:
+            recurrence: Recurrence object from Graph API
+            timezone_str: User timezone string
+
+        Returns:
+            Dictionary with formatted recurrence information
+        """
+        pattern = recurrence.get("pattern", {})
+        recurrence_range = recurrence.get("range", {})
+
+        pattern_type = pattern.get("type", "")
+        interval = pattern.get("interval", 1)
+        days_of_week = pattern.get("daysOfWeek", [])
+        day_of_month = pattern.get("dayOfMonth")
+        index = pattern.get("index")
+        month = pattern.get("month")
+
+        range_type = recurrence_range.get("type", "")
+        start_date = recurrence_range.get("startDate", "")
+        end_date = recurrence_range.get("endDate", "")
+        number_of_occurrences = recurrence_range.get("numberOfOccurrences")
+
+        pattern_text = ""
+        if pattern_type == "daily":
+            pattern_text = f"Every {interval} day(s)"
+        elif pattern_type == "weekly":
+            if days_of_week:
+                days_text = ", ".join(days_of_week)
+                pattern_text = f"Every {interval} week(s) on {days_text}"
+            else:
+                pattern_text = f"Every {interval} week(s)"
+        elif pattern_type == "absoluteMonthly":
+            pattern_text = f"Every {interval} month(s) on day {day_of_month}"
+        elif pattern_type == "relativeMonthly":
+            if index and days_of_week:
+                days_text = ", ".join(days_of_week)
+                pattern_text = f"Every {interval} month(s) on the {index} {days_text}"
+            else:
+                pattern_text = f"Every {interval} month(s)"
+        elif pattern_type == "absoluteYearly":
+            pattern_text = f"Every year on {month}/{day_of_month}"
+        elif pattern_type == "relativeYearly":
+            if index and days_of_week and month:
+                days_text = ", ".join(days_of_week)
+                pattern_text = f"Every year on the {index} {days_text} of {month}"
+            else:
+                pattern_text = f"Every year"
+
+        range_text = ""
+        if range_type == "noEnd":
+            range_text = "Never ends"
+        elif range_type == "endDate":
+            if end_date:
+                range_text = f"Until {end_date}"
+            else:
+                range_text = "Ends on a specific date"
+        elif range_type == "numbered":
+            if number_of_occurrences:
+                range_text = f"Ends after {number_of_occurrences} occurrence(s)"
+            else:
+                range_text = "Ends after a specific number of occurrences"
+
+        return {
+            "pattern": pattern_text,
+            "range": range_text,
+            "startDate": start_date,
+            "endDate": end_date,
+            "numberOfOccurrences": number_of_occurrences,
+        }
+
+    async def _get_next_occurrences(
+        self, event_id: str, timezone_str: str, count: int = 5
+    ) -> List[str]:
+        """Get the next occurrence dates for a recurring event using Graph API instances endpoint.
+
+        Args:
+            event_id: Event ID (series master ID for recurring events)
+            timezone_str: User timezone string
+            count: Number of future occurrences to retrieve
+
+        Returns:
+            List of formatted date strings for next occurrences
+        """
+        from datetime import datetime, timedelta
+
+        today = datetime.now()
+        end_date = today + timedelta(days=365)
+
+        start_date_str = today.strftime("%Y-%m-%dT%H:%M:%S")
+        end_date_str = end_date.strftime("%Y-%m-%dT%H:%M:%S")
+
+        params = {
+            "$top": count,
+            "$select": "start",
+            "startDateTime": start_date_str,
+            "endDateTime": end_date_str,
+        }
+
+        try:
+            result = await self.get(f"/me/events/{event_id}/instances", params=params)
+            instances = result.get("value", [])
+
+            occurrences = []
+            for instance in instances:
+                start_datetime = instance.get("start", {}).get("dateTime", "")
+                if start_datetime:
+                    converted = date_handler.convert_utc_to_user_timezone(
+                        start_datetime, timezone_str, "%Y-%m-%d"
+                    )
+                    occurrences.append(converted)
+
+            return occurrences[:count]
+        except Exception:
+            return [][:count]
 
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a calendar event."""

@@ -243,6 +243,7 @@ class CalendarHandler(BaseHandler):
 
             filtered_event = {
                 "number": event.get("number", 0),
+                "id": event.get("id", ""),
                 "subject": event.get("subject", ""),
                 "start": event.get("start", ""),
                 "end": event.get("end", ""),
@@ -255,6 +256,7 @@ class CalendarHandler(BaseHandler):
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
                 "recurrence": event.get("recurrence", False),
+                "recurrenceInfo": event.get("recurrenceInfo"),
                 "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": event.get("responseStatus", {}),
                 "sensitivity": event.get("sensitivity", "normal"),
@@ -364,6 +366,12 @@ class CalendarHandler(BaseHandler):
                 end_date_display = DateHandler.format_date_with_weekday(
                     end_date, user_timezone
                 )
+            
+            if start_date and end_date and start_date == end_date:
+                from datetime import datetime, timedelta
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                end_dt = end_dt + timedelta(days=1)
+                end_date = end_dt.isoformat().replace('+00:00', 'Z')
 
         result = await graph_client.search_events(
             query, start_date, end_date, MAX_EVENT_SEARCH_LIMIT
@@ -450,10 +458,56 @@ class CalendarHandler(BaseHandler):
             )
 
         result = await graph_client.create_event(event_data)
+        
+        user_timezone = await graph_client.get_user_timezone()
+        
+        start_utc = result.get("start", {}).get("dateTime", "")
+        end_utc = result.get("end", {}).get("dateTime", "")
+        
+        start_local = ""
+        end_local = ""
+        
+        if start_utc:
+            start_local = DateHandler.convert_utc_to_user_timezone(
+                start_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        if end_utc:
+            end_local = DateHandler.convert_utc_to_user_timezone(
+                end_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        
+        key_info = {
+            "id": result.get("id", ""),
+            "subject": result.get("subject", ""),
+            "start": start_local,
+            "end": end_local,
+            "timezone": user_timezone,
+            "location": result.get("location", {}).get("displayName", ""),
+            "isOnlineMeeting": result.get("isOnlineMeeting", False),
+            "webLink": result.get("webLink", ""),
+        }
+        
+        attendees = result.get("attendees", [])
+        if attendees:
+            key_info["attendees_count"] = len(attendees)
+            attendee_emails = []
+            for attendee in attendees:
+                email = attendee.get("emailAddress", {}).get("address", "")
+                if email:
+                    attendee_emails.append(email)
+            if attendee_emails:
+                key_info["attendees"] = attendee_emails
+        
+        online_meeting = result.get("onlineMeeting", {})
+        if online_meeting:
+            join_url = online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl")
+            if join_url:
+                key_info["joinUrl"] = join_url
+        
         return [
             types.TextContent(
                 type="text",
-                text=f"Event created successfully: {json.dumps(result, indent=2, ensure_ascii=False)}",
+                text=f"Event created successfully: {json.dumps(key_info, indent=2, ensure_ascii=False)}",
             )
         ]
 
@@ -549,8 +603,54 @@ class CalendarHandler(BaseHandler):
             event_data["recurrence"] = arguments["recurrence"]
 
         result = await graph_client.create_event(event_data)
+        
+        start_utc = result.get("start", {}).get("dateTime", "")
+        end_utc = result.get("end", {}).get("dateTime", "")
+        
+        start_local = ""
+        end_local = ""
+        
+        if start_utc:
+            start_local = DateHandler.convert_utc_to_user_timezone(
+                start_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        if end_utc:
+            end_local = DateHandler.convert_utc_to_user_timezone(
+                end_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        
+        key_info = {
+            "id": result.get("id", ""),
+            "subject": result.get("subject", ""),
+            "start": start_local,
+            "end": end_local,
+            "timezone": user_timezone,
+            "location": result.get("location", {}).get("displayName", ""),
+            "isOnlineMeeting": result.get("isOnlineMeeting", False),
+            "webLink": result.get("webLink", ""),
+        }
+        
+        attendees = result.get("attendees", [])
+        if attendees:
+            key_info["attendees_count"] = len(attendees)
+            attendee_emails = []
+            for attendee in attendees:
+                email = attendee.get("emailAddress", {}).get("address", "")
+                if email:
+                    attendee_emails.append(email)
+            if attendee_emails:
+                key_info["attendees"] = attendee_emails
+        
+        online_meeting = result.get("onlineMeeting", {})
+        if online_meeting:
+            join_url = online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl")
+            if join_url:
+                key_info["joinUrl"] = join_url
+        
+        if "recurrence" in arguments:
+            key_info["recurrence"] = result.get("recurrence", {})
 
-        response_message = f"Event created successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+        response_message = f"Event created successfully: {json.dumps(key_info, indent=2, ensure_ascii=False)}"
         if teams_integration_warning:
             response_message = f"{teams_integration_warning}\n\n{response_message}"
         if custom_link_note:
@@ -561,9 +661,15 @@ class CalendarHandler(BaseHandler):
     async def _handle_update_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle update event action using cache number."""
-        event_number = int(arguments["event_id"])
-        event_info = await self._resolve_event_id(event_number)
+        """Handle update event action using cache number or event ID."""
+        event_id_input = arguments["event_id"]
+        
+        if isinstance(event_id_input, str):
+            event_id = event_id_input
+            event_info = {"event_id": event_id, "series_master_id": None, "is_recurring": False}
+        else:
+            event_number = int(event_id_input)
+            event_info = await self._resolve_event_id(event_number)
 
         event_data = {}
         if "subject" in arguments:
@@ -611,7 +717,7 @@ class CalendarHandler(BaseHandler):
 
         if is_online_meeting is not None or online_meeting_provider is not None:
             if online_meeting_provider == "teamsForBusiness":
-                has_teams = await graph_client.check_teams_integration()
+                has_teams = await graph_client.calendar_client.check_teams_integration()
                 if not has_teams:
                     teams_integration_warning = "Note: Current user does not have Teams integration. Teams meeting link may not be created if the organizer also lacks Teams access."
             elif online_meeting_provider == "unknown":
@@ -626,8 +732,54 @@ class CalendarHandler(BaseHandler):
             event_data["recurrence"] = arguments["recurrence"]
 
         result = await graph_client.update_event(event_info["event_id"], event_data)
-
-        response_message = f"Event updated successfully: {json.dumps(result, indent=2, ensure_ascii=False)}"
+        
+        start_utc = result.get("start", {}).get("dateTime", "")
+        end_utc = result.get("end", {}).get("dateTime", "")
+        
+        start_local = ""
+        end_local = ""
+        
+        if start_utc:
+            start_local = DateHandler.convert_utc_to_user_timezone(
+                start_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        if end_utc:
+            end_local = DateHandler.convert_utc_to_user_timezone(
+                end_utc, user_timezone, "%Y-%m-%d %H:%M"
+            )
+        
+        key_info = {
+            "id": result.get("id", ""),
+            "subject": result.get("subject", ""),
+            "start": start_local,
+            "end": end_local,
+            "timezone": user_timezone,
+            "location": result.get("location", {}).get("displayName", ""),
+            "isOnlineMeeting": result.get("isOnlineMeeting", False),
+            "webLink": result.get("webLink", ""),
+        }
+        
+        attendees = result.get("attendees", [])
+        if attendees:
+            key_info["attendees_count"] = len(attendees)
+            attendee_emails = []
+            for attendee in attendees:
+                email = attendee.get("emailAddress", {}).get("address", "")
+                if email:
+                    attendee_emails.append(email)
+            if attendee_emails:
+                key_info["attendees"] = attendee_emails
+        
+        online_meeting = result.get("onlineMeeting", {})
+        if online_meeting:
+            join_url = online_meeting.get("joinWebUrl") or online_meeting.get("joinUrl")
+            if join_url:
+                key_info["joinUrl"] = join_url
+        
+        if "recurrence" in result:
+            key_info["recurrence"] = result.get("recurrence", {})
+        
+        response_message = f"Event updated successfully: {json.dumps(key_info, indent=2, ensure_ascii=False)}"
         if teams_integration_warning:
             response_message = f"{teams_integration_warning}\n\n{response_message}"
         if custom_link_note:
@@ -638,12 +790,18 @@ class CalendarHandler(BaseHandler):
     async def _handle_cancel_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle cancel event action using cache number."""
-        event_number = int(arguments["event_id"])
+        """Handle cancel event action using cache number or event ID."""
+        event_id_input = arguments["event_id"]
         comment = arguments.get("comment")
-        event_info = await self._resolve_event_id(event_number)
+        
+        if isinstance(event_id_input, str):
+            event_id = event_id_input
+        else:
+            event_number = int(event_id_input)
+            event_info = await self._resolve_event_id(event_number)
+            event_id = event_info["event_id"]
 
-        await graph_client.cancel_event(event_info["event_id"], comment)
+        await graph_client.cancel_event(event_id, comment)
         return self._format_response(
             f"Event cancelled successfully. Cancellation notifications sent to attendees."
         )
@@ -678,11 +836,17 @@ class CalendarHandler(BaseHandler):
     async def _handle_forward_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle forward event action (add optional attendees) using cache number."""
-        event_number = int(arguments["event_id"])
+        """Handle forward event action (add optional attendees) using cache number or event ID."""
+        event_id_input = arguments["event_id"]
         attendees = arguments["attendees"]
         comment = arguments.get("comment")
-        event_info = await self._resolve_event_id(event_number)
+        
+        if isinstance(event_id_input, str):
+            event_id = event_id_input
+        else:
+            event_number = int(event_id_input)
+            event_info = await self._resolve_event_id(event_number)
+            event_id = event_info["event_id"]
 
         attendee_list = []
         for attendee in attendees:
@@ -691,7 +855,7 @@ class CalendarHandler(BaseHandler):
             elif isinstance(attendee, dict):
                 attendee_list.append(attendee)
 
-        await graph_client.forward_event(event_info["event_id"], attendee_list, comment)
+        await graph_client.forward_event(event_id, attendee_list, comment)
         return self._format_response(
             f"Event forwarded successfully to {len(attendee_list)} attendee(s)."
         )
@@ -699,15 +863,21 @@ class CalendarHandler(BaseHandler):
     async def _handle_reply_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle reply to event action (send email to attendees using event body as email content) using cache number."""
-        event_number = int(arguments["event_id"])
+        """Handle reply to event action (send email to attendees using event body as email content) using cache number or event ID."""
+        event_id_input = arguments["event_id"]
         subject = arguments.get("subject", "Re: Event")
         body = arguments.get("body")
         to_recipients = arguments.get("to")
         cc_recipients = arguments.get("cc")
-        event_info = await self._resolve_event_id(event_number)
+        
+        if isinstance(event_id_input, str):
+            event_id = event_id_input
+        else:
+            event_number = int(event_id_input)
+            event_info = await self._resolve_event_id(event_number)
+            event_id = event_info["event_id"]
 
-        full_event = await graph_client.get_event(event_info["event_id"])
+        full_event = await graph_client.get_event(event_id)
 
         if not body:
             event_body = full_event.get("body", {})
