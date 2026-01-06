@@ -472,84 +472,6 @@ class EmailClient(BaseGraphClient):
             },
         }
 
-    async def search_emails(
-        self,
-        query: Optional[str] = None,
-        search_type: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        folder: Optional[str] = None,
-        top: int = 20,
-    ) -> Dict[str, Any]:
-        """Search or list emails by keywords, sender, recipient, subject, or body with date filtering."""
-        if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(
-                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
-            )
-
-        params = {
-            "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
-        }
-
-        if query:
-            if search_type == "sender":
-                params["$search"] = f'"from:{query}"'
-            elif search_type == "recipient":
-                params["$search"] = f'"to:{query}"'
-            elif search_type == "subject":
-                params["$search"] = f'"subject:{query}"'
-            elif search_type == "body":
-                params["$search"] = f'"{query}"'
-            else:
-                params["$search"] = f'"{query}"'
-
-        endpoint = "/me/messages"
-        if folder:
-            endpoint = f"/me/mailFolders/{folder}/messages"
-
-        result = await self.get(endpoint, params=params)
-
-        emails = result.get("value", [])
-        user_timezone_str = await self.get_user_timezone()
-        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
-
-        if start_date:
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-            ]
-
-        if end_date:
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") <= end_date
-            ]
-
-        summaries = [
-            self._create_email_summary(email, idx + 1, user_tz)
-            for idx, email in enumerate(emails)
-        ]
-
-        sorted_summaries = sorted(
-            summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True
-        )
-
-        for idx, summary in enumerate(sorted_summaries):
-            summary["number"] = idx + 1
-
-        date_range = date_handler.format_email_date_range(
-            sorted_summaries, user_timezone_str
-        )
-
-        return {
-            "metadata": sorted_summaries,
-            "count": len(sorted_summaries),
-            "date_range": date_range,
-        }
-
     async def create_template_from_email(
         self,
         email_id: str,
@@ -1211,15 +1133,20 @@ class EmailClient(BaseGraphClient):
             endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         if search_type:
-            search_prefix_map = {
-                "sender": "from:",
-                "recipient": "to:",
-                "subject": "subject:",
-                "body": "body:",
-            }
-            prefix = search_prefix_map.get(search_type, "")
-            if prefix and query:
-                params["$search"] = f'"{prefix}{query}"'
+            if search_type == "subject" and query:
+                escaped_query = query.replace("'", "''")
+                params["$filter"] = f"contains(subject, '{escaped_query}')"
+            elif search_type == "body" and query:
+                escaped_query = query.replace("'", "''")
+                params["$filter"] = f"contains(body, '{escaped_query}')"
+            else:
+                search_prefix_map = {
+                    "sender": "from:",
+                    "recipient": "to:",
+                }
+                prefix = search_prefix_map.get(search_type, "")
+                if prefix and query:
+                    params["$search"] = f'"{prefix}{query}"'
         elif query:
             params["$search"] = f'"{query}"'
 
