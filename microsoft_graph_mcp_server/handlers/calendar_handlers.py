@@ -671,17 +671,17 @@ class CalendarHandler(BaseHandler):
             event_number = int(event_id_input)
             event_info = await self._resolve_event_id(event_number)
 
+        user_timezone = await graph_client.get_user_timezone()
+        
         event_data = {}
         if "subject" in arguments:
             event_data["subject"] = arguments["subject"]
         if "start" in arguments:
-            user_timezone = await graph_client.get_user_timezone()
             start_utc = DateHandler.parse_local_date_to_utc(
                 arguments["start"], user_timezone
             )
             event_data["start"] = {"dateTime": start_utc, "timeZone": "UTC"}
         if "end" in arguments:
-            user_timezone = await graph_client.get_user_timezone()
             end_utc = DateHandler.parse_local_date_to_utc(
                 arguments["end"], user_timezone
             )
