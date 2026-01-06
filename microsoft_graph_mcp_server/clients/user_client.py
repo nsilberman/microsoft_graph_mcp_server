@@ -114,8 +114,121 @@ class UserClient(BaseGraphClient):
         return None
 
     async def search_contacts(self, query: str, top: int = 10) -> List[Dict[str, Any]]:
-        """Search contacts and people relevant to the user."""
-        params = {"$search": f'"{query}"', "$top": top}
-
-        result = await self.get("/me/people", params=params)
-        return result.get("value", [])
+        """Search for people and contacts by name or email address.
+        
+        This searches both your personal contact folder and the organization directory
+        to find people. Use this when you need to find information about a person,
+        such as "who is Joyson Barrago" or "find contact with email joyson@ibm.com".
+        
+        This is NOT for searching email messages - use search_emails for that.
+        """
+        contacts = []
+        auth_error = None
+        seen_ids = set()
+        
+        # Helper function to add contact if not already seen
+        def add_contact(contact):
+            contact_id = contact.get("id")
+            if contact_id and contact_id not in seen_ids:
+                seen_ids.add(contact_id)
+                contacts.append(contact)
+                return True
+            return False
+        
+        # First, try exact match with $filter (immediate consistency)
+        try:
+            filter_query = f"displayName eq '{query}' or givenName eq '{query}' or surname eq '{query}' or mail eq '{query}'"
+            params = {"$filter": filter_query, "$top": top}
+            result = await self.get("/users", params=params)
+            users = result.get("value", [])
+            
+            for user in users:
+                contact = {
+                    "id": user.get("id"),
+                    "displayName": user.get("displayName"),
+                    "givenName": user.get("givenName"),
+                    "surname": user.get("surname"),
+                    "emailAddresses": [{"address": user.get("mail")}] if user.get("mail") else [],
+                    "source": "organization"
+                }
+                add_contact(contact)
+        except Exception as e:
+            error_msg = str(e)
+            if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+                auth_error = e
+            print(f"Error searching users with filter: {e}")
+        
+        # If no exact matches, try searching for individual name parts
+        if len(contacts) < top:
+            parts = query.split()
+            for part in parts:
+                if len(contacts) >= top:
+                    break
+                try:
+                    filter_query = f"displayName eq '{part}' or givenName eq '{part}' or surname eq '{part}' or mail eq '{part}'"
+                    params = {"$filter": filter_query, "$top": top - len(contacts)}
+                    result = await self.get("/users", params=params)
+                    users = result.get("value", [])
+                    
+                    for user in users:
+                        contact = {
+                            "id": user.get("id"),
+                            "displayName": user.get("displayName"),
+                            "givenName": user.get("givenName"),
+                            "surname": user.get("surname"),
+                            "emailAddresses": [{"address": user.get("mail")}] if user.get("mail") else [],
+                            "source": "organization"
+                        }
+                        add_contact(contact)
+                except Exception as e:
+                    error_msg = str(e)
+                    if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+                        auth_error = e
+                    print(f"Error searching users for part '{part}': {e}")
+        
+        # If still no results, try searching personal contacts with $filter
+        if len(contacts) < top:
+            try:
+                filter_query = f"contains(displayName,'{query}') or contains(givenName,'{query}') or contains(surname,'{query}')"
+                params = {"$filter": filter_query, "$top": top - len(contacts)}
+                result = await self.get("/me/contacts", params=params)
+                personal_contacts = result.get("value", [])
+                contacts.extend(personal_contacts)
+            except Exception as e:
+                error_msg = str(e)
+                if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+                    auth_error = e
+                print(f"Error searching personal contacts: {e}")
+        
+        # If still no results, try $search with eventual consistency
+        if len(contacts) < top:
+            try:
+                search_query = f'"displayName:{query}" OR "givenName:{query}" OR "surname:{query}" OR "mail:{query}"'
+                params = {"$search": search_query, "$top": top - len(contacts)}
+                headers = {"ConsistencyLevel": "eventual"}
+                result = await self.get("/users", params=params, headers=headers)
+                
+                users = result.get("value", [])
+                
+                for user in users:
+                    contact = {
+                        "id": user.get("id"),
+                        "displayName": user.get("displayName"),
+                        "givenName": user.get("givenName"),
+                        "surname": user.get("surname"),
+                        "emailAddresses": [{"address": user.get("mail")}] if user.get("mail") else [],
+                        "source": "organization"
+                    }
+                    add_contact(contact)
+            except Exception as e:
+                error_msg = str(e)
+                if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+                    auth_error = e
+                print(f"Error searching organization directory: {e}")
+        
+        print(f"search_contacts: query='{query}', found {len(contacts)} contacts")
+        
+        if auth_error:
+            raise auth_error
+        
+        return contacts[:top]

@@ -213,10 +213,10 @@ result = await browse_email_cache(page_number=2)
 ## Get Email Content
 
 ### Description
-Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
+Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
 
 ### Parameters
-- `emailNumber` (required, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+- `cache_number` (required, integer): Cache number from browse_email_cache (e.g., 1, 2, 3)
 - `text_only` (optional, boolean): If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.
   - Default: true
 
@@ -224,7 +224,7 @@ Get full email content by cache number. Use the email number from browse_email_c
 User-facing email content:
 ```json
 {
-  "emailNumber": 1,
+  "cache_number": 1,
   "subject": "Email Subject",
   "from": {
     "name": "Sender Name",
@@ -249,7 +249,7 @@ User-facing email content:
 ```
 
 ### Return Fields
-- `emailNumber`: Email number in cache
+- `cache_number`: Cache number in cache
 - `subject`: Email subject
 - `from`: Sender information (name, email)
 - `to`: Array of to recipients (name, email)
@@ -268,14 +268,14 @@ User-facing email content:
 ### Example Usage
 ```python
 # Get email content with text only (default)
-result = await get_email_content(emailNumber=1)
+result = await get_email_content(cache_number=1)
 
 # Get email content with full attachments and images
-result = await get_email_content(emailNumber=1, text_only=false)
+result = await get_email_content(cache_number=1, text_only=false)
 ```
 
 ### Notes
-- Requires valid email number from cache
+- Requires valid cache number from cache
 - Returns only user-facing content (system metadata is excluded)
 - Use `text_only=false` to include attachments and embedded images
 
@@ -294,7 +294,7 @@ Send emails directly without creating drafts. Supports three actions: 'send_new'
 - `subject` (optional, string): Email subject
   - Required for: "send_new" action
   - Optional for: "reply" and "forward" actions
-- `emailNumber` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+- `cache_number` (optional, integer): Cache number from browse_email_cache (e.g., 1, 2, 3)
   - Required for: "reply" and "forward" actions
 - `cc` (optional, array of strings): List of CC recipient email addresses
 - `bcc` (optional, array of strings): List of BCC recipient email addresses
@@ -338,7 +338,7 @@ Replies to an existing email. The reply will be linked to the original email thr
 
 **Parameters:**
 - `action`: "reply"
-- `emailNumber`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 - `to`: List of recipient email addresses
 - `htmlbody`: Email body content (HTML format)
 - `subject` (optional): Email subject
@@ -356,7 +356,7 @@ Replies to an existing email. The reply will be linked to the original email thr
 ```python
 result = await send_email(
     action="reply",
-    emailNumber=1,
+    cache_number=1,
     to=["original_sender@example.com"],
     htmlbody="<p>Thank you for your email. I'll review it and get back to you.</p>",
     subject="Re: Meeting Tomorrow"
@@ -368,7 +368,7 @@ Forwards an email to recipients. The original email will be included in the forw
 
 **Parameters:**
 - `action`: "forward"
-- `emailNumber`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 - `to`: List of recipient email addresses
 - `htmlbody`: Email body content (HTML format)
 - `subject` (optional): Email subject (defaults to 'FW: ' + original subject)
@@ -395,7 +395,7 @@ Forwards an email to recipients. The original email will be included in the forw
 # Basic forward
 result = await send_email(
     action="forward",
-    emailNumber=1,
+    cache_number=1,
     to=["new_recipient@example.com"],
     body="<p>Please review the forwarded email.</p>"
 )
@@ -403,7 +403,7 @@ result = await send_email(
 # Forward with custom subject and CC
 result = await send_email(
     action="forward",
-    emailNumber=1,
+    cache_number=1,
     to=["new_recipient@example.com"],
     subject="FW: Important - Please Review",
     body="<p>Please review the forwarded email and provide feedback.</p>",
@@ -413,7 +413,7 @@ result = await send_email(
 # Forward with BCC recipients from CSV file
 result = await send_email(
     action="forward",
-    emailNumber=1,
+    cache_number=1,
     to=["main_recipient@example.com"],
     body="<p>FYI - please review.</p>",
     bcc_csv_file="recipients.csv"
@@ -422,7 +422,7 @@ result = await send_email(
 # Forward with BCC recipients from array
 result = await send_email(
     action="forward",
-    emailNumber=1,
+    cache_number=1,
     to=["main_recipient@example.com"],
     body="<p>FYI - please review.</p>",
     bcc=["bcc1@example.com", "bcc2@example.com"]
@@ -454,7 +454,7 @@ MAX_BCC_BATCH_SIZE=500
 
 ### Notes
 - The body parameter must be in HTML format for all actions
-- For reply and forward actions, use `browse_email_cache` to get the email number
+- For reply and forward actions, use `browse_email_cache` to get the cache number
 - The original email is included in the forwarded message
 - BCC recipients can be provided via array or CSV file
 - Large BCC lists are automatically batched to stay within API limits
@@ -636,9 +636,9 @@ Manage emails with multiple actions. Supports moving, deleting, archiving, flagg
 ### Parameters
 - `action` (required, string): Action to perform
   - Values: "move_single", "move_all", "delete_single", "delete_multiple", "delete_all", "archive_single", "archive_multiple", "flag_single", "flag_multiple", "categorize_single", "categorize_multiple"
-- `email_number` (optional, integer): Email number from browse_email_cache (e.g., 1, 2, 3)
+- `cache_number` (optional, integer): Cache number from browse_email_cache (e.g., 1, 2, 3)
   - Required for: "move_single", "delete_single", "archive_single", "flag_single", and "categorize_single" actions
-- `email_numbers` (optional, array of integers): List of email numbers from browse_email_cache (e.g., [1, 2, 3])
+- `cache_numbers` (optional, array of integers): List of cache numbers from browse_email_cache (e.g., [1, 2, 3])
   - Required for: "delete_multiple", "archive_multiple", "flag_multiple", and "categorize_multiple" actions
 - `source_folder` (optional, string): Source folder path (e.g., 'Inbox', 'Archive/2024')
   - Required for: "move_all" and "delete_all" actions
@@ -657,7 +657,7 @@ Moves a single email to a different folder.
 
 **Parameters:**
 - `action`: "move_single"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 - `destination_folder`: Destination folder path
 
 **Returns:**
@@ -672,7 +672,7 @@ Moves a single email to a different folder.
 ```python
 result = await manage_emails(
     action="move_single",
-    email_number=1,
+    cache_number=1,
     destination_folder="Archive/2024"
 )
 ```
@@ -710,7 +710,7 @@ Deletes a single email by moving it to Deleted Items (recoverable).
 
 **Parameters:**
 - `action`: "delete_single"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 
 **Returns:**
 ```json
@@ -724,7 +724,7 @@ Deletes a single email by moving it to Deleted Items (recoverable).
 ```python
 result = await manage_emails(
     action="delete_single",
-    email_number=1
+    cache_number=1
 )
 ```
 
@@ -733,7 +733,7 @@ Deletes multiple emails by moving them to Deleted Items (recoverable).
 
 **Parameters:**
 - `action`: "delete_multiple"
-- `email_numbers`: List of email numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache
 
 **Returns:**
 ```json
@@ -750,7 +750,7 @@ Deletes multiple emails by moving them to Deleted Items (recoverable).
 ```python
 result = await manage_emails(
     action="delete_multiple",
-    email_numbers=[1, 2, 3]
+    cache_numbers=[1, 2, 3]
 )
 ```
 
@@ -785,7 +785,7 @@ Archives a single email by moving it to the Archive folder.
 
 **Parameters:**
 - `action`: "archive_single"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 
 **Returns:**
 ```json
@@ -799,7 +799,7 @@ Archives a single email by moving it to the Archive folder.
 ```python
 result = await manage_emails(
     action="archive_single",
-    email_number=1
+    cache_number=1
 )
 ```
 
@@ -808,7 +808,7 @@ Archives multiple emails by moving them to the Archive folder.
 
 **Parameters:**
 - `action`: "archive_multiple"
-- `email_numbers`: List of email numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache
 
 **Returns:**
 ```json
@@ -825,7 +825,7 @@ Archives multiple emails by moving them to the Archive folder.
 ```python
 result = await manage_emails(
     action="archive_multiple",
-    email_numbers=[1, 2, 3]
+    cache_numbers=[1, 2, 3]
 )
 ```
 
@@ -834,7 +834,7 @@ Flags or unflags a single email.
 
 **Parameters:**
 - `action`: "flag_single"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 - `flag_status`: Flag status ("flagged" or "complete")
 
 **Returns:**
@@ -850,14 +850,14 @@ Flags or unflags a single email.
 # Flag an email
 result = await manage_emails(
     action="flag_single",
-    email_number=1,
+    cache_number=1,
     flag_status="flagged"
 )
 
 # Mark as complete
 result = await manage_emails(
     action="flag_single",
-    email_number=1,
+    cache_number=1,
     flag_status="complete"
 )
 ```
@@ -867,7 +867,7 @@ Flags or unflags multiple emails.
 
 **Parameters:**
 - `action`: "flag_multiple"
-- `email_numbers`: List of email numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache
 - `flag_status`: Flag status ("flagged" or "complete")
 
 **Returns:**
@@ -885,7 +885,7 @@ Flags or unflags multiple emails.
 ```python
 result = await manage_emails(
     action="flag_multiple",
-    email_numbers=[1, 2, 3],
+    cache_numbers=[1, 2, 3],
     flag_status="flagged"
 )
 ```
@@ -895,7 +895,7 @@ Adds categories to a single email.
 
 **Parameters:**
 - `action`: "categorize_single"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 - `categories`: List of category names to apply (e.g., ['Important', 'Work'])
 
 **Returns:**
@@ -910,7 +910,7 @@ Adds categories to a single email.
 ```python
 result = await manage_emails(
     action="categorize_single",
-    email_number=1,
+    cache_number=1,
     categories=["Important", "Work"]
 )
 ```
@@ -920,7 +920,7 @@ Adds categories to multiple emails.
 
 **Parameters:**
 - `action`: "categorize_multiple"
-- `email_numbers`: List of email numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache
 - `categories`: List of category names to apply (e.g., ['Important', 'Work'])
 
 **Returns:**
@@ -938,14 +938,14 @@ Adds categories to multiple emails.
 ```python
 result = await manage_emails(
     action="categorize_multiple",
-    email_numbers=[1, 2, 3],
+    cache_numbers=[1, 2, 3],
     categories=["Important", "Work"]
 )
 ```
 
 ### Notes
-- Requires valid email number(s) from cache for single and multiple email actions
-- Use `browse_email_cache` to get email numbers
+- Requires valid cache number(s) from cache for single and multiple email actions
+- Use `browse_email_cache` to get cache numbers
 - "move_all" and "delete_all" actions operate on all emails in the source folder
 - Destination folder must exist for move actions (use manage_mail_folder to create if needed)
 - Deleted emails are moved to Deleted Items folder and can be recovered
@@ -965,7 +965,7 @@ Manage email templates stored as drafts in a Templates folder. Templates are dra
 ### Parameters
 - `action` (required, string): Action to perform
   - Values: "create_from_email", "list", "get", "update", "delete", "send"
-- `email_number` (optional, integer): Email number from browse_email_cache to copy as template
+- `cache_number` (optional, integer): Cache number from browse_email_cache to copy as template
   - Required for: "create_from_email" action
 - `template_number` (optional, integer): Template cache number
   - Required for: "get", "update", "delete", and "send" actions
@@ -990,7 +990,7 @@ Copies an existing email as a template in the Templates folder.
 
 **Parameters:**
 - `action`: "create_from_email"
-- `email_number`: Email number from browse_email_cache
+- `cache_number`: Cache number from browse_email_cache
 
 **Returns:**
 ```json
@@ -1006,7 +1006,7 @@ Copies an existing email as a template in the Templates folder.
 ```python
 result = await manage_templates(
     action="create_from_email",
-    email_number=1
+    cache_number=1
 )
 ```
 

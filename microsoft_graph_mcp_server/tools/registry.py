@@ -80,13 +80,13 @@ class ToolRegistry:
         """Search contacts tool definition."""
         return types.Tool(
             name="search_contacts",
-            description="Search contacts and people relevant to you. Returns people you interact with most, including organization users and your personal contacts. Use this to find specific people by name or email. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.",
+            description="FIND PEOPLE/CONTACTS ONLY. Search for people by name or email address in your personal contacts and organization directory. Returns contact information (name, email, etc.). DO NOT use this to search email messages - use search_emails for that. Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. Default limit: 10.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (name or email)",
+                        "description": "Search query (person's name or email address)",
                     }
                 },
                 "required": ["query"],
@@ -194,14 +194,14 @@ class ToolRegistry:
                         ],
                         "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder, 'archive_single' to archive a single email, 'archive_multiple' to archive multiple emails, 'flag_single' to flag a single email, 'flag_multiple' to flag multiple emails, 'categorize_single' to categorize a single email, 'categorize_multiple' to categorize multiple emails",
                     },
-                    "email_number": {
+                    "cache_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single', 'delete_single', 'archive_single', 'flag_single', and 'categorize_single' actions",
+                        "description": "Cache number from browse_email_cache (e.g., 1, 2, 3). Required for 'move_single', 'delete_single', 'archive_single', 'flag_single', and 'categorize_single' actions",
                     },
-                    "email_numbers": {
+                    "cache_numbers": {
                         "type": "array",
                         "items": {"type": "integer"},
-                        "description": "List of email numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple', 'archive_multiple', 'flag_multiple', and 'categorize_multiple' actions",
+                        "description": "List of cache numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple', 'archive_multiple', 'flag_multiple', and 'categorize_multiple' actions",
                     },
                     "source_folder": {
                         "type": "string",
@@ -255,13 +255,13 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
+            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, recipient, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
+                        "description": "Search query for email messages (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
                     },
                     "search_type": {
                         "type": "string",
@@ -309,13 +309,13 @@ class ToolRegistry:
         """Get email content tool definition."""
         return types.Tool(
             name="get_email_content",
-            description="Get full email content by cache number. Use the email number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.",
+            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "emailNumber": {
+                    "cache_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (e.g., 1, 2, 3)",
+                        "description": "Cache number from browse_email_cache (e.g., 1, 2, 3)",
                     },
                     "text_only": {
                         "type": "boolean",
@@ -323,7 +323,7 @@ class ToolRegistry:
                         "default": True,
                     },
                 },
-                "required": ["emailNumber"],
+                "required": ["cache_number"],
             },
         )
 
@@ -354,9 +354,9 @@ class ToolRegistry:
                         "type": "string",
                         "description": "Email body content in HTML format. Use HTML tags like <p>, <br>, <strong>, <em>, <ul>, <li>, etc. Example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><br><p>Best regards</p>'",
                     },
-                    "emailNumber": {
+                    "cache_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache (required for reply/forward, e.g., 1, 2, 3)",
+                        "description": "Cache number from browse_email_cache (required for reply/forward, e.g., 1, 2, 3)",
                     },
                     "cc": {
                         "type": "array",
@@ -418,7 +418,7 @@ class ToolRegistry:
                 "properties": {
                     "event_id": {
                         "type": "string",
-                        "description": "Event cache number (e.g., '1', '2', '3')",
+                        "description": "Cache number (e.g., '1', '2', '3')",
                     }
                 },
                 "required": ["event_id"],
@@ -595,7 +595,7 @@ class ToolRegistry:
         """Respond to event tool definition for responding to events organized by others."""
         return types.Tool(
             name="respond_to_event",
-            description="Respond to calendar events organized by others with multiple actions: accept, decline, tentatively_accept, propose_new_time, delete. Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer. Delete: Delete a cancelled event from your calendar (use this when the organizer has cancelled the event and you want to remove it from your calendar). For accept/decline/tentatively_accept actions on recurring events, set series=true to accept/decline the entire series, or series=false (default) for a single occurrence. The event_id parameter uses the cache number from browse_events or search_events results.",
+            description="Respond to calendar events organized by others with multiple actions: accept, decline, tentatively_accept, propose_new_time, delete. Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer. Delete: Delete a cancelled event from your calendar (use this when the organizer has cancelled the event and you want to remove it from your calendar). For accept/decline/tentatively_accept actions on recurring events, set series=true to accept/decline the entire series, or series=false (default) for a single occurrence. The cache_number parameter uses the cache number from browse_events or search_events results.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -610,9 +610,9 @@ class ToolRegistry:
                         ],
                         "description": "Action to perform on the event",
                     },
-                    "event_id": {
+                    "cache_number": {
                         "type": "string",
-                        "description": "Event cache number from browse_events or search_events (required for all actions)",
+                        "description": "Cache number from browse_events or search_events (required for all actions)",
                     },
                     "comment": {
                         "type": "string",
@@ -642,7 +642,7 @@ class ToolRegistry:
                         "required": ["dateTime"],
                     },
                 },
-                "required": ["action", "event_id"],
+                "required": ["action", "cache_number"],
             },
         )
 
@@ -651,7 +651,7 @@ class ToolRegistry:
         """Manage my event tool definition for managing user's own events."""
         return types.Tool(
             name="manage_my_event",
-            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event by cache number or event ID. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). The event_id parameter accepts either a cache number (integer) from browse_events or search_events results, or an actual event ID (string) from create event response.",
+            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). IMPORTANT: For update, cancel, forward, and reply actions, use the cache number from browse_events or the cache number returned when creating an event.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -660,9 +660,9 @@ class ToolRegistry:
                         "enum": ["create", "update", "cancel", "forward", "reply"],
                         "description": "Action to perform on the event",
                     },
-                    "event_id": {
+                    "cache_number": {
                         "type": "string",
-                        "description": "Event identifier: either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response (required for update, cancel, forward, reply actions)",
+                        "description": "Cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. Required for update, cancel, forward, reply actions.",
                     },
                     "subject": {
                         "type": "string",
@@ -670,11 +670,15 @@ class ToolRegistry:
                     },
                     "start": {
                         "type": "string",
-                        "description": "Start date and time in your local timezone (e.g., '2024-01-01T14:30' or '2024-01-01 14:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
+                        "description": "Start date and time in your local timezone (e.g., '2024-01-01T14:30' or '2024-01-01 14:30'). The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
                     },
                     "end": {
                         "type": "string",
-                        "description": "End date and time in your local timezone (e.g., '2024-01-01T15:30' or '2024-01-01 15:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
+                        "description": "End date and time in your local timezone (e.g., '2024-01-01T15:30' or '2024-01-01 15:30'). The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "description": "Timezone for the event in IANA format (e.g., 'Asia/Singapore', 'America/New_York'). Optional for create and update actions. If not provided, will use your timezone settings from your Microsoft 365 profile or .env configuration",
                     },
                     "location": {
                         "type": "string",
@@ -812,7 +816,7 @@ class ToolRegistry:
                         "type": "string",
                         "description": "Optional comment for cancel, forward actions",
                     },
-                    "subject": {
+                    "reply_subject": {
                         "type": "string",
                         "description": "Email subject for reply action (optional, default: 'Re: Event')",
                     },
@@ -892,9 +896,9 @@ class ToolRegistry:
                         ],
                         "description": "Action to perform on templates",
                     },
-                    "email_number": {
+                    "cache_number": {
                         "type": "integer",
-                        "description": "Email number from browse_email_cache to copy as template. Required for 'create_from_email' action.",
+                        "description": "Cache number from browse_email_cache to copy as template. Required for 'create_from_email' action.",
                     },
                     "template_number": {
                         "type": "integer",

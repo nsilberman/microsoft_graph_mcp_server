@@ -78,7 +78,14 @@ class EmailHandler(BaseHandler):
             )
 
         email_cache.clear_cache()
-        user_timezone = await graph_client.get_user_timezone()
+        
+        success, user_timezone, error = await self._handle_auth_error(
+            lambda: graph_client.get_user_timezone(),
+            "getting user timezone"
+        )
+        if not success:
+            return self._format_error(error)
+        
         today_date = date_handler.get_today_date(user_timezone)
 
         if time_range:
@@ -113,9 +120,14 @@ class EmailHandler(BaseHandler):
                     end_date, user_timezone
                 )
 
-        result = await graph_client.search_emails(
-            query, search_type, start_date, end_date, folder, page_size
+        success, result, error = await self._handle_auth_error(
+            lambda: graph_client.search_emails(
+                query, search_type, start_date, end_date, folder, page_size
+            ),
+            "searching emails"
         )
+        if not success:
+            return self._format_error(error)
 
         await email_cache.set_mode("search")
         await email_cache.update_search_state(
@@ -153,31 +165,37 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle get_email_content tool."""
-        emailNumber = arguments["emailNumber"]
+        cache_number = arguments["cache_number"]
         text_only = arguments.get("text_only", True)
 
         cached_emails = email_cache.get_cached_emails()
 
-        if emailNumber < 1 or emailNumber > len(cached_emails):
+        if cache_number < 1 or cache_number > len(cached_emails):
             return self._format_response(
                 {
-                    "error": f"Email number {emailNumber} is out of range. Please choose a number between 1 and {len(cached_emails)}."
+                    "error": f"Cache number {cache_number} is out of range. Please choose a number between 1 and {len(cached_emails)}."
                 }
             )
 
-        email = cached_emails[emailNumber - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
             return self._format_response(
                 {
-                    "error": f"Email number {emailNumber} does not have a valid Graph ID in cache."
+                    "error": f"Cache number {cache_number} does not have a valid Graph ID in cache."
                 }
             )
 
-        email_content = await graph_client.get_email(
-            email_id, emailNumber, text_only=text_only
+        success, email_content, error = await self._handle_auth_error(
+            lambda: graph_client.get_email(
+                email_id, cache_number, text_only=text_only
+            ),
+            "getting email content"
         )
+        if not success:
+            return self._format_error(error)
+        
         return self._format_response(email_content["content"])
 
     async def handle_send_email(self, arguments: dict) -> list[types.TextContent]:
@@ -217,20 +235,26 @@ class EmailHandler(BaseHandler):
                 f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
             )
 
-        result = await graph_client.send_email(
-            to_recipients=to_recipients,
-            subject=subject,
-            body=body,
-            cc_recipients=cc_recipients,
-            bcc_recipients=bcc_recipients,
-            body_content_type="HTML",
-            importance=importance,
+        success, result, error = await self._handle_auth_error(
+            lambda: graph_client.send_email(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                body_content_type="HTML",
+                importance=importance,
+            ),
+            "sending email"
         )
+        if not success:
+            return self._format_error(error)
+        
         return self._format_response(f"Email sent successfully: {result}")
 
     async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle reply email action."""
-        emailNumber = arguments["emailNumber"]
+        cache_number = arguments["cache_number"]
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
         body = arguments.get("htmlbody")
@@ -239,12 +263,12 @@ class EmailHandler(BaseHandler):
         importance = arguments.get("importance")
 
         cached_emails = email_cache.get_cached_emails()
-        if emailNumber < 1 or emailNumber > len(cached_emails):
+        if cache_number < 1 or cache_number > len(cached_emails):
             return self._format_error(
-                f"Error: Email number {emailNumber} is out of range. Please use a number between 1 and {len(cached_emails)}."
+                f"Error: Cache number {cache_number} is out of range. Please use a number between 1 and {len(cached_emails)}."
             )
 
-        email = cached_emails[emailNumber - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email["id"]
 
         from ..config import MAX_RECIPIENTS_LIMIT
@@ -260,21 +284,27 @@ class EmailHandler(BaseHandler):
                 f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
             )
 
-        result = await graph_client.send_email(
-            to_recipients=to_recipients,
-            subject=subject,
-            body=body,
-            cc_recipients=cc_recipients,
-            bcc_recipients=bcc_recipients,
-            reply_to_message_id=email_id,
-            body_content_type="HTML",
-            importance=importance,
+        success, result, error = await self._handle_auth_error(
+            lambda: graph_client.send_email(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                reply_to_message_id=email_id,
+                body_content_type="HTML",
+                importance=importance,
+            ),
+            "sending reply email"
         )
+        if not success:
+            return self._format_error(error)
+        
         return self._format_response(f"Reply email sent successfully: {result}")
 
     async def _handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle forward email action."""
-        email_number = arguments["emailNumber"]
+        cache_number = arguments["cache_number"]
         to_recipients = arguments["to"]
         subject = arguments.get("subject")
         body = arguments.get("htmlbody")
@@ -291,12 +321,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -327,16 +357,21 @@ class EmailHandler(BaseHandler):
                 f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
             )
 
-        result = await graph_client.batch_forward_emails(
-            to_recipients=to_recipients,
-            subject=subject,
-            body=body,
-            email_ids=[email_id],
-            cc_recipients=cc_recipients,
-            bcc_recipients=bcc_recipients,
-            body_content_type="HTML",
-            importance=importance,
+        success, result, error = await self._handle_auth_error(
+            lambda: graph_client.batch_forward_emails(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                email_ids=[email_id],
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                body_content_type="HTML",
+                importance=importance,
+            ),
+            "forwarding email"
         )
+        if not success:
+            return self._format_error(error)
 
         response_message = f"Email forwarded successfully: {result}"
         if bcc_recipients:
@@ -520,7 +555,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle delete single email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
@@ -530,12 +565,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -552,7 +587,7 @@ class EmailHandler(BaseHandler):
             if "404" in error_msg or "ErrorItemNotFound" in error_msg:
                 await email_cache.remove_email(email_id)
                 return self._format_error(
-                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
+                    f"Error: Cache number {cache_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
                 )
             else:
                 return self._format_error(f"Error deleting email: {error_msg}")
@@ -561,7 +596,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle delete multiple emails action."""
-        email_numbers = arguments["email_numbers"]
+        cache_numbers = arguments["cache_numbers"]
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
@@ -574,23 +609,23 @@ class EmailHandler(BaseHandler):
         email_ids = []
         invalid_numbers = []
 
-        for email_number in email_numbers:
-            if email_number < 1 or email_number > total_count:
-                invalid_numbers.append(email_number)
+        for cache_number in cache_numbers:
+            if cache_number < 1 or cache_number > total_count:
+                invalid_numbers.append(cache_number)
                 continue
 
-            email = cached_emails[email_number - 1]
+            email = cached_emails[cache_number - 1]
             email_id = email.get("id")
 
             if not email_id:
-                invalid_numbers.append(email_number)
+                invalid_numbers.append(cache_number)
                 continue
 
             email_ids.append(email_id)
 
         if invalid_numbers:
             return self._format_error(
-                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
             )
 
         if not email_ids:
@@ -642,7 +677,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle move single email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         destination_folder = arguments["destination_folder"]
 
         cached_emails = email_cache.get_cached_emails()
@@ -653,12 +688,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -685,7 +720,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle archive single email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
@@ -695,12 +730,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -717,7 +752,7 @@ class EmailHandler(BaseHandler):
             if "404" in error_msg or "ErrorItemNotFound" in error_msg:
                 await email_cache.remove_email(email_id)
                 return self._format_error(
-                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
+                    f"Error: Cache number {cache_number} no longer exists in the mailbox. It may have been deleted or moved. The cache has been updated."
                 )
             else:
                 return self._format_error(f"Error archiving email: {error_msg}")
@@ -726,7 +761,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle archive multiple emails action."""
-        email_numbers = arguments["email_numbers"]
+        cache_numbers = arguments["cache_numbers"]
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
@@ -739,23 +774,23 @@ class EmailHandler(BaseHandler):
         email_ids = []
         invalid_numbers = []
 
-        for email_number in email_numbers:
-            if email_number < 1 or email_number > total_count:
-                invalid_numbers.append(email_number)
+        for cache_number in cache_numbers:
+            if cache_number < 1 or cache_number > total_count:
+                invalid_numbers.append(cache_number)
                 continue
 
-            email = cached_emails[email_number - 1]
+            email = cached_emails[cache_number - 1]
             email_id = email.get("id")
 
             if not email_id:
-                invalid_numbers.append(email_number)
+                invalid_numbers.append(cache_number)
                 continue
 
             email_ids.append(email_id)
 
         if invalid_numbers:
             return self._format_error(
-                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
             )
 
         if not email_ids:
@@ -774,7 +809,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle flag single email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         flag_status = arguments["flag_status"]
 
         cached_emails = email_cache.get_cached_emails()
@@ -785,12 +820,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -806,7 +841,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle flag multiple emails action."""
-        email_numbers = arguments["email_numbers"]
+        cache_numbers = arguments["cache_numbers"]
         flag_status = arguments["flag_status"]
 
         cached_emails = email_cache.get_cached_emails()
@@ -820,23 +855,23 @@ class EmailHandler(BaseHandler):
         email_ids = []
         invalid_numbers = []
 
-        for email_number in email_numbers:
-            if email_number < 1 or email_number > total_count:
-                invalid_numbers.append(email_number)
+        for cache_number in cache_numbers:
+            if cache_number < 1 or cache_number > total_count:
+                invalid_numbers.append(cache_number)
                 continue
 
-            email = cached_emails[email_number - 1]
+            email = cached_emails[cache_number - 1]
             email_id = email.get("id")
 
             if not email_id:
-                invalid_numbers.append(email_number)
+                invalid_numbers.append(cache_number)
                 continue
 
             email_ids.append(email_id)
 
         if invalid_numbers:
             return self._format_error(
-                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
             )
 
         if not email_ids:
@@ -852,7 +887,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle categorize single email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         categories = arguments["categories"]
 
         cached_emails = email_cache.get_cached_emails()
@@ -863,12 +898,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -884,7 +919,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle categorize multiple emails action."""
-        email_numbers = arguments["email_numbers"]
+        cache_numbers = arguments["cache_numbers"]
         categories = arguments["categories"]
 
         cached_emails = email_cache.get_cached_emails()
@@ -898,23 +933,23 @@ class EmailHandler(BaseHandler):
         email_ids = []
         invalid_numbers = []
 
-        for email_number in email_numbers:
-            if email_number < 1 or email_number > total_count:
-                invalid_numbers.append(email_number)
+        for cache_number in cache_numbers:
+            if cache_number < 1 or cache_number > total_count:
+                invalid_numbers.append(cache_number)
                 continue
 
-            email = cached_emails[email_number - 1]
+            email = cached_emails[cache_number - 1]
             email_id = email.get("id")
 
             if not email_id:
-                invalid_numbers.append(email_number)
+                invalid_numbers.append(cache_number)
                 continue
 
             email_ids.append(email_id)
 
         if invalid_numbers:
             return self._format_error(
-                f"Error: Invalid email numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache numbers: {invalid_numbers}. Please use valid numbers from browse_email_cache (1-{total_count})."
             )
 
         if not email_ids:
@@ -951,7 +986,7 @@ class EmailHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle create template from email action."""
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         template_name = arguments.get("template_name")
 
         cached_emails = email_cache.get_cached_emails()
@@ -962,12 +997,12 @@ class EmailHandler(BaseHandler):
                 "Error: No emails in cache. Use load_emails_by_folder or search_emails to load emails first."
             )
 
-        if email_number < 1 or email_number > total_count:
+        if cache_number < 1 or cache_number > total_count:
             return self._format_error(
-                f"Error: Invalid email number: {email_number}. Please use valid number from browse_email_cache (1-{total_count})."
+                f"Error: Invalid cache number: {cache_number}. Please use valid number from browse_email_cache (1-{total_count})."
             )
 
-        email = cached_emails[email_number - 1]
+        email = cached_emails[cache_number - 1]
         email_id = email.get("id")
 
         if not email_id:
@@ -991,7 +1026,7 @@ class EmailHandler(BaseHandler):
             error_msg = str(e)
             if "404" in error_msg or "ErrorItemNotFound" in error_msg:
                 return self._format_error(
-                    f"Error: Email number {email_number} no longer exists in the mailbox. It may have been deleted or moved."
+                    f"Error: Cache number {cache_number} no longer exists in the mailbox. It may have been deleted or moved."
                 )
             else:
                 return self._format_error(f"Error creating template: {error_msg}")

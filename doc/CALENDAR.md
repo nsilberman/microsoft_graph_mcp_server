@@ -207,10 +207,10 @@ result = await browse_events(page_number=1, mode="llm")
 ## Get Event Detail
 
 ### Description
-Get detailed information for a specific calendar event by its cache number or event ID. Use the event number from browse_events (e.g., 1, 2, 3) or the event ID from create event response to retrieve complete event details.
+Get detailed information for a specific calendar event by its cache number. Use the cache number from browse_events (e.g., 1, 2, 3) to retrieve complete event details.
 
 ### Parameters
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 
 ### Returns
 ```json
@@ -286,10 +286,10 @@ Get detailed information for a specific calendar event by its cache number or ev
 ### Example Usage
 ```python
 # Get event details by cache number
-result = await get_event_detail(event_id="1")
+result = await get_event_detail(cache_number="1")
 
 # Get details for another event
-result = await get_event_detail(event_id="5")
+result = await get_event_detail(cache_number="5")
 ```
 
 ### Notes
@@ -314,14 +314,14 @@ Respond to calendar events organized by others with multiple actions: accept, de
 #### Common Parameters (All Actions)
 - `action` (required, string): Action to perform
   - Values: "accept", "decline", "tentatively_accept", "propose_new_time", "delete"
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 
 #### Accept Action Parameters
 - `comment` (optional, string): Message to include in response
 - `send_response` (optional, boolean): Send response to organizer (default: true)
 - `series` (optional, boolean): Accept the entire recurring series (default: false)
   - If true, accepts all occurrences in the recurring series
-  - Requires the series master event ID (event with type "seriesMaster")
+  - Requires the series master event (event with type "seriesMaster")
   - If false, accepts only the single event occurrence
 
 #### Decline Action Parameters
@@ -329,7 +329,7 @@ Respond to calendar events organized by others with multiple actions: accept, de
 - `send_response` (optional, boolean): Send response to organizer (default: true)
 - `series` (optional, boolean): Decline the entire recurring series (default: false)
   - If true, declines all occurrences in the recurring series
-  - Requires the series master event ID (event with type "seriesMaster")
+  - Requires the series master event (event with type "seriesMaster")
   - If false, declines only the single event occurrence
 
 #### Tentatively Accept Action Parameters
@@ -337,7 +337,7 @@ Respond to calendar events organized by others with multiple actions: accept, de
 - `send_response` (optional, boolean): Send response to organizer (default: true)
 - `series` (optional, boolean): Tentatively accept the entire recurring series (default: false)
   - If true, tentatively accepts all occurrences in the recurring series
-  - Requires the series master event ID (event with type "seriesMaster")
+  - Requires the series master event (event with type "seriesMaster")
   - If false, tentatively accepts only the single event occurrence
 
 #### Propose New Time Action Parameters
@@ -382,7 +382,7 @@ Respond to calendar events organized by others with multiple actions: accept, de
 ```python
 result = await respond_to_event(
     action="accept",
-    event_id="1",
+    cache_number="1",
     comment="Looking forward to it"
 )
 ```
@@ -391,7 +391,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="accept",
-    event_id="1",
+    cache_number="1",
     series=True,
     comment="I'll attend all meetings"
 )
@@ -401,7 +401,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="decline",
-    event_id="2",
+    cache_number="2",
     comment="I have a conflict at that time"
 )
 ```
@@ -410,7 +410,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="decline",
-    event_id="3",
+    cache_number="3",
     series=True,
     comment="I won't be able to attend any of these"
 )
@@ -420,7 +420,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="tentatively_accept",
-    event_id="4",
+    cache_number="4",
     comment="I'll try to make it"
 )
 ```
@@ -429,7 +429,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="propose_new_time",
-    event_id="5",
+    cache_number="5",
     propose_new_time={
         "dateTime": "2026-01-06T15:00:00",
         "timeZone": "UTC"
@@ -442,7 +442,7 @@ result = await respond_to_event(
 ```python
 result = await respond_to_event(
     action="delete",
-    event_id="6",
+    cache_number="6",
     comment="Removing cancelled event"
 )
 ```
@@ -456,7 +456,7 @@ result = await respond_to_event(
 - Set send_response to false to respond without notifying organizer
 - **Series Parameter Support**:
   - When `series=true`, applies the action to all occurrences in the recurring series
-  - Requires the series master event ID (event with type "seriesMaster")
+  - Requires the series master event (event with type "seriesMaster")
   - When `series=false` (default), applies the action only to the single event occurrence
   - Use `search_events` or `browse_events` to identify series master events (type: "seriesMaster")
   - Individual occurrences have type "occurrence" or "exception"
@@ -475,7 +475,7 @@ result = await respond_to_event(
 - Useful for cleaning up cancelled events from your calendar
 
 #### General Notes
-- Event ID is the cache number from browse_events or search_events, not the Graph API ID
+- Cache number is from browse_events or search_events
 - Event must be in cache (use search_events first)
 - For user-organized events, use the manage_my_event tool instead
 
@@ -525,7 +525,7 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
     - `numberOfOccurrences`: Number of occurrences for type "numbered"
 
 #### Update Action Parameters
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 - `subject` (optional, string): Updated event subject
 - `start` (optional, string): Updated event start date and time in your local timezone
 - `end` (optional, string): Updated event end date and time in your local timezone
@@ -538,16 +538,16 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 - `onlineMeetingProvider` (optional, string): Online meeting provider
 
 #### Cancel Action Parameters
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 - `comment` (optional, string): Message to include in cancellation notification
 
 #### Forward Action Parameters
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 - `attendees` (required, array): List of attendee email addresses to add as optional attendees
 - `comment` (optional, string): Message to include in forward
 
 #### Reply Action Parameters
-- `event_id` (required, string): Event identifier - either a cache number (integer like '1', '2', '3') from browse_events or search_events results, or an actual event ID (string like 'AAMkADc4MDRiMTA2...') from create event response
+- `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 - `subject` (optional, string): Email subject (default: "Re: Event")
 - `body` (optional, string): Email body content (default: event body content)
 - `to` (optional, array): List of TO recipient email addresses (default: required attendees)
@@ -629,7 +629,7 @@ result = await manage_my_event(
 ```python
 result = await manage_my_event(
     action="update",
-    event_id="1",
+    cache_number="1",
     subject="Updated Team Meeting",
     start="2026-01-06T15:30",
     end="2026-01-06T16:30"
@@ -640,7 +640,7 @@ result = await manage_my_event(
 ```python
 result = await manage_my_event(
     action="cancel",
-    event_id="2",
+    cache_number="2",
     comment="Meeting is no longer needed"
 )
 ```
@@ -649,7 +649,7 @@ result = await manage_my_event(
 ```python
 result = await manage_my_event(
     action="forward",
-    event_id="4",
+    cache_number="4",
     attendees=["new-attendee@example.com", "another@example.com"],
     comment="Please join this meeting"
 )
@@ -659,7 +659,7 @@ result = await manage_my_event(
 ```python
 result = await manage_my_event(
     action="reply",
-    event_id="5",
+    cache_number="5",
     subject="Re: Team Meeting",
     body="I'll be attending the meeting",
     to=["organizer@example.com"],
@@ -680,7 +680,7 @@ result = await manage_my_event(
 
 #### Update Action
 - Only provided fields are updated
-- Event ID is the cache number from browse_events or search_events
+- Cache number is from browse_events or search_events
 - Cannot change event type (single, recurring, etc.)
 - Event must be in cache (use search_events first)
 
@@ -703,7 +703,7 @@ result = await manage_my_event(
 - Event must be in cache (use search_events first)
 
 #### General Notes
-- Event ID is the cache number from browse_events or search_events, not the Graph API ID
+- Cache number is from browse_events or search_events
 - For events organized by others, use the respond_to_event tool instead
 - All date/time parameters are in your local timezone
 

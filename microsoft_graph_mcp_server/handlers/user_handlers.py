@@ -144,7 +144,27 @@ class UserHandler(BaseHandler):
         query = arguments["query"]
         limit = settings.contact_search_limit
 
-        contacts = await graph_client.search_contacts(query, limit + 1)
+        try:
+            contacts = await graph_client.search_contacts(query, limit + 1)
+        except Exception as e:
+            error_msg = str(e)
+            if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+                result = {
+                    "contacts": [],
+                    "count": 0,
+                    "limit_reached": False,
+                    "message": f"Not authenticated. Please call the login tool first to authenticate with Microsoft Graph.",
+                    "error": error_msg
+                }
+            else:
+                result = {
+                    "contacts": [],
+                    "count": 0,
+                    "limit_reached": False,
+                    "message": f"Error searching contacts: {error_msg}",
+                    "error": error_msg
+                }
+            return self._format_response(result)
 
         if len(contacts) > limit:
             contacts = contacts[:limit]

@@ -124,45 +124,45 @@ async def handle_manage_emails(self, arguments: dict) -> list[types.TextContent]
     action = arguments.get("action")
 
     if action == "delete_single":
-        email_number = arguments["email_number"]
-        email = self.email_cache.get_email_by_number(email_number)
+        cache_number = arguments["cache_number"]
+        email = self.email_cache.get_email_by_number(cache_number)
         if not email:
             return self._format_response({
-                "error": f"Email number {email_number} not found in current list"
+                "error": f"Cache number {cache_number} not found in current list"
             })
         email_id = email["id"]
         result = await graph_client.delete_email(email_id)
         self.email_cache.remove_email(email_id)
         return self._format_response(result)
     elif action == "archive_single":
-        email_number = arguments["email_number"]
-        email = self.email_cache.get_email_by_number(email_number)
+        cache_number = arguments["cache_number"]
+        email = self.email_cache.get_email_by_number(cache_number)
         if not email:
             return self._format_response({
-                "error": f"Email number {email_number} not found in current list"
+                "error": f"Cache number {cache_number} not found in current list"
             })
         email_id = email["id"]
         result = await graph_client.archive_email(email_id)
         self.email_cache.remove_email(email_id)
         return self._format_response(result)
     elif action == "flag_single":
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         flag_status = arguments["flag_status"]
-        email = self.email_cache.get_email_by_number(email_number)
+        email = self.email_cache.get_email_by_number(cache_number)
         if not email:
             return self._format_response({
-                "error": f"Email number {email_number} not found in current list"
+                "error": f"Cache number {cache_number} not found in current list"
             })
         email_id = email["id"]
         result = await graph_client.flag_email(email_id, flag_status)
         return self._format_response(result)
     elif action == "categorize_single":
-        email_number = arguments["email_number"]
+        cache_number = arguments["cache_number"]
         categories = arguments["categories"]
-        email = self.email_cache.get_email_by_number(email_number)
+        email = self.email_cache.get_email_by_number(cache_number)
         if not email:
             return self._format_response({
-                "error": f"Email number {email_number} not found in current list"
+                "error": f"Cache number {cache_number} not found in current list"
             })
         email_id = email["id"]
         result = await graph_client.categorize_email(email_id, categories)

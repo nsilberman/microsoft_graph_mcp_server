@@ -247,6 +247,83 @@ class EventBrowsingCache:
         self.cache = self._create_new_cache()
         self._delete_cache_file()
 
+    async def add_event_to_cache(self, event: Dict[str, Any]):
+        """Add a single event to the current mode's cache metadata.
+
+        Args:
+            event: Event dictionary with event details including 'id', 'subject', 'start', 'end', etc.
+        """
+        state = (
+            self.cache["browse_state"]
+            if self.cache["mode"] == "browse"
+            else self.cache["search_state"]
+        )
+
+        event_metadata = {
+            "id": event.get("id", ""),
+            "subject": event.get("subject", ""),
+            "start_datetime": event.get("start_datetime", ""),
+            "end_datetime": event.get("end_datetime", ""),
+            "start": event.get("start", ""),
+            "end": event.get("end", ""),
+            "location": event.get("location", ""),
+            "isOnlineMeeting": event.get("isOnlineMeeting", False),
+            "webLink": event.get("webLink", ""),
+            "recurrence": event.get("recurrence", False),
+        }
+
+        state["metadata"].append(event_metadata)
+        state["total_count"] = len(state["metadata"])
+        await self._save_cache()
+
+    async def update_event_in_cache(self, event_id: str, event: Dict[str, Any]):
+        """Update an existing event in the cache.
+
+        Args:
+            event_id: The ID of the event to update
+            event: Updated event dictionary with event details
+        """
+        state = (
+            self.cache["browse_state"]
+            if self.cache["mode"] == "browse"
+            else self.cache["search_state"]
+        )
+
+        for idx, cached_event in enumerate(state["metadata"]):
+            if cached_event.get("id") == event_id:
+                state["metadata"][idx].update({
+                    "subject": event.get("subject", cached_event.get("subject", "")),
+                    "start_datetime": event.get("start_datetime", cached_event.get("start_datetime", "")),
+                    "end_datetime": event.get("end_datetime", cached_event.get("end_datetime", "")),
+                    "start": event.get("start", cached_event.get("start", "")),
+                    "end": event.get("end", cached_event.get("end", "")),
+                    "location": event.get("location", cached_event.get("location", "")),
+                    "isOnlineMeeting": event.get("isOnlineMeeting", cached_event.get("isOnlineMeeting", False)),
+                    "webLink": event.get("webLink", cached_event.get("webLink", "")),
+                    "recurrence": event.get("recurrence", cached_event.get("recurrence", False)),
+                })
+                await self._save_cache()
+                return
+
+    async def remove_event_from_cache(self, event_id: str):
+        """Remove an event from the cache.
+
+        Args:
+            event_id: The ID of the event to remove
+        """
+        state = (
+            self.cache["browse_state"]
+            if self.cache["mode"] == "browse"
+            else self.cache["search_state"]
+        )
+
+        state["metadata"] = [
+            event for event in state["metadata"]
+            if event.get("id") != event_id
+        ]
+        state["total_count"] = len(state["metadata"])
+        await self._save_cache()
+
     def get_cache_info(self) -> Dict[str, Any]:
         """Get cache information for debugging."""
         return {
