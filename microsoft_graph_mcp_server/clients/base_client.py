@@ -8,7 +8,7 @@ import httpx
 
 from ..auth import auth_manager
 from ..config import settings
-from ..date_handler import DateHandler as date_handler
+from ..utils import DateHandler as date_handler
 
 
 class BaseGraphClient:

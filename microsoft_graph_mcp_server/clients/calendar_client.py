@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
 from .base_client import BaseGraphClient
-from ..date_handler import DateHandler as date_handler
+from ..utils import DateHandler as date_handler
 
 MAX_EVENT_SEARCH_LIMIT = 1000
 
@@ -129,8 +129,12 @@ class CalendarClient(BaseGraphClient):
 
         recurrence = event.get("recurrence")
         if recurrence:
-            event["recurrenceInfo"] = self._format_recurrence_info(recurrence, user_timezone_str)
-            next_occurrences = await self._get_next_occurrences(event.get("id"), user_timezone_str, count=5)
+            event["recurrenceInfo"] = self._format_recurrence_info(
+                recurrence, user_timezone_str
+            )
+            next_occurrences = await self._get_next_occurrences(
+                event.get("id"), user_timezone_str, count=5
+            )
             if next_occurrences:
                 event["recurrenceInfo"]["nextOccurrences"] = next_occurrences
 
@@ -216,19 +220,26 @@ class CalendarClient(BaseGraphClient):
 
             recurrence = event.get("recurrence")
             recurrence_info = None
-            
+
             if not recurrence and event.get("type") == "occurrence":
                 series_master_id = event.get("seriesMasterId")
                 if series_master_id:
                     try:
-                        series_master = await self.get(f"/me/events/{series_master_id}", params={"$select": "recurrence"})
+                        series_master = await self.get(
+                            f"/me/events/{series_master_id}",
+                            params={"$select": "recurrence"},
+                        )
                         recurrence = series_master.get("recurrence")
                     except Exception:
                         pass
-            
+
             if recurrence:
-                recurrence_info = self._format_recurrence_info(recurrence, user_timezone_str)
-                next_occurrences = await self._get_next_occurrences(series_master_id or event.get("id"), user_timezone_str, count=5)
+                recurrence_info = self._format_recurrence_info(
+                    recurrence, user_timezone_str
+                )
+                next_occurrences = await self._get_next_occurrences(
+                    series_master_id or event.get("id"), user_timezone_str, count=5
+                )
                 if next_occurrences:
                     recurrence_info["nextOccurrences"] = next_occurrences
 

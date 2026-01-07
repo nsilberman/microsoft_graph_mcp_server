@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
 
 from .base_client import BaseGraphClient
-from ..date_handler import DateHandler as date_handler
+from ..utils import DateHandler as date_handler
 from ..config import settings
 
 MAX_EMAIL_SEARCH_LIMIT = 1000
@@ -20,6 +20,17 @@ class EmailClient(BaseGraphClient):
     def __init__(self):
         super().__init__()
         self._folder_cache: Dict[str, str] = {}
+        self._well_known_folders = {
+            "inbox": "Inbox",
+            "sent": "SentItems",
+            "sent items": "SentItems",
+            "drafts": "Drafts",
+            "deleted": "DeletedItems",
+            "deleted items": "DeletedItems",
+            "archive": "Archive",
+            "junk": "JunkEmail",
+            "junk email": "JunkEmail",
+        }
         self._user_timezone_cache: Optional[str] = None
 
     async def get_user_timezone(self) -> str:
@@ -126,7 +137,7 @@ class EmailClient(BaseGraphClient):
         """Get folder ID by path. Supports nested folders like 'Archive/2024'.
 
         Args:
-            folder_path: Path to the folder
+            folder_path: Path to folder
             max_retries: Maximum number of retries when folder is not found
             retry_delay: Delay between retries in seconds
 
@@ -840,15 +851,31 @@ class EmailClient(BaseGraphClient):
                 f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
             )
 
+        user_timezone_str = await self.get_user_timezone()
+        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
+
+        filter_parts = [f"from/emailAddress/address eq '{sender}'"]
+
+        if days is not None:
+            start_date, _ = date_handler.get_filter_date_range(days)
+            filter_parts.append(f"receivedDateTime ge {start_date}")
+
         params = {
-            "$search": f'"from:{sender}"',
+            "$filter": " and ".join(filter_parts),
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
         }
 
         endpoint = "/me/messages"
         if folder:
-            endpoint = f"/me/mailFolders/{folder}/messages"
+            folder_lower = folder.lower()
+            if folder_lower in self._well_known_folders:
+                endpoint = (
+                    f"/me/mailFolders/{self._well_known_folders[folder_lower]}/messages"
+                )
+            else:
+                folder_id = await self._get_folder_id_by_path(folder)
+                endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         result = await self.get(endpoint, params=params)
 
@@ -856,64 +883,28 @@ class EmailClient(BaseGraphClient):
         user_timezone_str = await self.get_user_timezone()
         user_tz = date_handler.get_user_timezone_object(user_timezone_str)
 
+        filter_parts = [f"toRecipients/any(r: r/emailAddress/address eq '{recipient}')"]
+
         if days is not None:
-            start_date, end_date = date_handler.get_filter_date_range(days)
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-            ]
-
-        summaries = [
-            self._create_email_summary(email, idx + 1, user_tz)
-            for idx, email in enumerate(emails)
-        ]
-
-        sorted_summaries = sorted(
-            summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True
-        )
-
-        for idx, summary in enumerate(sorted_summaries):
-            summary["number"] = idx + 1
-
-        date_range = date_handler.format_email_date_range(
-            sorted_summaries, user_timezone_str
-        )
-        filter_date_range = (
-            date_handler.format_filter_date_range(days, user_timezone_str)
-            if days is not None
-            else None
-        )
-
-        return {
-            "metadata": sorted_summaries,
-            "count": len(sorted_summaries),
-            "date_range": date_range,
-            "filter_date_range": filter_date_range,
-        }
-
-    async def search_emails_by_recipient(
-        self,
-        recipient: str,
-        folder: str = "Inbox",
-        top: int = 10,
-        days: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        """Search emails by recipient."""
-        if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(
-                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
-            )
+            start_date, _ = date_handler.get_filter_date_range(days)
+            filter_parts.append(f"receivedDateTime ge {start_date}")
 
         params = {
-            "$search": f'"to:{recipient}"',
+            "$filter": " and ".join(filter_parts),
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
         }
 
         endpoint = "/me/messages"
         if folder:
-            endpoint = f"/me/mailFolders/{folder}/messages"
+            folder_lower = folder.lower()
+            if folder_lower in self._well_known_folders:
+                endpoint = (
+                    f"/me/mailFolders/{self._well_known_folders[folder_lower]}/messages"
+                )
+            else:
+                folder_id = await self._get_folder_id_by_path(folder)
+                endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         result = await self.get(endpoint, params=params)
 
@@ -921,78 +912,27 @@ class EmailClient(BaseGraphClient):
         user_timezone_str = await self.get_user_timezone()
         user_tz = date_handler.get_user_timezone_object(user_timezone_str)
 
+        escaped_subject = subject.replace("'", "''")
+        filter_parts = [f"contains(subject, '{escaped_subject}')"]
+
         if days is not None:
-            start_date, end_date = date_handler.get_filter_date_range(days)
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-            ]
-
-        summaries = [
-            self._create_email_summary(email, idx + 1, user_tz)
-            for idx, email in enumerate(emails)
-        ]
-
-        sorted_summaries = sorted(
-            summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True
-        )
-
-        for idx, summary in enumerate(sorted_summaries):
-            summary["number"] = idx + 1
-
-        date_range = date_handler.format_email_date_range(
-            sorted_summaries, user_timezone_str
-        )
-        filter_date_range = (
-            date_handler.format_filter_date_range(days, user_timezone_str)
-            if days is not None
-            else None
-        )
-
-        return {
-            "metadata": sorted_summaries,
-            "count": len(sorted_summaries),
-            "date_range": date_range,
-            "filter_date_range": filter_date_range,
-        }
-
-    async def search_emails_by_subject(
-        self,
-        subject: str,
-        folder: str = "Inbox",
-        top: int = 10,
-        days: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        """Search emails by subject."""
-        if top > MAX_EMAIL_SEARCH_LIMIT:
-            raise ValueError(
-                f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
-            )
+            start_date, _ = date_handler.get_filter_date_range(days)
+            filter_parts.append(f"receivedDateTime ge {start_date}")
 
         params = {
-            "$search": f'"subject:{subject}"',
+            "$filter": " and ".join(filter_parts),
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
         }
 
         endpoint = "/me/messages"
         if folder:
-            endpoint = f"/me/mailFolders/{folder}/messages"
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
-        user_timezone_str = await self.get_user_timezone()
-        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
-
-        if days is not None:
-            start_date, end_date = date_handler.get_filter_date_range(days)
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-            ]
 
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)
@@ -1035,29 +975,30 @@ class EmailClient(BaseGraphClient):
                 f"Maximum number of emails per search is {MAX_EMAIL_SEARCH_LIMIT}"
             )
 
+        user_timezone_str = await self.get_user_timezone()
+        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
+
+        escaped_body = body.replace("'", "''")
+        filter_parts = [f"contains(body, '{escaped_body}')"]
+
+        if days is not None:
+            start_date, _ = date_handler.get_filter_date_range(days)
+            filter_parts.append(f"receivedDateTime ge {start_date}")
+
         params = {
-            "$search": f'"{body}"',
+            "$filter": " and ".join(filter_parts),
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
         }
 
         endpoint = "/me/messages"
         if folder:
-            endpoint = f"/me/mailFolders/{folder}/messages"
+            folder_id = await self._get_folder_id_by_path(folder)
+            endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
-        user_timezone_str = await self.get_user_timezone()
-        user_tz = date_handler.get_user_timezone_object(user_timezone_str)
-
-        if days is not None:
-            start_date, end_date = date_handler.get_filter_date_range(days)
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-            ]
 
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)
@@ -1129,38 +1070,47 @@ class EmailClient(BaseGraphClient):
 
         endpoint = "/me/messages"
         if folder:
-            folder_id = await self._get_folder_id_by_path(folder)
-            endpoint = f"/me/mailFolders/{folder_id}/messages"
+            folder_lower = folder.lower()
+            if folder_lower in self._well_known_folders:
+                endpoint = (
+                    f"/me/mailFolders/{self._well_known_folders[folder_lower]}/messages"
+                )
+            else:
+                folder_id = await self._get_folder_id_by_path(folder)
+                endpoint = f"/me/mailFolders/{folder_id}/messages"
+
+        filter_parts = []
 
         if search_type:
             if search_type == "subject" and query:
                 escaped_query = query.replace("'", "''")
-                params["$filter"] = f"contains(subject, '{escaped_query}')"
+                filter_parts.append(f"contains(subject, '{escaped_query}')")
             elif search_type == "body" and query:
                 escaped_query = query.replace("'", "''")
-                params["$filter"] = f"contains(body, '{escaped_query}')"
-            else:
-                search_prefix_map = {
-                    "sender": "from:",
-                    "recipient": "to:",
-                }
-                prefix = search_prefix_map.get(search_type, "")
-                if prefix and query:
-                    params["$search"] = f'"{prefix}{query}"'
+                filter_parts.append(f"contains(body, '{escaped_query}')")
+            elif search_type == "sender" and query:
+                filter_parts.append(f"from/emailAddress/address eq '{query}'")
+            elif search_type == "recipient" and query:
+                filter_parts.append(
+                    f"toRecipients/any(r: r/emailAddress/address eq '{query}')"
+                )
         elif query:
             params["$search"] = f'"{query}"'
+
+        if start_date and end_date:
+            filter_parts.append(f"receivedDateTime ge {start_date}")
+            filter_parts.append(f"receivedDateTime le {end_date}")
+        elif start_date:
+            filter_parts.append(f"receivedDateTime ge {start_date}")
+        elif end_date:
+            filter_parts.append(f"receivedDateTime le {end_date}")
+
+        if filter_parts and not params.get("$search"):
+            params["$filter"] = " and ".join(filter_parts)
 
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
-
-        if start_date and end_date:
-            emails = [
-                email
-                for email in emails
-                if email.get("receivedDateTime", "") >= start_date
-                and email.get("receivedDateTime", "") <= end_date
-            ]
 
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)

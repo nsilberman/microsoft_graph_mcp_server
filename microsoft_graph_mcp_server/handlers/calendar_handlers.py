@@ -9,8 +9,8 @@ from mcp import types
 from .base import BaseHandler
 from ..graph_client import graph_client
 from ..config import settings
-from ..event_cache import event_cache
-from ..date_handler import DateHandler
+from ..cache import event_cache
+from ..utils import DateHandler
 from ..clients.calendar_client import MAX_EVENT_SEARCH_LIMIT
 
 

@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from microsoft_graph_mcp_server.template_cache import TemplateCache
+from microsoft_graph_mcp_server.cache.template_cache import TemplateCache
 
 
 async def test_template_cache_add():
@@ -45,9 +45,9 @@ async def test_template_cache_add():
 
     # Verify templates were added
     cached_templates = cache.get_cached_templates()
-    assert (
-        len(cached_templates) == 2
-    ), f"Expected 2 templates, got {len(cached_templates)}"
+    assert len(cached_templates) == 2, (
+        f"Expected 2 templates, got {len(cached_templates)}"
+    )
     print(f"   ✓ Cache contains {len(cached_templates)} templates")
 
     print("\n[Test 1] ✓ PASSED: Template cache add works correctly")
@@ -86,17 +86,17 @@ async def test_template_cache_get_by_number():
     template_1 = cache.get_template_by_number(1)
     assert template_1 is not None, "Template 1 should exist"
     assert template_1["id"] == "template-1", "Template 1 ID should match"
-    assert (
-        template_1["subject"] == "Weekly Newsletter"
-    ), "Template 1 subject should match"
+    assert template_1["subject"] == "Weekly Newsletter", (
+        "Template 1 subject should match"
+    )
     print("   ✓ Template 1 retrieved correctly")
 
     template_2 = cache.get_template_by_number(2)
     assert template_2 is not None, "Template 2 should exist"
     assert template_2["id"] == "template-2", "Template 2 ID should match"
-    assert (
-        template_2["subject"] == "Meeting Invitation"
-    ), "Template 2 subject should match"
+    assert template_2["subject"] == "Meeting Invitation", (
+        "Template 2 subject should match"
+    )
     print("   ✓ Template 2 retrieved correctly")
 
     # Test invalid number
@@ -140,12 +140,12 @@ async def test_template_cache_update():
     cached_templates = cache.get_cached_templates()
     updated_template = cached_templates[0]
 
-    assert (
-        updated_template["subject"] == "Updated Weekly Newsletter"
-    ), "Subject should be updated"
-    assert (
-        updated_template["lastModifiedDateTime"] == "2026-01-05T12:00:00"
-    ), "Last modified time should be updated"
+    assert updated_template["subject"] == "Updated Weekly Newsletter", (
+        "Subject should be updated"
+    )
+    assert updated_template["lastModifiedDateTime"] == "2026-01-05T12:00:00", (
+        "Last modified time should be updated"
+    )
     print("   ✓ Template data updated correctly")
 
     print("\n[Test 3] ✓ PASSED: Template cache update works correctly")
@@ -186,9 +186,9 @@ async def test_template_cache_remove():
 
     # Verify removal
     cached_templates = cache.get_cached_templates()
-    assert (
-        len(cached_templates) == 1
-    ), f"Expected 1 template, got {len(cached_templates)}"
+    assert len(cached_templates) == 1, (
+        f"Expected 1 template, got {len(cached_templates)}"
+    )
     assert cached_templates[0]["id"] == "template-2", "Template 2 should remain"
     print("   ✓ Template 1 removed correctly")
 
@@ -227,9 +227,9 @@ async def test_template_cache_clear():
 
     # Verify cache is empty
     cached_templates = cache.get_cached_templates()
-    assert (
-        len(cached_templates) == 0
-    ), f"Expected 0 templates, got {len(cached_templates)}"
+    assert len(cached_templates) == 0, (
+        f"Expected 0 templates, got {len(cached_templates)}"
+    )
     print("   ✓ Cache is empty after clearing")
 
     print("\n[Test 5] ✓ PASSED: Template cache clear works correctly")
@@ -258,13 +258,13 @@ async def test_template_cache_persistence():
     cache2 = TemplateCache()
     cached_templates = cache2.get_cached_templates()
 
-    assert (
-        len(cached_templates) == 1
-    ), f"Expected 1 template, got {len(cached_templates)}"
+    assert len(cached_templates) == 1, (
+        f"Expected 1 template, got {len(cached_templates)}"
+    )
     assert cached_templates[0]["id"] == "template-1", "Template ID should match"
-    assert (
-        cached_templates[0]["subject"] == "Weekly Newsletter"
-    ), "Template subject should match"
+    assert cached_templates[0]["subject"] == "Weekly Newsletter", (
+        "Template subject should match"
+    )
     print("   ✓ Template data persisted to second cache instance")
 
     # Clean up

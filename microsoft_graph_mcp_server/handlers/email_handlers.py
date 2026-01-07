@@ -2,11 +2,9 @@
 
 import mcp.types as types
 from .base import BaseHandler
-from ..utils import read_bcc_from_csv
-from ..email_cache import email_cache
-from ..template_cache import template_cache
+from ..utils import read_bcc_from_csv, date_handler
+from ..cache import email_cache, template_cache
 from ..graph_client import graph_client
-from ..date_handler import date_handler
 from ..config import settings
 from ..clients.email_client import MAX_EMAIL_SEARCH_LIMIT
 
@@ -78,14 +76,13 @@ class EmailHandler(BaseHandler):
             )
 
         email_cache.clear_cache()
-        
+
         success, user_timezone, error = await self._handle_auth_error(
-            lambda: graph_client.get_user_timezone(),
-            "getting user timezone"
+            lambda: graph_client.get_user_timezone(), "getting user timezone"
         )
         if not success:
             return self._format_error(error)
-        
+
         today_date = date_handler.get_today_date(user_timezone)
 
         if time_range:
@@ -124,7 +121,7 @@ class EmailHandler(BaseHandler):
             lambda: graph_client.search_emails(
                 query, search_type, start_date, end_date, folder, page_size
             ),
-            "searching emails"
+            "searching emails",
         )
         if not success:
             return self._format_error(error)
@@ -188,14 +185,12 @@ class EmailHandler(BaseHandler):
             )
 
         success, email_content, error = await self._handle_auth_error(
-            lambda: graph_client.get_email(
-                email_id, cache_number, text_only=text_only
-            ),
-            "getting email content"
+            lambda: graph_client.get_email(email_id, cache_number, text_only=text_only),
+            "getting email content",
         )
         if not success:
             return self._format_error(error)
-        
+
         return self._format_response(email_content["content"])
 
     async def handle_send_email(self, arguments: dict) -> list[types.TextContent]:
@@ -245,11 +240,11 @@ class EmailHandler(BaseHandler):
                 body_content_type="HTML",
                 importance=importance,
             ),
-            "sending email"
+            "sending email",
         )
         if not success:
             return self._format_error(error)
-        
+
         return self._format_response(f"Email sent successfully: {result}")
 
     async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
@@ -295,11 +290,11 @@ class EmailHandler(BaseHandler):
                 body_content_type="HTML",
                 importance=importance,
             ),
-            "sending reply email"
+            "sending reply email",
         )
         if not success:
             return self._format_error(error)
-        
+
         return self._format_response(f"Reply email sent successfully: {result}")
 
     async def _handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
@@ -368,7 +363,7 @@ class EmailHandler(BaseHandler):
                 body_content_type="HTML",
                 importance=importance,
             ),
-            "forwarding email"
+            "forwarding email",
         )
         if not success:
             return self._format_error(error)
