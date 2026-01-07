@@ -1,6 +1,8 @@
 """Base client class for Microsoft Graph API clients."""
 
 import asyncio
+import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -9,6 +11,16 @@ import httpx
 from ..auth import auth_manager
 from ..config import settings
 from ..utils import DateHandler as date_handler
+
+logger = logging.getLogger(__name__)
+
+
+class RateLimitError(Exception):
+    """Exception raised when rate limit is exceeded."""
+    
+    def __init__(self, message: str, retry_after: Optional[int] = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class BaseGraphClient:
@@ -38,8 +50,9 @@ class BaseGraphClient:
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        max_retries: int = 3,
     ) -> Dict[str, Any]:
-        """Make authenticated request to Microsoft Graph API with concurrency control."""
+        """Make authenticated request to Microsoft Graph API with concurrency control and rate limiting handling."""
 
         async with self._semaphore:
             access_token = await auth_manager.get_access_token()
@@ -56,24 +69,56 @@ class BaseGraphClient:
             url = f"{self.base_url}{endpoint}"
 
             client = await self._get_client()
-            response = await client.request(
-                method=method,
-                url=url,
-                params=params,
-                json=data,
-                headers=default_headers,
-            )
-
-            if response.status_code in (200, 201):
-                return response.json()
-            elif response.status_code == 202:
-                return {"status": "accepted"}
-            elif response.status_code == 204:
-                return {"status": "success"}
-            else:
-                raise Exception(
-                    f"Graph API request failed: {response.status_code} - {response.text}"
+            
+            for attempt in range(max_retries + 1):
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    json=data,
+                    headers=default_headers,
                 )
+
+                if response.status_code in (200, 201):
+                    return response.json()
+                elif response.status_code == 202:
+                    return {"status": "accepted"}
+                elif response.status_code == 204:
+                    return {"status": "success"}
+                elif response.status_code == 429:
+                    retry_after = self._extract_retry_after(response)
+                    if attempt < max_retries:
+                        wait_time = retry_after if retry_after else 5
+                        wait_time = min(wait_time * (2 ** attempt), 60)
+                        logger.warning(
+                            f"Rate limited (429). Waiting {wait_time} seconds before retry {attempt + 1}/{max_retries}"
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                    else:
+                        error_msg = response.text
+                        raise RateLimitError(
+                            f"Rate limit exceeded after {max_retries} retries. {error_msg}",
+                            retry_after=retry_after
+                        )
+                else:
+                    raise Exception(
+                        f"Graph API request failed: {response.status_code} - {response.text}"
+                    )
+
+    def _extract_retry_after(self, response: httpx.Response) -> Optional[int]:
+        """Extract Retry-After header from response.
+        
+        Returns:
+            Number of seconds to wait, or None if not specified
+        """
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return int(retry_after)
+            except ValueError:
+                pass
+        return None
 
     async def get(
         self,

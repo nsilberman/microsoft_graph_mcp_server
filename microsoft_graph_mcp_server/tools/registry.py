@@ -80,7 +80,7 @@ class ToolRegistry:
         """Search contacts tool definition."""
         return types.Tool(
             name="search_contacts",
-            description="FIND PEOPLE/CONTACTS ONLY. Search for people by name or email address in your personal contacts and organization directory. Returns contact information (name, email, etc.). DO NOT use this to search email messages - use search_emails for that. Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. Default limit: 10.",
+            description="FIND PEOPLE/CONTACTS ONLY. Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). DO NOT use this to search email messages - use search_emails for that. Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. Default limit: 10. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying.",
             inputSchema={
                 "type": "object",
                 "properties": {

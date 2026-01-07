@@ -47,9 +47,11 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Timezone-aware event scheduling
 
 ### Contact Management
-- Search contacts and people relevant to you
-- Returns organization users and personal contacts
+- Search organization directory for people by name or email address
+- Returns contact information (name, email, etc.) from your organization
 - Configurable search limit (default: 10)
+- Automatic rate limiting with exponential backoff and retry logic
+- Clear error messages with retry-after information when rate limits are exceeded
 
 ### File and Team Management
 - List files and folders in OneDrive
@@ -250,7 +252,7 @@ Use an absolute path to your project directory:
 
 #### User and Contact Management
 - **user_settings** - Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.
-- **search_contacts** - Search for people and contacts by name or email address. This searches both your personal contact folder and the organization directory to find people. Use this when you need to find information about a person, such as 'who is Joyson Barrago' or 'find contact with email joyson@ibm.com'. This is NOT for searching email messages - use search_emails for that. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results.
+- **search_contacts** - Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. This is NOT for searching email messages - use search_emails for that. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying.
 
 #### Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations

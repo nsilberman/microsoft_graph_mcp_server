@@ -7,6 +7,7 @@ import mcp.types as types
 from ..graph_client import graph_client
 from ..config import settings
 from ..auth import auth_manager
+from ..clients.base_client import RateLimitError
 
 
 class UserHandler(BaseHandler):
@@ -146,6 +147,17 @@ class UserHandler(BaseHandler):
 
         try:
             contacts = await graph_client.search_contacts(query, limit + 1)
+        except RateLimitError as e:
+            wait_time = e.retry_after if e.retry_after else "a few minutes"
+            result = {
+                "contacts": [],
+                "count": 0,
+                "limit_reached": False,
+                "message": f"Rate limit exceeded. Please wait {wait_time} seconds before retrying.",
+                "error": str(e),
+                "retry_after": e.retry_after
+            }
+            return self._format_response(result)
         except Exception as e:
             error_msg = str(e)
             if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
