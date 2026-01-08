@@ -7,6 +7,7 @@ from ..cache import email_cache, template_cache
 from ..graph_client import graph_client
 from ..config import settings
 from ..clients.email_client import MAX_EMAIL_SEARCH_LIMIT
+from ..validation import validate_cache_number, ValidationError, validate_email_address
 
 
 class EmailHandler(BaseHandler):
@@ -167,12 +168,10 @@ class EmailHandler(BaseHandler):
 
         cached_emails = email_cache.get_cached_emails()
 
-        if cache_number < 1 or cache_number > len(cached_emails):
-            return self._format_response(
-                {
-                    "error": f"Cache number {cache_number} is out of range. Please choose a number between 1 and {len(cached_emails)}."
-                }
-            )
+        try:
+            validate_cache_number(cache_number, len(cached_emails), "email_cache")
+        except ValidationError as e:
+            return self._format_response({"error": e.message})
 
         email = cached_emails[cache_number - 1]
         email_id = email.get("id")

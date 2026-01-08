@@ -43,9 +43,37 @@ class MicrosoftGraphMCPServer:
         self.calendar_handler = CalendarHandler()
         self.file_handler = FileHandler()
         self.teams_handler = TeamsHandler()
+
+        self._build_dispatch_table()
         self._register_handlers()
 
         logger.info("Handlers registered successfully")
+
+    def _build_dispatch_table(self):
+        """Build tool dispatch table for O(1) lookup."""
+        self.tool_dispatch = {
+            "auth": (self.auth_handler, "handle_auth"),
+            "user_settings": (self.user_handler, "handle_user_settings"),
+            "search_contacts": (self.user_handler, "handle_search_contacts"),
+            "manage_mail_folder": (self.email_handler, "handle_manage_mail_folder"),
+            "manage_emails": (self.email_handler, "handle_manage_emails"),
+            "browse_email_cache": (self.email_handler, "handle_browse_email_cache"),
+            "search_emails": (self.email_handler, "handle_search_emails"),
+            "get_email_content": (self.email_handler, "handle_get_email_content"),
+            "send_email": (self.email_handler, "handle_send_email"),
+            "browse_events": (self.calendar_handler, "handle_browse_events"),
+            "get_event_detail": (self.calendar_handler, "handle_get_event"),
+            "search_events": (self.calendar_handler, "handle_search_events"),
+            "check_attendee_availability": (
+                self.calendar_handler,
+                "handle_check_attendee_availability",
+            ),
+            "respond_to_event": (self.calendar_handler, "handle_respond_to_event"),
+            "manage_my_event": (self.calendar_handler, "handle_manage_my_event"),
+            "list_files": (self.file_handler, "handle_list_files"),
+            "get_teams": (self.teams_handler, "handle_get_teams"),
+            "get_team_channels": (self.teams_handler, "handle_get_team_channels"),
+        }
 
     def _register_handlers(self):
         """Register MCP tool handlers."""
@@ -71,67 +99,14 @@ class MicrosoftGraphMCPServer:
                     logger.info(
                         f"Server: Routing to auth_handler with action: {arguments.get('action')}"
                     )
-                    return await self.auth_handler.handle_auth(arguments)
 
-                elif name == "user_settings":
-                    return await self.user_handler.handle_user_settings(arguments)
-
-                elif name == "search_contacts":
-                    return await self.user_handler.handle_search_contacts(arguments)
-
-                elif name == "manage_mail_folder":
-                    return await self.email_handler.handle_manage_mail_folder(arguments)
-
-                elif name == "manage_emails":
-                    return await self.email_handler.handle_manage_emails(arguments)
-
-                elif name == "browse_email_cache":
-                    return await self.email_handler.handle_browse_email_cache(arguments)
-
-                elif name == "search_emails":
-                    return await self.email_handler.handle_search_emails(arguments)
-
-                elif name == "get_email_content":
-                    return await self.email_handler.handle_get_email_content(arguments)
-
-                elif name == "send_email":
-                    return await self.email_handler.handle_send_email(arguments)
-
-                elif name == "browse_events":
-                    return await self.calendar_handler.handle_browse_events(arguments)
-
-                elif name == "get_event_detail":
-                    return await self.calendar_handler.handle_get_event(arguments)
-
-                elif name == "search_events":
-                    return await self.calendar_handler.handle_search_events(arguments)
-
-                elif name == "check_attendee_availability":
-                    return (
-                        await self.calendar_handler.handle_check_attendee_availability(
-                            arguments
-                        )
-                    )
-
-                elif name == "respond_to_event":
-                    return await self.calendar_handler.handle_respond_to_event(
-                        arguments
-                    )
-
-                elif name == "manage_my_event":
-                    return await self.calendar_handler.handle_manage_my_event(arguments)
-
-                elif name == "list_files":
-                    return await self.file_handler.handle_list_files(arguments)
-
-                elif name == "get_teams":
-                    return await self.teams_handler.handle_get_teams(arguments)
-
-                elif name == "get_team_channels":
-                    return await self.teams_handler.handle_get_team_channels(arguments)
-
-                else:
+                handler_info = self.tool_dispatch.get(name)
+                if not handler_info:
                     raise ValueError(f"Unknown tool: {name}")
+
+                handler, method_name = handler_info
+                method = getattr(handler, method_name)
+                return await method(arguments)
 
             except Exception as e:
                 return [

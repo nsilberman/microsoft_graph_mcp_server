@@ -64,6 +64,21 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Disk-based caching for persistence
 - API propagation delay handling for reliable operations
 
+### Architecture Improvements
+- **Input Validation Layer**: Comprehensive validation system for all tool inputs with clear error messages
+  - Validates email addresses, cache numbers, and required/optional strings
+  - Early error detection prevents processing invalid inputs
+  - Gradual rollout to critical handlers first, then expanded to all handlers
+  - See [VALIDATION.md](doc/VALIDATION.md) for complete documentation
+- **Optimized Tool Routing**: O(1) dispatch table instead of O(n) if/elif chain
+  - Faster tool execution with dictionary-based lookup
+  - Easier to maintain when adding/removing tools
+  - 85% reduction in routing code (65 lines → 10 lines)
+- **Code Quality Improvements**:
+  - Removed dead `create_event` tool code (legacy duplicate functionality)
+  - Added comprehensive unit tests for dispatch table and validation
+  - Better separation of concerns with centralized validators
+
 ## Installation
 
 ### Using pip (Traditional)
@@ -681,6 +696,7 @@ Additional documentation is available in the `doc/` folder:
 - [LOGIN_DOCUMENTATION.md](doc/LOGIN_DOCUMENTATION.md) - Authentication guide
 - [TEST_README.md](doc/TEST_README.md) - Testing guide
 - [INLINE_ATTACHMENTS.md](doc/INLINE_ATTACHMENTS.md) - Inline attachment handling documentation
+- [VALIDATION.md](doc/VALIDATION.md) - Input validation system documentation
 - [CONTRIBUTING.md](doc/CONTRIBUTING.md) - Contribution guidelines
 
 ## License

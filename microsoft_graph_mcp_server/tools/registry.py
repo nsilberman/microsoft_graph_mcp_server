@@ -412,16 +412,16 @@ class ToolRegistry:
         """Get event detail tool definition."""
         return types.Tool(
             name="get_event_detail",
-            description="Get detailed information for a specific calendar event by its cache number. WORKFLOW: First call browse_events or search_events to get event list, then use this tool with cache number from results. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Invalid event_id returns appropriate error message.",
+            description="Get detailed information for a specific calendar event by its cache number. WORKFLOW: First call browse_events or search_events to get event list, then use this tool with cache number from results. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Invalid cache_number returns appropriate error message.",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "event_id": {
+                    "cache_number": {
                         "type": "string",
                         "description": "Cache number from browse_events or search_events (e.g., '1', '2', '3')",
                     }
                 },
-                "required": ["event_id"],
+                "required": ["cache_number"],
             },
         )
 
@@ -499,94 +499,6 @@ class ToolRegistry:
                     },
                 },
                 "required": ["attendees", "date"],
-            },
-        )
-
-    @staticmethod
-    def create_event() -> types.Tool:
-        """Create event tool definition."""
-        return types.Tool(
-            name="create_event",
-            description="Create a new calendar event. WORKFLOW: Optionally use check_attendee_availability before calling to find optimal meeting times. Returns: Created event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: This is a legacy tool - consider using manage_my_event with 'create' action instead for consistent API.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "subject": {"type": "string", "description": "Event subject"},
-                    "start": {
-                        "type": "object",
-                        "description": "Start time with dateTime and timeZone",
-                        "properties": {
-                            "dateTime": {
-                                "type": "string",
-                                "description": "Start date and time in ISO format",
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Time zone. Example: 'UTC', 'America/New_York', 'Europe/London'",
-                            },
-                        },
-                        "required": ["dateTime", "timeZone"],
-                    },
-                    "end": {
-                        "type": "object",
-                        "description": "End time with dateTime and timeZone",
-                        "properties": {
-                            "dateTime": {
-                                "type": "string",
-                                "description": "End date and time in ISO format",
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Time zone. Example: 'UTC', 'America/New_York', 'Europe/London'",
-                            },
-                        },
-                        "required": ["dateTime", "timeZone"],
-                    },
-                    "location": {
-                        "type": "string",
-                        "description": "Event location (optional)",
-                    },
-                    "body": {
-                        "type": "object",
-                        "description": "Event body with content and contentType",
-                        "properties": {
-                            "contentType": {
-                                "type": "string",
-                                "enum": ["Text", "HTML"],
-                                "description": "Content type",
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "Body content",
-                            },
-                        },
-                        "required": ["contentType", "content"],
-                    },
-                    "attendees": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "emailAddress": {
-                                    "type": "object",
-                                    "properties": {
-                                        "address": {
-                                            "type": "string",
-                                            "description": "Email address",
-                                        },
-                                        "name": {
-                                            "type": "string",
-                                            "description": "Display name",
-                                        },
-                                    },
-                                    "required": ["address"],
-                                }
-                            },
-                        },
-                        "description": "List of attendees (optional)",
-                    },
-                },
-                "required": ["subject", "start", "end"],
             },
         )
 

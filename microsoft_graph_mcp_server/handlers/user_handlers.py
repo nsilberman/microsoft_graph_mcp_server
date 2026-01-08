@@ -8,6 +8,7 @@ from ..graph_client import graph_client
 from ..config import settings
 from ..auth import auth_manager
 from ..clients.base_client import RateLimitError
+from ..validation import validate_required_string
 
 
 class UserHandler(BaseHandler):
@@ -142,6 +143,17 @@ class UserHandler(BaseHandler):
 
     async def handle_search_contacts(self, arguments: dict) -> list[types.TextContent]:
         """Handle search_contacts tool."""
+        try:
+            validate_required_string(arguments.get("query"), "query")
+        except Exception as e:
+            result = {
+                "contacts": [],
+                "count": 0,
+                "limit_reached": False,
+                "message": str(e),
+            }
+            return self._format_response(result)
+
         query = arguments["query"]
         limit = settings.contact_search_limit
 
@@ -155,18 +167,21 @@ class UserHandler(BaseHandler):
                 "limit_reached": False,
                 "message": f"Rate limit exceeded. Please wait {wait_time} seconds before retrying.",
                 "error": str(e),
-                "retry_after": e.retry_after
+                "retry_after": e.retry_after,
             }
             return self._format_response(result)
         except Exception as e:
             error_msg = str(e)
-            if "Not authenticated" in error_msg or "authentication" in error_msg.lower():
+            if (
+                "Not authenticated" in error_msg
+                or "authentication" in error_msg.lower()
+            ):
                 result = {
                     "contacts": [],
                     "count": 0,
                     "limit_reached": False,
                     "message": f"Not authenticated. Please call the login tool first to authenticate with Microsoft Graph.",
-                    "error": error_msg
+                    "error": error_msg,
                 }
             else:
                 result = {
@@ -174,7 +189,7 @@ class UserHandler(BaseHandler):
                     "count": 0,
                     "limit_reached": False,
                     "message": f"Error searching contacts: {error_msg}",
-                    "error": error_msg
+                    "error": error_msg,
                 }
             return self._format_response(result)
 
