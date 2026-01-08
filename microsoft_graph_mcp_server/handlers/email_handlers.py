@@ -300,13 +300,18 @@ class EmailHandler(BaseHandler):
     async def _handle_forward_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle forward email action."""
         cache_number = arguments["cache_number"]
-        to_recipients = arguments["to"]
+        to_recipients = arguments.get("to")
         subject = arguments.get("subject")
         body = arguments.get("htmlbody")
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         bcc_csv_file = arguments.get("bcc_csv_file")
         importance = arguments.get("importance")
+
+        if not to_recipients and not bcc_csv_file and not bcc_recipients:
+            return self._format_error(
+                "Error: At least one of 'to', 'bcc', or 'bcc_csv_file' must be provided for forwarding email."
+            )
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)

@@ -496,8 +496,13 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 - `subject` (required, string): Event subject
 - `start` (required, string): Event start date and time in your local timezone
   - Format: "2026-01-06T14:30" or "2026-01-06 14:30"
+  - The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration
 - `end` (required, string): Event end date and time in your local timezone
   - Format: "2026-01-06T15:30" or "2026-01-06 15:30"
+  - The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration
+- `timezone` (optional, string): Timezone for the event in IANA format
+  - Examples: 'Asia/Singapore', 'America/New_York', 'Europe/London', 'UTC'
+  - If not provided, will use your timezone settings from your Microsoft 365 profile or .env configuration
 - `attendees` (optional, array): List of required attendee email addresses
 - `optional_attendees` (optional, array): List of optional attendee email addresses
 - `body` (optional, string): Event body content
@@ -528,7 +533,12 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 - `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
 - `subject` (optional, string): Updated event subject
 - `start` (optional, string): Updated event start date and time in your local timezone
+  - The system will automatically convert to UTC using a timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration
 - `end` (optional, string): Updated event end date and time in your local timezone
+  - The system will automatically convert to UTC using a timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration
+- `timezone` (optional, string): Timezone for event in IANA format
+  - Examples: 'Asia/Singapore', 'America/New_York', 'Europe/London', 'UTC'
+  - If not provided, will use your timezone settings from your Microsoft 365 profile or .env configuration
 - `attendees` (optional, array): Updated list of required attendee email addresses
 - `optional_attendees` (optional, array): Updated list of optional attendee email addresses
 - `body` (optional, string): Updated event body content
@@ -592,6 +602,17 @@ result = await manage_my_event(
 )
 ```
 
+#### Create Event with Specific Timezone:
+```python
+result = await manage_my_event(
+    action="create",
+    subject="Global Team Meeting",
+    start="2026-01-06T14:30",
+    end="2026-01-06T15:30",
+    timezone="America/New_York"
+)
+```
+
 #### Create Recurring Event:
 ```python
 result = await manage_my_event(
@@ -599,6 +620,28 @@ result = await manage_my_event(
     subject="Weekly Team Meeting",
     start="2026-01-06T14:30",
     end="2026-01-06T15:30",
+    recurrence={
+        "pattern": {
+            "type": "weekly",
+            "interval": 1,
+            "daysOfWeek": ["monday"]
+        },
+        "range": {
+            "type": "noEnd",
+            "startDate": "2026-01-06"
+        }
+    }
+)
+```
+
+#### Create Recurring Event with Specific Timezone:
+```python
+result = await manage_my_event(
+    action="create",
+    subject="Weekly Global Meeting",
+    start="2026-01-06T14:30",
+    end="2026-01-06T15:30",
+    timezone="Asia/Singapore",
     recurrence={
         "pattern": {
             "type": "weekly",
@@ -633,6 +676,18 @@ result = await manage_my_event(
     subject="Updated Team Meeting",
     start="2026-01-06T15:30",
     end="2026-01-06T16:30"
+)
+```
+
+#### Update Event with Specific Timezone:
+```python
+result = await manage_my_event(
+    action="update",
+    cache_number="1",
+    subject="Updated Team Meeting",
+    start="2026-01-06T15:30",
+    end="2026-01-06T16:30",
+    timezone="Europe/London"
 )
 ```
 
@@ -671,7 +726,7 @@ result = await manage_my_event(
 
 #### Create Action
 - Times should be in your local timezone (system automatically converts to UTC)
-- Timezone is automatically detected from your Microsoft 365 profile or .env configuration
+- Timezone is automatically detected from your Microsoft 365 profile or .env configuration, unless you provide the optional `timezone` parameter to override it
 - Attendee types: required and optional
 - Body content types: "Text" or "HTML"
 - The event is created in your primary calendar
@@ -705,7 +760,7 @@ result = await manage_my_event(
 #### General Notes
 - Cache number is from browse_events or search_events
 - For events organized by others, use the respond_to_event tool instead
-- All date/time parameters are in your local timezone
+- All date/time parameters are in your local timezone, unless you provide a optional `timezone` parameter to specify a different timezone
 
 ---
 
@@ -891,7 +946,7 @@ For a weekly recurring meeting:
 ## Timezone Handling
 
 ### Timezone Detection
-The system automatically detects the user's timezone from Microsoft Graph mailbox settings.
+The system automatically detects the user's timezone from Microsoft Graph mailbox settings. For create and update actions in manage_my_event, you can optionally provide a `timezone` parameter to override the automatic timezone detection and specify a custom timezone for the event.
 
 ### Timezone Conversion
 - All date ranges are calculated in the user's local timezone

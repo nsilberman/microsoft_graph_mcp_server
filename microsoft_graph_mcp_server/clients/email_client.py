@@ -1204,10 +1204,12 @@ class EmailClient(BaseGraphClient):
         message_data = {
             "subject": forward_subject,
             "body": {"contentType": body_content_type, "content": forward_body},
-            "toRecipients": [
-                {"emailAddress": {"address": addr}} for addr in to_recipients
-            ],
         }
+
+        if to_recipients:
+            message_data["toRecipients"] = [
+                {"emailAddress": {"address": addr}} for addr in to_recipients
+            ]
 
         if cc_recipients:
             message_data["ccRecipients"] = [
@@ -1420,9 +1422,9 @@ Subject: {original_subject}
 
     async def send_email(
         self,
-        to_recipients: List[str],
-        subject: str,
-        body: str,
+        to_recipients: Optional[List[str]] = None,
+        subject: str = "",
+        body: str = "",
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         reply_to_message_id: Optional[str] = None,
@@ -1505,10 +1507,10 @@ Subject: {original_subject}
 
     async def batch_forward_emails(
         self,
-        to_recipients: List[str],
-        subject: str,
-        body: str,
-        email_ids: List[str],
+        to_recipients: Optional[List[str]] = None,
+        subject: str = "",
+        body: str = "",
+        email_ids: List[str] = [],
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         body_content_type: str = "Text",

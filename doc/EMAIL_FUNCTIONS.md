@@ -286,6 +286,8 @@ result = await get_email_content(cache_number=1, text_only=false)
 ### Description
 Send emails directly without creating drafts. Supports three actions: 'send_new' to send a new email, 'reply' to reply to an existing email, and 'forward' to forward an existing email. All actions send emails immediately - no drafts are created. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 
+**⭐ RECOMMENDED FOR BCC**: Use the `bcc_csv_file` parameter to provide BCC recipients from a CSV file. This is the **preferred method** for handling BCC recipients, especially for large lists. The system automatically batches large BCC lists (up to 500 recipients per batch by default) and sends multiple emails as needed. This approach is more efficient and handles API limits gracefully compared to manually managing BCC arrays.
+
 ### Parameters
 - `action` (required, string): Action to perform
   - Values: "send_new", "reply", "forward"
@@ -298,9 +300,12 @@ Send emails directly without creating drafts. Supports three actions: 'send_new'
   - Required for: "reply" and "forward" actions
 - `cc` (optional, array of strings): List of CC recipient email addresses
 - `bcc` (optional, array of strings): List of BCC recipient email addresses
-- `bcc_csv_file` (optional, string): Path to CSV file containing BCC recipients
+- `bcc_csv_file` (optional, string): **PREFERRED METHOD FOR BCC** - Path to CSV file containing BCC recipients
   - CSV must have a single column with header 'Email' or 'email'
   - Only available for: "forward" action
+  - **Recommended over manual `bcc` array** for large recipient lists
+  - Automatically batches recipients (up to 500 per batch by default)
+  - When both `bcc` and `bcc_csv_file` are provided, they are combined
 
 ### Actions
 
@@ -364,17 +369,17 @@ result = await send_email(
 ```
 
 #### Forward Email (action="forward")
-Forwards an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. Supports BCC recipients via CSV file with automatic batching for large recipient lists.
+Forwards an email to recipients. The original email will be included in the forwarded message with 'FW:' prefix on the subject. **⭐ RECOMMENDED FOR BCC**: Use `bcc_csv_file` parameter for BCC recipients - this is the preferred method with automatic batching support for large recipient lists. **NOTE**: The `to` parameter is optional when using `bcc_csv_file` or `bcc` - you can forward emails using only BCC recipients.
 
 **Parameters:**
 - `action`: "forward"
 - `cache_number`: Cache number from browse_email_cache
-- `to`: List of recipient email addresses
+- `to` (optional): List of recipient email addresses (optional when using `bcc_csv_file` or `bcc`)
 - `htmlbody`: Email body content (HTML format)
 - `subject` (optional): Email subject (defaults to 'FW: ' + original subject)
 - `cc` (optional): List of CC recipient email addresses
 - `bcc` (optional): List of BCC recipient email addresses
-- `bcc_csv_file` (optional): Path to CSV file containing BCC recipients
+- `bcc_csv_file` (optional): **PREFERRED METHOD** - Path to CSV file containing BCC recipients
 
 **Returns:**
 ```json
@@ -392,12 +397,21 @@ Forwards an email to recipients. The original email will be included in the forw
 
 **Example Usage:**
 ```python
+# ⭐ RECOMMENDED: Forward with BCC recipients from CSV file (no TO recipients)
+# This is the preferred approach for handling BCC recipients
+result = await send_email(
+    action="forward",
+    cache_number=1,
+    htmlbody="<p>FYI - please review.</p>",
+    bcc_csv_file="recipients.csv"
+)
+
 # Basic forward
 result = await send_email(
     action="forward",
     cache_number=1,
     to=["new_recipient@example.com"],
-    body="<p>Please review the forwarded email.</p>"
+    htmlbody="<p>Please review the forwarded email.</p>"
 )
 
 # Forward with custom subject and CC
@@ -406,30 +420,42 @@ result = await send_email(
     cache_number=1,
     to=["new_recipient@example.com"],
     subject="FW: Important - Please Review",
-    body="<p>Please review the forwarded email and provide feedback.</p>",
+    htmlbody="<p>Please review the forwarded email and provide feedback.</p>",
     cc=["manager@example.com"]
 )
 
-# Forward with BCC recipients from CSV file
+# Forward with BCC recipients from array (small lists only)
+# Note: For large BCC lists, use bcc_csv_file instead
 result = await send_email(
     action="forward",
     cache_number=1,
     to=["main_recipient@example.com"],
-    body="<p>FYI - please review.</p>",
-    bcc_csv_file="recipients.csv"
+    htmlbody="<p>FYI - please review.</p>",
+    bcc=["bcc1@example.com", "bcc2@example.com"]
 )
 
-# Forward with BCC recipients from array
+# Forward with only BCC recipients (no TO recipients)
+result = await send_email(
+    action="forward",
+    cache_number=1,
+    htmlbody="<p>FYI - please review.</p>",
+    bcc=["bcc1@example.com", "bcc2@example.com", "bcc3@example.com"]
+)
+
+# Forward combining both CSV and array BCC recipients
 result = await send_email(
     action="forward",
     cache_number=1,
     to=["main_recipient@example.com"],
-    body="<p>FYI - please review.</p>",
-    bcc=["bcc1@example.com", "bcc2@example.com"]
+    htmlbody="<p>FYI - please review.</p>",
+    bcc=["manual_bcc@example.com"],
+    bcc_csv_file="additional_recipients.csv"
 )
 ```
 
 ### BCC CSV File Format
+**⭐ RECOMMENDED APPROACH**: Using a CSV file for BCC recipients is the preferred method for handling BCC lists, especially for large recipient lists. The system automatically handles batching and API limits.
+
 The CSV file must have a single column with header 'Email' or 'email':
 
 ```csv
@@ -438,6 +464,13 @@ recipient1@example.com
 recipient2@example.com
 recipient3@example.com
 ```
+
+**Why use CSV file instead of manual BCC array?**
+- ✅ **Automatic batching**: Splits large lists into batches (up to 500 recipients per batch)
+- ✅ **Error handling**: Gracefully handles API limits and retries
+- ✅ **Scalability**: Works with any number of recipients
+- ✅ **Maintainability**: Easy to update recipient lists without code changes
+- ✅ **Flexibility**: Can combine CSV file with manual BCC array if needed
 
 ### BCC Batching
 When forwarding emails with BCC recipients that exceed the maximum batch size (default: 500, configurable via `MAX_BCC_BATCH_SIZE`), the system automatically batches the recipients:
@@ -452,13 +485,23 @@ When forwarding emails with BCC recipients that exceed the maximum batch size (d
 MAX_BCC_BATCH_SIZE=500
 ```
 
+**Example Response with Batching:**
+```json
+{
+  "message": "Email forwarded successfully in 3 batches (total 1250 BCC recipients): {results}"
+}
+```
+
 ### Notes
-- The body parameter must be in HTML format for all actions
+- The htmlbody parameter must be in HTML format for all actions
 - For reply and forward actions, use `browse_email_cache` to get the cache number
 - The original email is included in the forwarded message
-- BCC recipients can be provided via array or CSV file
+- **⭐ RECOMMENDED**: Use `bcc_csv_file` for BCC recipients instead of manual `bcc` array
 - Large BCC lists are automatically batched to stay within API limits
 - The subject for forward actions defaults to 'FW: ' + original subject if not provided
+- When both `bcc` and `bcc_csv_file` are provided, they are combined
+- **For forward action**: The `to` parameter is optional when using `bcc_csv_file` or `bcc` - you can forward emails using only BCC recipients
+- At least one of `to`, `bcc`, or `bcc_csv_file` must be provided for forward action
 
 ---
 

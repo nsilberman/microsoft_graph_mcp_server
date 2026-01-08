@@ -288,13 +288,14 @@ class GraphClient:
 
     async def batch_forward_emails(
         self,
-        to_recipients: List[str],
-        subject: str,
-        body: str,
-        email_ids: List[str],
+        to_recipients: Optional[List[str]] = None,
+        subject: str = "",
+        body: str = "",
+        email_ids: List[str] = [],
         cc_recipients: Optional[List[str]] = None,
         bcc_recipients: Optional[List[str]] = None,
         body_content_type: str = "Text",
+        importance: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Batch forward emails."""
         return await self.email_client.batch_forward_emails(
@@ -305,6 +306,7 @@ class GraphClient:
             cc_recipients,
             bcc_recipients,
             body_content_type,
+            importance,
         )
 
     async def create_folder(

@@ -68,7 +68,7 @@ class ToolRegistry:
                     },
                     "timezone": {
                         "type": "string",
-                        "description": "User timezone (e.g., 'America/New_York', 'Asia/Shanghai'). Only used with 'update' action.",
+                        "description": "User timezone in IANA format. Examples: 'America/New_York', 'Asia/Shanghai', 'Europe/London', 'UTC'. Only used with 'update' action.",
                     },
                 },
                 "required": ["action"],
@@ -80,7 +80,7 @@ class ToolRegistry:
         """Search contacts tool definition."""
         return types.Tool(
             name="search_contacts",
-            description="FIND PEOPLE/CONTACTS ONLY. Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). DO NOT use this to search email messages - use search_emails for that. Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. Default limit: 10. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying.",
+            description="FIND PEOPLE/CONTACTS ONLY. Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). DO NOT use this to search email messages - use search_emails for that. Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. Default limit: 10. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying. Returns: {success: boolean, contacts: array, count: integer, limit_reached: boolean, message: string, retry_after: integer (if rate limited)}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -98,7 +98,7 @@ class ToolRegistry:
         """Auth tool definition."""
         return types.Tool(
             name="auth",
-            description="Manage authentication with Microsoft Graph. Supports five actions: 'login' initiates device code flow and returns verification URL and user code, 'complete_login' waits for browser authentication to complete and finalizes the login process (MUST be called after login), 'check_status' checks current authentication state and token expiry without triggering actions (useful for debugging), 'extend_token' refreshes the access token using the refresh token without requiring user login - this provides a fresh access token with a new 1-hour lifetime starting from the time you call extend_token (does NOT extend the old token's expiry time), 'logout' clears authentication tokens.",
+            description="Manage authentication with Microsoft Graph. Supports five actions: 'login' initiates device code flow and returns verification URL and user code, 'complete_login' waits for browser authentication to complete and finalizes the login process (MUST be called after login), 'check_status' checks current authentication state and token expiry without triggering actions (useful for debugging), 'extend_token' refreshes the access token using the refresh token without requiring user login - this provides a fresh access token with a new 1-hour lifetime starting from the time you call extend_token (does NOT extend the old token's expiry time), 'logout' clears authentication tokens. WORKFLOW: 1) Call login to start, 2) Complete authentication in browser, 3) Call complete_login to finalize. Returns: {success: boolean, message: string, authenticated: boolean, token_expiry: string, user_info: object}. Note: Tokens expire after 1 hour, use extend_token to refresh without re-login.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -127,7 +127,7 @@ class ToolRegistry:
         """Mail folder tool definition."""
         return types.Tool(
             name="manage_mail_folder",
-            description="Manage mail folders. Supports list, create, delete, rename, get_details, and move operations.",
+            description="Manage mail folders. Supports list, create, delete, rename, get_details, and move operations. Returns: {success: boolean, message: string, path: string, displayName: string, totalItemCount: integer, unreadItemCount: integer, childFolderCount: integer}. Note: Invalid folder paths return appropriate error messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -141,7 +141,7 @@ class ToolRegistry:
                             "get_details",
                             "move",
                         ],
-                        "description": "Action to perform: 'list' to list all mail folders, 'create' to create a new folder, 'delete' to delete a folder, 'rename' to rename a folder, 'get_details' to get folder information, 'move' to move a folder",
+                        "description": "Action to perform: 'list' to list all mail folders, 'create' to create a new folder, 'delete' to delete a folder, 'rename' to rename a folder, 'get_details' to get folder information, 'move' to move a folder to a new parent",
                     },
                     "folder_path": {
                         "type": "string",
@@ -173,7 +173,7 @@ class ToolRegistry:
         """Manage emails tool definition."""
         return types.Tool(
             name="manage_emails",
-            description="Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple.",
+            description="Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple. Returns: {success: boolean, message: string, moved_count: integer, failed_count: integer, errors: array}. Note: Invalid cache_number returns appropriate error message.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -231,7 +231,7 @@ class ToolRegistry:
         """Browse email cache tool definition."""
         return types.Tool(
             name="browse_email_cache",
-            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence.",
+            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array, date_range: string, filter_date_range: string, timezone: string}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -255,7 +255,7 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, recipient, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
+            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, recipient, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -291,11 +291,11 @@ class ToolRegistry:
                             "this_month",
                             "next_month",
                         ],
-                        "description": "Time range type (optional, in your local timezone). HIGHEST PRIORITY: If provided, overrides start_date, end_date, and days. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
+                        "description": "Time range type. Optional, in your local timezone. HIGHEST PRIORITY: If provided, overrides start_date, end_date, and days. Returns a user-friendly display string in the response. Examples: 'today', 'this_week', 'this_month'",
                     },
                     "days": {
                         "type": "integer",
-                        "description": f"Number of days to look back (default: 1, maximum: {settings.default_search_days}). LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
+                        "description": f"Number of days to look back. Default: 1, maximum: {settings.default_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
                         "default": 1,
                         "minimum": 1,
                         "maximum": settings.default_search_days,
@@ -309,7 +309,7 @@ class ToolRegistry:
         """Get email content tool definition."""
         return types.Tool(
             name="get_email_content",
-            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.",
+            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -332,7 +332,7 @@ class ToolRegistry:
         """Send email tool definition."""
         return types.Tool(
             name="send_email",
-            description="Send emails directly without creating drafts. Supports three actions: 'send_new' to send a new email, 'reply' to reply to an existing email, and 'forward' to forward an existing email. All actions send emails immediately - no drafts are created. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.",
+            description="Send emails directly without creating drafts. Supports three actions: 'send_new' to send a new email, 'reply' to reply to an existing email, and 'forward' to forward an existing email. All actions send emails immediately - no drafts are created. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content. **RECOMMENDED FOR BCC**: Use bcc_csv_file parameter to provide BCC recipients from a CSV file - this is the preferred method for handling large BCC lists with automatic batching support (up to 500 recipients per batch by default). **NOTE**: For forward action, 'to' is optional when using 'bcc_csv_file' or 'bcc' - you can forward emails using only BCC recipients. Returns: {success: boolean, message: string, sent_count: integer, failed_count: integer, recipients: array}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -344,7 +344,7 @@ class ToolRegistry:
                     "to": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of recipient email addresses",
+                        "description": "List of recipient email addresses (required for send_new and reply, optional for forward when bcc_csv_file is provided)",
                     },
                     "subject": {
                         "type": "string",
@@ -370,7 +370,7 @@ class ToolRegistry:
                     },
                     "bcc_csv_file": {
                         "type": "string",
-                        "description": "Path to CSV file containing BCC recipients. CSV must have a single column with header 'Email' or 'email' (optional, only for forward action)",
+                        "description": "**PREFERRED METHOD FOR BCC**: Path to CSV file containing BCC recipients. This is the recommended approach for handling BCC recipients, especially for large lists. CSV must have a single column with header 'Email' or 'email'. The system automatically batches large BCC lists (up to 500 recipients per batch by default) and sends multiple emails as needed. Only available for 'forward' action. When both 'bcc' and 'bcc_csv_file' are provided, they are combined.",
                     },
                     "importance": {
                         "type": "string",
@@ -378,7 +378,7 @@ class ToolRegistry:
                         "description": "Email importance level: 'normal' (default), 'high', or 'low' (optional)",
                     },
                 },
-                "required": ["action", "to", "htmlbody"],
+                "required": ["action", "htmlbody"],
             },
         )
 
@@ -387,7 +387,7 @@ class ToolRegistry:
         """Browse events tool definition."""
         return types.Tool(
             name="browse_events",
-            description="Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.",
+            description="Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_events to load events into the cache first. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, events: array, date_range: string, timezone: string}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -412,13 +412,13 @@ class ToolRegistry:
         """Get event detail tool definition."""
         return types.Tool(
             name="get_event_detail",
-            description="Get detailed information for a specific calendar event by its cache number",
+            description="Get detailed information for a specific calendar event by its cache number. WORKFLOW: First call browse_events or search_events to get event list, then use this tool with cache number from results. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Invalid event_id returns appropriate error message.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "event_id": {
                         "type": "string",
-                        "description": "Cache number (e.g., '1', '2', '3')",
+                        "description": "Cache number from browse_events or search_events (e.g., '1', '2', '3')",
                     }
                 },
                 "required": ["event_id"],
@@ -430,7 +430,7 @@ class ToolRegistry:
         """Search events tool definition."""
         return types.Tool(
             name="search_events",
-            description="Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').",
+            description="Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, events: array, count: integer, date_range: string, timezone: string}. Note: Subject, location, and organizer searches use exact substring matching.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -467,7 +467,7 @@ class ToolRegistry:
         """Check attendee availability tool definition."""
         return types.Tool(
             name="check_attendee_availability",
-            description="Check availability of attendees for a given date. Automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. Automatically calculates time range based on all attendees' working hours. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Timezone defaults to user's mailbox settings, but can be explicitly specified.",
+            description="Check availability of attendees for a given date. WORKFLOW: Typically use before calling manage_my_event with create action to find optimal meeting times. Automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. Automatically calculates time range based on all attendees' working hours. Returns: {success: boolean, message: string, availability_view: string, schedule_items: array, top_slots: array}. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Note: Supports up to 20 attendees total (mandatory + optional).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -483,19 +483,19 @@ class ToolRegistry:
                     },
                     "date": {
                         "type": "string",
-                        "description": "Date in ISO format (e.g., '2024-01-01'). The time range will be automatically calculated based on all attendees' working hours.",
+                        "description": "Date in ISO format. Example: '2024-01-01'. The time range will be automatically calculated based on all attendees' working hours.",
                     },
                     "time_zone": {
                         "type": "string",
-                        "description": "Timezone for the time range (optional, e.g., 'India Standard Time', 'Pacific Standard Time'). If not provided, defaults to user's mailbox settings.",
+                        "description": "Timezone for the time range. Optional - defaults to user's mailbox settings. Example: 'India Standard Time', 'Pacific Standard Time', 'UTC'",
                     },
                     "availability_view_interval": {
                         "type": "integer",
-                        "description": "Time interval in minutes for availability view (optional, default: 30). Valid values: 5, 6, 10, 15, 30, 60",
+                        "description": "Time interval in minutes for availability view. Optional, default: 30. Valid values: 5, 6, 10, 15, 30, 60",
                     },
                     "top_slots": {
                         "type": "integer",
-                        "description": "Number of top time slots to display in the summary (optional, default: 5)",
+                        "description": "Number of top time slots to display in the summary. Optional, default: 5",
                     },
                 },
                 "required": ["attendees", "date"],
@@ -507,7 +507,7 @@ class ToolRegistry:
         """Create event tool definition."""
         return types.Tool(
             name="create_event",
-            description="Create a new calendar event",
+            description="Create a new calendar event. WORKFLOW: Optionally use check_attendee_availability before calling to find optimal meeting times. Returns: Created event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: This is a legacy tool - consider using manage_my_event with 'create' action instead for consistent API.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -522,7 +522,7 @@ class ToolRegistry:
                             },
                             "timeZone": {
                                 "type": "string",
-                                "description": "Time zone (e.g., 'UTC', 'America/New_York')",
+                                "description": "Time zone. Example: 'UTC', 'America/New_York', 'Europe/London'",
                             },
                         },
                         "required": ["dateTime", "timeZone"],
@@ -537,7 +537,7 @@ class ToolRegistry:
                             },
                             "timeZone": {
                                 "type": "string",
-                                "description": "Time zone (e.g., 'UTC', 'America/New_York')",
+                                "description": "Time zone. Example: 'UTC', 'America/New_York', 'Europe/London'",
                             },
                         },
                         "required": ["dateTime", "timeZone"],
@@ -595,7 +595,7 @@ class ToolRegistry:
         """Respond to event tool definition for responding to events organized by others."""
         return types.Tool(
             name="respond_to_event",
-            description="Respond to calendar events organized by others with multiple actions: accept, decline, tentatively_accept, propose_new_time, delete. Accept: Accept an event invitation. Decline: Decline an event invitation. Tentatively Accept: Tentatively accept an event invitation. Propose New Time: Decline the event and propose a new time to the organizer. Delete: Delete a cancelled event from your calendar (use this when the organizer has cancelled the event and you want to remove it from your calendar). For accept/decline/tentatively_accept actions on recurring events, set series=true to accept/decline the entire series, or series=false (default) for a single occurrence. The cache_number parameter uses the cache number from browse_events or search_events results.",
+            description="Respond to calendar events organized by others. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -608,11 +608,11 @@ class ToolRegistry:
                             "propose_new_time",
                             "delete",
                         ],
-                        "description": "Action to perform on the event",
+                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer, 'delete' to remove cancelled event from calendar (use when organizer cancelled event)",
                     },
                     "cache_number": {
-                        "type": "string",
-                        "description": "Cache number from browse_events or search_events (required for all actions)",
+                        "type": "integer",
+                        "description": "Cache number from browse_events or search_events (required for all actions, e.g., 1, 2, 3)",
                     },
                     "comment": {
                         "type": "string",
@@ -624,7 +624,7 @@ class ToolRegistry:
                     },
                     "series": {
                         "type": "boolean",
-                        "description": "For accept/decline/tentatively_accept actions on recurring events: set to true to accept/decline the entire series, or false (default) for a single occurrence only",
+                        "description": "For accept/decline/tentatively_accept actions on recurring events: set to true to accept/decline entire series, or false (default) for single occurrence only",
                     },
                     "propose_new_time": {
                         "type": "object",
@@ -632,11 +632,11 @@ class ToolRegistry:
                         "properties": {
                             "dateTime": {
                                 "type": "string",
-                                "description": "Proposed new date and time in your local timezone (e.g., '2024-12-31T14:30' or '2024-12-31 14:30'). The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration",
+                                "description": "Proposed new date and time in your local timezone. Example: '2024-12-31T14:30' or '2024-12-31 14:30'. The system will automatically convert to UTC using your timezone settings from your Microsoft 365 profile or .env configuration",
                             },
                             "timeZone": {
                                 "type": "string",
-                                "description": "Time zone for the proposed time (optional, will use your Microsoft 365 profile timezone or .env configuration if not provided)",
+                                "description": "Time zone for the proposed time. Optional - will use your Microsoft 365 profile timezone or .env configuration if not provided",
                             },
                         },
                         "required": ["dateTime"],
@@ -651,18 +651,18 @@ class ToolRegistry:
         """Manage my event tool definition for managing user's own events."""
         return types.Tool(
             name="manage_my_event",
-            description="Manage your own calendar events with multiple actions: create, update, cancel, forward, reply. Create: Create a new calendar event. Update: Update an existing event. Cancel: Cancel an event and send cancellation notifications to attendees. Forward: Forward event by adding new optional attendees. Reply: Send email to event attendees using event body as content (to=required attendees, cc=optional attendees). IMPORTANT: For update, cancel, forward, and reply actions, use the cache number from browse_events or the cache number returned when creating an event.",
+            description="Manage your own calendar events. WORKFLOW: For update, cancel, forward, and reply actions, use cache number from browse_events or returned when creating an event. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Conflict errors may occur when updating event times that overlap with existing events.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
                         "enum": ["create", "update", "cancel", "forward", "reply"],
-                        "description": "Action to perform on the event",
+                        "description": "Action to perform: 'create' to create a new calendar event, 'update' to update an existing event, 'cancel' to cancel an event and send cancellation notifications to attendees, 'forward' to forward event by adding new optional attendees, 'reply' to send email to event attendees using event body as content (to=required attendees, cc=optional attendees)",
                     },
                     "cache_number": {
-                        "type": "string",
-                        "description": "Cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. Required for update, cancel, forward, reply actions.",
+                        "type": "integer",
+                        "description": "Cache number from browse_events or returned when creating an event (required for update, cancel, forward, reply actions, e.g., 1, 2, 3)",
                     },
                     "subject": {
                         "type": "string",
@@ -670,15 +670,15 @@ class ToolRegistry:
                     },
                     "start": {
                         "type": "string",
-                        "description": "Start date and time in your local timezone (e.g., '2024-01-01T14:30' or '2024-01-01 14:30'). The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
+                        "description": "Start date and time in your local timezone. Example: '2024-01-01T14:30' or '2024-01-01 14:30'. The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration. Required for create, optional for update",
                     },
                     "end": {
                         "type": "string",
-                        "description": "End date and time in your local timezone (e.g., '2024-01-01T15:30' or '2024-01-01 15:30'). The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration (required for create, optional for update)",
+                        "description": "End date and time in your local timezone. Example: '2024-01-01T15:30' or '2024-01-01 15:30'. The system will automatically convert to UTC using the timezone parameter or your timezone settings from your Microsoft 365 profile or .env configuration. Required for create, optional for update",
                     },
                     "timezone": {
                         "type": "string",
-                        "description": "Timezone for the event in IANA format (e.g., 'Asia/Singapore', 'America/New_York'). Optional for create and update actions. If not provided, will use your timezone settings from your Microsoft 365 profile or .env configuration",
+                        "description": "Timezone for the event in IANA format. Examples: 'Asia/Singapore', 'America/New_York', 'Europe/London', 'UTC'. Optional for create and update actions - if not provided, will use your timezone settings from your Microsoft 365 profile or .env configuration",
                     },
                     "location": {
                         "type": "string",
@@ -840,13 +840,13 @@ class ToolRegistry:
         """List files tool definition."""
         return types.Tool(
             name="list_files",
-            description="List files and folders in OneDrive",
+            description="List files and folders in OneDrive. Returns: Array of file/folder objects with id, name, type (file/folder), size, last_modified, and path information.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "folder_path": {
                         "type": "string",
-                        "description": "Folder path in OneDrive (e.g., '/Documents', '/Projects'). Default: root folder",
+                        "description": "Folder path in OneDrive. Example: '/Documents', '/Projects', '/Archive'. Default: root folder",
                         "default": "",
                     }
                 },
@@ -858,7 +858,7 @@ class ToolRegistry:
         """Get teams tool definition."""
         return types.Tool(
             name="get_teams",
-            description="Get list of Teams that you are a member of",
+            description="Get list of Teams that you are a member of. WORKFLOW: Use returned team_id with get_team_channels. Returns: Array of team objects with id, displayName, description, and memberCount.",
             inputSchema={"type": "object", "properties": {}},
         )
 
@@ -867,10 +867,15 @@ class ToolRegistry:
         """Get team channels tool definition."""
         return types.Tool(
             name="get_team_channels",
-            description="Get channels for a specific Team",
+            description="Get channels for a specific Team. WORKFLOW: team_id comes from get_teams tool output. Returns: Array of channel objects with id, displayName, and channel_type.",
             inputSchema={
                 "type": "object",
-                "properties": {"team_id": {"type": "string", "description": "Team ID"}},
+                "properties": {
+                    "team_id": {
+                        "type": "string",
+                        "description": "Team ID from get_teams output",
+                    }
+                },
                 "required": ["team_id"],
             },
         )
@@ -880,7 +885,7 @@ class ToolRegistry:
         """Manage email templates tool definition."""
         return types.Tool(
             name="manage_templates",
-            description="Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. Actions: 'create_from_email' to copy an existing email as a template, 'list' to browse templates, 'get' to view template details, 'update' to edit template content, 'delete' to remove a template (soft delete - moves to Deleted Items folder), 'send' to send a template (creates a copy and sends it, preserving the original template). WORKFLOW: 1) User calls get with text_only=true to view simple text body, 2) User provides update instructions to LLM, 3) LLM calls get with text_only=false to retrieve full HTML, 4) LLM applies user's updates and calls update with complete updated HTML in htmlbody parameter, 5) User calls get with text_only=true to verify changes, 6) User gives command to send, 7) LLM calls send to send template (creates a copy and sends it, preserving original). NOTE: text_only parameter is for get action (simple text vs full HTML), htmlbody parameter is for update action (complete updated HTML).",
+            description="Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. WORKFLOW: 1) User calls get with text_only=true to view simple text body, 2) User provides update instructions to LLM, 3) LLM calls get with text_only=false to retrieve full HTML, 4) LLM applies user's updates and calls update with complete updated HTML in htmlbody parameter, 5) User calls get with text_only=true to verify changes, 6) User gives command to send, 7) LLM calls send to send template (creates a copy and sends it, preserving original). Returns: {success: boolean, message: string, template_number: integer, subject: string, body: string}. Note: text_only parameter is for get action (simple text vs full HTML), htmlbody parameter is for update action (complete updated HTML).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -894,7 +899,7 @@ class ToolRegistry:
                             "delete",
                             "send",
                         ],
-                        "description": "Action to perform on templates",
+                        "description": "Action to perform: 'create_from_email' to copy an existing email as a template, 'list' to browse templates with pagination, 'get' to view template details (simple text or full HTML), 'update' to edit template content, 'delete' to remove a template (soft delete - moves to Deleted Items folder), 'send' to send a template (creates a copy and sends it, preserving original)",
                     },
                     "cache_number": {
                         "type": "integer",
