@@ -343,7 +343,7 @@ class CalendarHandler(BaseHandler):
         )
 
     async def handle_search_events(self, arguments: dict) -> list[types.TextContent]:
-        """Handle search_events tool."""
+        """Handle search_events tool. This operation clears and reloads the cache."""
         query = arguments.get("query")
         start_date = arguments.get("start_date")
         end_date = arguments.get("end_date")
@@ -387,6 +387,7 @@ class CalendarHandler(BaseHandler):
             query, start_date, end_date, MAX_EVENT_SEARCH_LIMIT
         )
 
+        # Clear cache and reload with search results - this is intentional for search operations
         await event_cache.set_mode("search")
         await event_cache.update_search_state(
             query=query,

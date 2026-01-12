@@ -61,7 +61,7 @@ class EmailHandler(BaseHandler):
         )
 
     async def handle_search_emails(self, arguments: dict) -> list[types.TextContent]:
-        """Handle search_emails tool. Follows the same pattern as search_events."""
+        """Handle search_emails tool. This operation clears and reloads the cache."""
         query = arguments.get("query")
         search_type = arguments.get("search_type")
         folder = arguments.get("folder", "Inbox")
@@ -76,6 +76,7 @@ class EmailHandler(BaseHandler):
                 f"Error: Days parameter must be {settings.default_search_days} or less."
             )
 
+        # Clear cache and reload with search results - this is intentional for search operations
         email_cache.clear_cache()
 
         success, user_timezone, error = await self._handle_auth_error(

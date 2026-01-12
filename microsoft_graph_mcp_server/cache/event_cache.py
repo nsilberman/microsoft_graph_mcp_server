@@ -220,18 +220,15 @@ class EventBrowsingCache:
         return self.cache["search_state"].copy()
 
     def get_cached_events(self) -> List[Dict[str, Any]]:
-        """Get cached events from current mode, sorted by start time (earliest first)."""
+        """Get cached events from current mode. Returns events in the order they were cached."""
         if self.cache["mode"] == "browse":
             metadata = self.cache["browse_state"]["metadata"].copy()
         else:
             metadata = self.cache["search_state"]["metadata"].copy()
 
-        sorted_events = sorted(metadata, key=lambda x: x.get("start_datetime", ""))
-
-        for idx, event in enumerate(sorted_events):
-            event["number"] = idx + 1
-
-        return sorted_events
+        # Return events as-is without re-sorting or re-numbering
+        # Cache numbers are assigned when events are first added to cache and should remain stable
+        return metadata
 
     def should_refresh_total_count(self) -> bool:
         """Check if total_count needs to be refreshed."""
@@ -249,6 +246,7 @@ class EventBrowsingCache:
 
     async def add_event_to_cache(self, event: Dict[str, Any]):
         """Add a single event to the current mode's cache metadata.
+        The new event is assigned the next available cache number.
 
         Args:
             event: Event dictionary with event details including 'id', 'subject', 'start', 'end', etc.
@@ -259,7 +257,11 @@ class EventBrowsingCache:
             else self.cache["search_state"]
         )
 
+        # Assign the next available cache number
+        next_number = len(state["metadata"]) + 1
+
         event_metadata = {
+            "number": next_number,
             "id": event.get("id", ""),
             "subject": event.get("subject", ""),
             "start_datetime": event.get("start_datetime", ""),
