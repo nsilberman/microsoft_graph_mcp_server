@@ -283,15 +283,7 @@ class ToolRegistry:
                     },
                     "time_range": {
                         "type": "string",
-                        "enum": [
-                            "today",
-                            "tomorrow",
-                            "this_week",
-                            "next_week",
-                            "this_month",
-                            "next_month",
-                        ],
-                        "description": "Time range type. Optional, in your local timezone. HIGHEST PRIORITY: If provided, overrides start_date, end_date, and days. Returns a user-friendly display string in the response. Examples: 'today', 'this_week', 'this_month'",
+                        "description": "Time range type (case-insensitive). Optional, in your local timezone. Accepted values: 'today', 'tomorrow', 'this_week', 'next_week', 'this_month', 'next_month' (any case). HIGHEST PRIORITY: If provided, overrides start_date, end_date, and days. Returns a user-friendly display string in the response. Examples: 'today', 'Today', 'THIS_WEEK', 'Next_Month'",
                     },
                     "days": {
                         "type": "integer",
@@ -448,15 +440,7 @@ class ToolRegistry:
                     },
                     "time_range": {
                         "type": "string",
-                        "enum": [
-                            "today",
-                            "tomorrow",
-                            "this_week",
-                            "next_week",
-                            "this_month",
-                            "next_month",
-                        ],
-                        "description": "Time range type (optional, in your local timezone). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response (e.g., 'Today', 'This Week', 'This Month').",
+                        "description": "Time range type (case-insensitive, optional, in your local timezone). Accepted values: 'today', 'tomorrow', 'this_week', 'next_week', 'this_month', 'next_month' (any case). If provided, overrides start_date and end_date. Returns a user-friendly display string in the response. Examples: 'today', 'Today', 'THIS_WEEK', 'Next_Month'.",
                     },
                 },
             },

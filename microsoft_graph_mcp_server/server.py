@@ -92,6 +92,12 @@ class MicrosoftGraphMCPServer:
             if arguments is None:
                 arguments = {}
 
+            # Normalize date_range and time_range to lowercase for case-insensitive handling
+            if "date_range" in arguments and arguments["date_range"]:
+                arguments["date_range"] = arguments["date_range"].lower()
+            if "time_range" in arguments and arguments["time_range"]:
+                arguments["time_range"] = arguments["time_range"].lower()
+
             logger.info(f"Server: Tool called - {name} with args: {arguments}")
 
             try:

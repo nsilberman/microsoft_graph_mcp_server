@@ -1291,7 +1291,7 @@ class EmailClient(BaseGraphClient):
             body: Reply body content (must be HTML)
             body_content_type: Content type for body (always 'HTML')
             to_recipients: Optional list of recipient email addresses (defaults to original sender)
-            cc_recipients: Optional list of CC recipient email addresses
+            cc_recipients: Optional list of CC recipient email addresses (defaults to original CC)
             bcc_recipients: Optional list of BCC recipient email addresses
             subject: Optional subject for the reply (defaults to original subject)
             importance: Optional importance level ('normal', 'high', 'low')
@@ -1310,6 +1310,15 @@ class EmailClient(BaseGraphClient):
         sent_date = email_metadata.get("sentDateTime", "")
         original_subject = email_content.get("subject", "")
         original_body = email_content.get("body", "")
+        
+        # Outlook behavior: If to is None, sender becomes recipient
+        if to_recipients is None:
+            to_recipients = [from_address]
+        
+        # Outlook behavior: If cc is None, keep original CC recipients
+        if cc_recipients is None:
+            original_cc = email_content.get("cc", [])
+            cc_recipients = [recipient.get("email", "") for recipient in original_cc if recipient.get("email")]
 
         reply_subject = subject if subject else f"RE: {original_subject}"
 

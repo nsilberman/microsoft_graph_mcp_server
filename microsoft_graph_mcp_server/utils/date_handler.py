@@ -300,11 +300,12 @@ class DateHandler:
         else:
             raise ValueError(f"Invalid date_range: {date_range}")
 
-        start_utc = start_date.astimezone(ZoneInfo("UTC"))
-        end_utc = end_date.astimezone(ZoneInfo("UTC"))
-
-        start_iso = start_utc.isoformat().replace("+00:00", "Z")
-        end_iso = end_utc.isoformat().replace("+00:00", "Z")
+        # Return dates in local timezone with timezone offset (ISO 8601 format)
+        # Microsoft Graph calendarView endpoint correctly interprets timezone-aware datetimes
+        # This ensures all time ranges (today, tomorrow, this_week, next_week, this_month, next_month)
+        # work correctly for users in any timezone
+        start_iso = start_date.isoformat()
+        end_iso = end_date.isoformat()
 
         return (display, start_iso, end_iso)
 
