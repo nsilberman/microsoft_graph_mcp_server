@@ -1095,7 +1095,19 @@ class EmailClient(BaseGraphClient):
                     f"toRecipients/any(r: r/emailAddress/address eq '{query}')"
                 )
         elif query:
-            params["$search"] = f'"{query}"'
+            # Default behavior: search subject for all keywords (AND logic)
+            # Split query into individual keywords and require ALL to be present in subject
+            keywords = query.split()
+            escaped_query = query.replace("'", "''")
+            
+            if len(keywords) == 1:
+                # Single keyword: use simple contains
+                filter_parts.append(f"contains(subject, '{escaped_query}')")
+            else:
+                # Multiple keywords: create AND conditions for each keyword in subject
+                for keyword in keywords:
+                    escaped_keyword = keyword.replace("'", "''")
+                    filter_parts.append(f"contains(subject, '{escaped_keyword}')")
 
         if start_date and end_date:
             filter_parts.append(f"receivedDateTime ge {start_date}")
