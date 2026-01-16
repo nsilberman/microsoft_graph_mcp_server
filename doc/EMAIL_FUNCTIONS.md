@@ -21,11 +21,10 @@ Unified search tool for emails. Search by sender, recipient, subject, or body te
 
 ### Parameters
 - `search_type` (optional, string): Type of search to perform
-  - Values: "sender", "recipient", "subject", "body"
+  - Values: "sender", "subject", "body"
   - If not provided, lists recent emails from Inbox
 - `query` (optional, string): Search query
   - For sender: sender name or email address
-  - For recipient: recipient name or email address
   - For subject: subject text
   - For body: body text content
   - Required when search_type is provided
@@ -125,7 +124,7 @@ DEFAULT_SEARCH_DAYS=90
 - Date range filtering makes searches more efficient and predictable
 - Setting `days` to `null` will search all emails (may be slow for large mailboxes)
 - When no search_type and query are provided, lists recent emails from Inbox with a maximum of 7 days
-- Subject and body searches use exact substring matching (contains) for precise results, while sender and recipient searches use fuzzy matching
+- Subject and body searches use exact substring matching (contains) for precise results, while sender searches use fuzzy matching
 
 ---
 

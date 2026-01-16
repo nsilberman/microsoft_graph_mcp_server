@@ -255,18 +255,18 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, recipient, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
+            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query for email messages (sender name/email, recipient name/email, subject text, or body text). Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
+                        "description": "Search query for email messages. For 'sender': sender name or email address. For 'subject': subject text. For 'body': body text content. Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
                     },
                     "search_type": {
                         "type": "string",
-                        "enum": ["sender", "recipient", "subject", "body"],
-                        "description": "Type of search to perform (optional). If not provided, does general keyword search",
+                        "enum": ["sender", "subject", "body"],
+                        "description": "Type of search to perform (optional). Options: 'sender' (search by sender name/email with fuzzy matching), 'subject' (search by subject text with exact substring matching), 'body' (search by body content with exact substring matching). If not provided, lists emails within the time range without filtering",
                     },
                     "folder": {
                         "type": "string",
@@ -422,13 +422,18 @@ class ToolRegistry:
         """Search events tool definition."""
         return types.Tool(
             name="search_events",
-            description="Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, events: array, count: integer, date_range: string, timezone: string}. Note: Subject, location, and organizer searches use exact substring matching.",
+            description="Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, events: array, count: integer, date_range: string, timezone: string}. Note: Subject search uses exact substring matching, organizer search uses fuzzy matching.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query (keywords in subject, location, or organizer). Optional - if not provided, lists events within the time range",
+                        "description": "Search query. For 'subject': event title text. For 'organizer': organizer name. Optional - if not provided, lists events within the time range",
+                    },
+                    "search_type": {
+                        "type": "string",
+                        "description": "Field to search in (optional). Options: 'subject' (search by event title with exact substring matching), 'organizer' (search by organizer name/email with fuzzy matching). Default: 'subject'",
+                        "enum": ["subject", "organizer"],
                     },
                     "start_date": {
                         "type": "string",

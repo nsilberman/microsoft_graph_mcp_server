@@ -1081,6 +1081,9 @@ class EmailClient(BaseGraphClient):
 
         filter_parts = []
 
+        # Store original query for client-side filtering
+        original_query = query
+
         if search_type:
             if search_type == "subject" and query:
                 escaped_query = query.replace("'", "''")
@@ -1089,11 +1092,14 @@ class EmailClient(BaseGraphClient):
                 escaped_query = query.replace("'", "''")
                 filter_parts.append(f"contains(body, '{escaped_query}')")
             elif search_type == "sender" and query:
-                filter_parts.append(f"from/emailAddress/address eq '{query}'")
-            elif search_type == "recipient" and query:
-                filter_parts.append(
-                    f"toRecipients/any(r: r/emailAddress/address eq '{query}')"
-                )
+                # Use server-side filter for exact email match
+                if "@" in query:
+                    escaped_query = query.replace("'", "''")
+                    filter_parts.append(f"from/emailAddress/address eq '{escaped_query}'")
+                # For sender name search, use client-side filtering
+                # Server-side doesn't support contains() on from/emailAddress/name
+                # We always add date filter to reduce dataset size
+
         elif query:
             # Default behavior: search subject for all keywords (AND logic)
             # Split query into individual keywords and require ALL to be present in subject
@@ -1128,6 +1134,20 @@ class EmailClient(BaseGraphClient):
             self._create_email_summary(email, idx + 1, user_tz)
             for idx, email in enumerate(emails)
         ]
+
+        # Client-side filtering for sender name search (case-insensitive)
+        # Server-side filter doesn't support contains() on from/emailAddress/name
+        # Date filter reduces dataset size before client-side filtering
+        if original_query and search_type == "sender" and "@" not in original_query:
+            query_lower = original_query.lower()
+            filtered_summaries = []
+            for summary in summaries:
+                sender_name = summary.get("from", {}).get("name", "").lower()
+                sender_email = summary.get("from", {}).get("email", "").lower()
+                # Match if query is in sender name or email
+                if query_lower in sender_name or query_lower in sender_email:
+                    filtered_summaries.append(summary)
+            summaries = filtered_summaries
 
         sorted_summaries = sorted(
             summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True

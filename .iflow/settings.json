@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "microsoft-graph": {
+      "command": "python",
+      "args": [
+        "-m",
+        "microsoft_graph_mcp_server.main"
+      ],
+      "disabled": false
+    }
+  }
+}

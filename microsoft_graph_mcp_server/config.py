@@ -53,6 +53,14 @@ class Settings(BaseSettings):
         os.getenv("CONTACT_SEARCH_LIMIT", "10")
     )  # Maximum contacts to return in search results
 
+    # Calendar search settings
+    calendar_search_past_days: int = int(
+        os.getenv("CALENDAR_SEARCH_PAST_DAYS", "30")
+    )  # Default past days to search for calendar events
+    calendar_search_future_days: int = int(
+        os.getenv("CALENDAR_SEARCH_FUTURE_DAYS", "90")
+    )  # Default future days to search for calendar events
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

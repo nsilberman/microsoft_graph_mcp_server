@@ -12,7 +12,7 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Support for custom Azure app registration via `.env` configuration
 
 ### Email Management
-- Search and browse emails with advanced filtering (by sender, recipient, subject, body)
+- Search and browse emails with advanced filtering (by sender, subject, body)
 - Configurable search range (default: 90 days, adjustable via `DEFAULT_SEARCH_DAYS`)
 - Compose, reply, and forward emails with HTML support
 - Inline attachment support for embedded images and content
@@ -73,7 +73,7 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - **Optimized Tool Routing**: O(1) dispatch table instead of O(n) if/elif chain
   - Faster tool execution with dictionary-based lookup
   - Easier to maintain when adding/removing tools
-  - 85% reduction in routing code (65 lines → 10 lines)
+  - 85% reduction in routing code (65 lines ?10 lines)
 - **Code Quality Improvements**:
   - Removed dead `create_event` tool code (legacy duplicate functionality)
   - Added comprehensive unit tests for dispatch table and validation
@@ -188,7 +188,7 @@ If you have Microsoft Entra ID admin privileges, you can configure a **Token Lif
    - Sign in with your admin account
 
 2. **Create a Token Lifetime Policy:**
-   - Navigate to **Identity** → **Applications** → **App registrations**
+   - Navigate to **Identity** ?**Applications** ?**App registrations**
    - Find your application
    - Configure token lifetime policies through the portal interface
 
@@ -272,7 +272,7 @@ Use an absolute path to your project directory:
 #### Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
 - **manage_emails** - Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple
-- **search_emails** - Search or list emails by keywords, sender, recipient, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Note: Subject and body searches use exact substring matching (contains) for precise results, while sender and recipient searches use fuzzy matching.
+- **search_emails** - Search or list emails by keywords, sender, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Note: Subject and body searches use exact substring matching (contains) for precise results, while sender searches use fuzzy matching. The search_type parameter supports: "sender" (search by sender name/email), "subject" (search by subject text), and "body" (search by body content).
 - **browse_email_cache** - Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence.
 - **get_email_content** - Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
 - **send_email** - Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
@@ -281,7 +281,7 @@ Use an absolute path to your project directory:
 #### Calendar Management
 - **browse_events** - Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.
 - **get_event_detail** - Get detailed information for a specific calendar event by its cache number. Use the cache number from browse_events (e.g., 1, 2, 3) to retrieve complete event details.
-- **search_events** - Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month').
+- **search_events** - Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). The search_type parameter supports: "subject" (search by event subject) and "organizer" (search by organizer name with fuzzy matching).
 - **check_attendee_availability** - Check availability of attendees for a given date. Automatically includes the organizer (you) in the availability check to ensure overlap-free time slots. Automatically calculates time range based on all attendees' working hours. Returns availability view string and schedule items for each attendee. Useful for finding optimal meeting times when creating or updating events. Availability view string uses single-character codes for each time interval: 0=Free, 1=Tentative, 2=Busy, 3=Out of office (OOF), 4=Working elsewhere, ?=Unknown. Timezone defaults to user's mailbox settings, but can be explicitly specified.
 - **respond_to_event** - Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, and delete cancelled events. This tool is for responding to events that you are invited to, not events you organized yourself. Supports accepting/declining/tentatively accepting entire recurring series using the `series` parameter. The `delete` action is specifically for removing cancelled events from your calendar that were organized by others. Use the cache number from browse_events or search_events results.
 - **manage_my_event** - Manage your own calendar events with multiple actions: create, update, cancel, forward, and reply. This tool is for events that you organized yourself, not events you were invited to. Use this tool to create new events, update or cancel events you created, forward events to others, or reply to event attendees. Use the cache number from browse_events or search_events results.
@@ -563,7 +563,7 @@ The `move_all_emails_from_folder` tool provides highly optimized bulk email move
 **Key Optimizations**:
 - **Batch Operations**: Uses Microsoft Graph API $batch endpoint with 20 emails per batch (API limit)
 - **Concurrent Processing**: Up to 20 batches run in parallel using asyncio.gather()
-- **Folder ID Caching**: Eliminates repeated folder lookups (0.63s → 0.00s)
+- **Folder ID Caching**: Eliminates repeated folder lookups (0.63s ?0.00s)
 - **Connection Pooling**: Reuses HTTP client connections to reduce overhead
 - **Efficient Error Handling**: Tracks moved/failed counts and collects errors without stopping
 

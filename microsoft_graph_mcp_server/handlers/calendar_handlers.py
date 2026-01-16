@@ -345,6 +345,7 @@ class CalendarHandler(BaseHandler):
     async def handle_search_events(self, arguments: dict) -> list[types.TextContent]:
         """Handle search_events tool. This operation clears and reloads the cache."""
         query = arguments.get("query")
+        search_type = arguments.get("search_type", "organizer")
         start_date = arguments.get("start_date")
         end_date = arguments.get("end_date")
         date_range = arguments.get("time_range")
@@ -353,15 +354,24 @@ class CalendarHandler(BaseHandler):
         today_date = DateHandler.get_today_date(user_timezone)
 
         if date_range:
-            display_range, start_date, end_date = DateHandler.parse_date_range(
+            display_range, start_date_local, end_date_local = DateHandler.parse_date_range(
                 date_range, user_timezone
             )
             start_date_display = DateHandler.format_date_with_weekday(
-                start_date, user_timezone
+                start_date_local, user_timezone
             )
             end_date_display = DateHandler.format_date_with_weekday(
-                end_date, user_timezone
+                end_date_local, user_timezone
             )
+            # Convert local timezone dates to UTC for API call
+            # parse_date_range returns timezone-aware ISO strings, parse and convert to UTC
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+
+            start_dt = datetime.fromisoformat(start_date_local)
+            end_dt = datetime.fromisoformat(end_date_local)
+            start_date = start_dt.astimezone(ZoneInfo("UTC")).isoformat().replace("+00:00", "Z")
+            end_date = end_dt.astimezone(ZoneInfo("UTC")).isoformat().replace("+00:00", "Z")
         else:
             if start_date:
                 start_date = DateHandler.parse_local_date_to_utc(
@@ -384,7 +394,7 @@ class CalendarHandler(BaseHandler):
                 end_date = end_dt.isoformat().replace("+00:00", "Z")
 
         result = await graph_client.search_events(
-            query, start_date, end_date, MAX_EVENT_SEARCH_LIMIT
+            query, search_type, start_date, end_date, MAX_EVENT_SEARCH_LIMIT
         )
 
         # Clear cache and reload with search results - this is intentional for search operations

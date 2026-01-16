@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from .base_client import BaseGraphClient
 from ..utils import DateHandler as date_handler
+from ..config import settings
 
 MAX_EVENT_SEARCH_LIMIT = 1000
 
@@ -143,14 +144,20 @@ class CalendarClient(BaseGraphClient):
     async def search_events(
         self,
         query: Optional[str] = None,
+        search_type: str = "organizer",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         top: int = 20,
     ) -> Dict[str, Any]:
-        """Search or list calendar events by keywords. Note: Pagination with skip is not supported with search.
+        """Search or list calendar events by keywords using server-side $filter parameter.
+
+        Uses Microsoft Graph API's $filter parameter with contains() function to filter events
+        on subject. When no date range is provided, defaults to past 30 days to future 90 days
+        for better performance.
 
         Args:
             query: Search query for keywords in event fields
+            search_type: Field to search in - 'subject' or 'organizer'
             start_date: Start date in UTC ISO format (converted from user local time by handler)
             end_date: End date in UTC ISO format (converted from user local time by handler)
             top: Number of results to return
@@ -158,6 +165,8 @@ class CalendarClient(BaseGraphClient):
         Returns:
             Dictionary with event summaries, count, and timezone
         """
+        from datetime import datetime, timedelta
+
         user_timezone_str = await self.get_user_timezone()
 
         params = {
@@ -165,18 +174,77 @@ class CalendarClient(BaseGraphClient):
             "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting,seriesMasterId",
         }
 
+        # Always use calendarView with a date range for better performance
         if start_date and end_date:
             endpoint = "/me/calendar/calendarView"
             params["startDateTime"] = start_date
             params["endDateTime"] = end_date
         else:
-            endpoint = "/me/events"
-            if query:
-                params["$search"] = f'"{query}"'
+            # Default to configured past and future days when no dates provided
+            # This significantly improves performance vs using /me/events without date constraints
+            endpoint = "/me/calendar/calendarView"
+            now = datetime.utcnow()
+            default_start = now - timedelta(days=settings.calendar_search_past_days)
+            default_end = now + timedelta(days=settings.calendar_search_future_days)
+            params["startDateTime"] = default_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+            params["endDateTime"] = default_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # Use server-side filtering with $filter parameter
+        # Note: $search is not supported on Events, but $filter with contains/startsWith is supported
+        original_query = query  # Store original query for client-side filtering
+        if query:
+            # Escape single quotes in the query for OData filter
+            escaped_query = query.replace("'", "''")
+            # Build filter conditions based on search_type
+            filter_conditions = []
+
+            # Filter on subject using contains (case-sensitive) for server-side optimization
+            if search_type == "subject":
+                filter_conditions.append(f"contains(subject,'{escaped_query}')")
+
+            # Try to filter by organizer email if query looks like an email and search_type is organizer
+            # This provides server-side filtering for exact email matches
+            if "@" in query and search_type == "organizer":
+                filter_conditions.append(f"organizer/emailAddress/address eq '{escaped_query}'")
+
+            # Combine conditions with OR
+            if filter_conditions:
+                params["$filter"] = " or ".join(filter_conditions)
 
         result = await self.get(endpoint, params=params)
 
         events = result.get("value", [])
+
+        # Client-side filtering for case-insensitive matching
+        if original_query:
+            query_lower = original_query.lower()
+            filtered_events = []
+            for event in events:
+                subject = event.get("subject", "")
+                organizer_name = (
+                    event.get("organizer", {})
+                    .get("emailAddress", {})
+                    .get("name", "")
+                )
+                organizer_email = (
+                    event.get("organizer", {})
+                    .get("emailAddress", {})
+                    .get("address", "")
+                )
+
+                # Match based on search_type
+                match = False
+                if search_type == "subject":
+                    match = query_lower in subject.lower()
+                elif search_type == "organizer":
+                    match = (
+                        query_lower in organizer_name.lower()
+                        or query_lower in organizer_email.lower()
+                    )
+
+                if match:
+                    filtered_events.append(event)
+            events = filtered_events
 
         summaries = []
         for idx, event in enumerate(events):

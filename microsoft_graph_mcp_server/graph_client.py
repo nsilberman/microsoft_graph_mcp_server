@@ -466,13 +466,14 @@ class GraphClient:
     async def search_events(
         self,
         query: str,
+        search_type: str = "organizer",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         top: int = 20,
     ) -> List[Dict[str, Any]]:
         """Search calendar events."""
         return await self.calendar_client.search_events(
-            query, start_date, end_date, top
+            query, search_type, start_date, end_date, top
         )
 
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:

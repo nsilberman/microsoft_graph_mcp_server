@@ -17,9 +17,19 @@ This document describes the calendar-related functions available in the Microsof
 ### Description
 Search or list calendar events by keywords with configurable date range filtering. If no query is provided, lists events within the specified time range. Supports time range presets (today, tomorrow, this_week, next_week, this_month, next_month) or custom date ranges.
 
+The `search_type` parameter allows you to specify what to search for:
+- "subject": Search by event subject (default)
+- "organizer": Search by organizer name (uses fuzzy matching)
+
 ### Parameters
-- `query` (optional, string): Search query (keywords in subject, location, or organizer)
+- `query` (optional, string): Search query
+  - For subject: subject text
+  - For organizer: organizer name
   - If not provided, lists events within the time range
+- `search_type` (optional, string): Type of search to perform
+  - Values: "subject", "organizer"
+  - Default: "subject"
+  - If not provided, defaults to subject search
 - `start_date` (optional, string): Start date in your local timezone
   - Format: "2024-01-01" or "2024-01-01T14:30"
   - Optional if time_range is provided
@@ -86,19 +96,31 @@ result = await search_events(
 
 #### Search Events by Keywords:
 ```python
-# Search events by subject
+# Search events by subject (default)
 result = await search_events(query="meeting", time_range="this_week")
 
-# Search events by location
-result = await search_events(query="conference room", time_range="this_month")
+# Search events by subject explicitly
+result = await search_events(query="meeting", search_type="subject", time_range="this_week")
 
-# Search events by organizer
-result = await search_events(query="John", start_date="2024-01-01", end_date="2024-01-31")
+# Search events by organizer (fuzzy matching)
+result = await search_events(query="John", search_type="organizer", start_date="2024-01-01", end_date="2024-01-31")
 ```
 
 ### Notes
 - Automatically clears the cache before performing search or loading events
 - Loads search results or time range events into cache for browsing
+- Use `browse_events` to view the results
+- Time ranges are calculated in the user's local timezone and converted to UTC for API calls
+- Recurring events are automatically expanded into individual occurrences within the specified date range
+- Maximum MAX_EVENT_SEARCH_LIMIT events per search
+- Subject search uses server-side filtering (contains) for exact matches
+- Organizer search uses hybrid filtering: server-side for exact email matches, client-side for fuzzy name matches
+- Use `browse_events` to view the results
+- Time ranges are calculated in the user's local timezone and converted to UTC for API calls
+- Recurring events are automatically expanded into individual occurrences within the specified date range
+- Maximum MAX_EVENT_SEARCH_LIMIT events per search
+- Subject search uses server-side filtering (contains) for exact matches
+- Organizer search uses hybrid filtering: server-side for exact email matches, client-side for fuzzy name matches
 - Use `browse_events` to view the results
 - Time ranges are calculated in the user's local timezone and converted to UTC for API calls
 - Recurring events are automatically expanded into individual occurrences within the specified date range
