@@ -121,11 +121,29 @@ class UserClient(BaseGraphClient):
         such as "who is Joyson Barrago" or "find contact with email joyson@ibm.com".
 
         This is NOT for searching email messages - use search_emails for that.
+
+        Uses smart detection to automatically choose the optimal search method:
+        - Email addresses: Fast $filter with exact match
+        - Names: $search with tokenization for contains-like behavior
         """
         try:
-            params = {"$search": f'"displayName:{query}" OR "mail:{query}"', "$top": top}
-            headers = {"ConsistencyLevel": "eventual"}
-            result = await self.get("/users", params=params, headers=headers)
+            # Strategy: Detect query type and use optimal method
+            
+            # 1. If query looks like an email address (contains @ and . after @)
+            if "@" in query and "." in query.split("@")[-1]:
+                # Use $filter for exact match - FASTEST
+                params = {
+                    "$filter": f"mail eq '{query}' OR userPrincipalName eq '{query}'",
+                    "$top": top
+                }
+                result = await self.get("/users", params=params)
+            # 2. For name searches (use $search for contains-like behavior)
+            else:
+                # Use $search which provides tokenized search (contains-like)
+                params = {"$search": f'"displayName:{query}"', "$top": top}
+                headers = {"ConsistencyLevel": "eventual"}
+                result = await self.get("/users", params=params, headers=headers)
+            
             contacts = result.get("value", [])
             return contacts[:top]
         except RateLimitError as e:
