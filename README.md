@@ -6,42 +6,42 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Microsoft Graph API](https://img.shields.io/badge/Microsoft%20Graph-API-0078D4.svg)](https://developer.microsoft.com/en-us/graph)
 
-**?? A powerful Model Context Protocol (MCP) Server for Microsoft 365 integration**
+**🚀 A powerful Model Context Protocol (MCP) Server for Microsoft 365 integration**
 
 *Seamlessly connect your AI assistants with Microsoft Graph API - Email, Calendar, Teams, OneDrive, and more!*
 
-[Features](#-features) ? [Quick Start](doc/QUICK_START.md) ? [Documentation](#-documentation) ? [Examples](examples/)
+[Features](#-features) â¢ [Quick Start](doc/QUICK_START.md) â¢ [Documentation](#-documentation) â¢ [Examples](examples/)
 
 </div>
 
 ---
 
-## ?? Why This Project?
+## 🚀 Why This Project?
 
 This MCP server brings the full power of Microsoft 365 to your AI workflows:
 
-- ? **Zero Configuration** - Device flow authentication, no Azure app registration required
-- ?? **Secure** - Token management with automatic refresh and secure storage
-- ? **Fast** - Optimized batch operations and intelligent caching
-- ?? **Comprehensive** - 30+ tools covering email, calendar, contacts, files, and Teams
-- ?? **Well-Documented** - Extensive guides and examples for every feature
-- ?? **Production-Ready** - Robust error handling, rate limiting, and validation
+- â¢ **Zero Configuration** - Device flow authentication, no Azure app registration required
+- 🚀 **Secure** - Token management with automatic refresh and secure storage
+- â¢ **Fast** - Optimized batch operations and intelligent caching
+- 🚀 **Comprehensive** - 30+ tools covering email, calendar, contacts, files, and Teams
+- 🚀 **Well-Documented** - Extensive guides and examples for every feature
+- 🚀 **Production-Ready** - Robust error handling, rate limiting, and validation
 
 ---
 
-## ?? Features
+## 🚀 Features
 
 
 ## Features
 
-### ?? Authentication and User Settings
+### 🚀 Authentication and User Settings
 - Interactive device code flow authentication with Microsoft Graph (no Azure app registration required)
 - User settings management including timezone, search days, and page sizes
 - Authentication status checking and token management
 - Token refresh with `extend_token` action to extend sessions without re-login
 - Support for custom Azure app registration via `.env` configuration
 
-### ?? Email Management
+### 🚀 Email Management
 - Search and browse emails with advanced filtering (by sender, subject, body)
 - Configurable search range (default: 90 days, adjustable via `DEFAULT_SEARCH_DAYS`)
 - Compose, reply, and forward emails with HTML support
@@ -51,7 +51,7 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 - Email caching with pagination for efficient browsing
 - Timezone-aware email timestamps and filtering
 
-### ?? Template Management *(Experimental)*
+### 🚀 Template Management *(Experimental)*
 > **Note:** Template management is still experimental. We're actively improving this feature based on user feedback.
 
 - Create email templates from existing emails stored in a Templates folder
@@ -67,7 +67,7 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
   - Users verify changes in simple text before sending
 - Ideal for recurring emails like newsletters, meeting reminders, and status reports
 
-### ?? Calendar Management
+### 🚀 Calendar Management
 - Search and browse calendar events with pagination
 - Create, update, and cancel your own events
 - Create recurring events with flexible patterns (daily, weekly, monthly, yearly)
@@ -78,17 +78,17 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 - Forward events and reply to event attendees
 - Timezone-aware event scheduling
 
-### ?? Contact Management
+### 🚀 Contact Management
 - Search organization directory for people by name or email address
 - Returns contact information (name, email, etc.) from your organization
 - Configurable search limit (default: 10)
 - Automatic rate limiting with exponential backoff and retry logic
 - Clear error messages with retry-after information when rate limits are exceeded
 
-### ?? File and Team Management *(Workflows in Development)*
-- ?? **list_files** - List OneDrive files and folders
-- ?? **get_teams** - Get Teams you're a member of *(No workflow example yet)*
-- ?? **get_team_channels** - Get channels for a Team *(No workflow example yet)*
+### 🚀 File and Team Management *(Workflows in Development)*
+- 🚀 **list_files** - List OneDrive files and folders
+- 🚀 **get_teams** - Get Teams you're a member of *(No workflow example yet)*
+- 🚀 **get_team_channels** - Get channels for a Team *(No workflow example yet)*
 
 > **Note:** File and Teams tools are functional but don't have complete workflow examples yet. Contributions welcome!
 
@@ -119,7 +119,7 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 
 ---
 
-## ?? Performance Benchmarks
+## 🚀 Performance Benchmarks
 
 | Operation | Volume | Time | Rate |
 |-----------|--------|------|------|
