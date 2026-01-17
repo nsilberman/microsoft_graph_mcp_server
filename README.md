@@ -1,17 +1,44 @@
 # Microsoft Graph MCP Server
 
-A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing comprehensive access to the Microsoft 365 ecosystem.
+<div align="center">
 
-## Features
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Microsoft Graph API](https://img.shields.io/badge/Microsoft%20Graph-API-0078D4.svg)](https://developer.microsoft.com/en-us/graph)
 
-### Authentication and User Settings
+**🚀 A powerful Model Context Protocol (MCP) Server for Microsoft 365 integration**
+
+*Seamlessly connect your AI assistants with Microsoft Graph API - Email, Calendar, Teams, OneDrive, and more!*
+
+[Features](#-features) �?[Quick Start](#-quick-start) �?[Documentation](#-documentation) �?[Examples](examples/)
+
+</div>
+
+---
+
+## 🌟 Why This Project?
+
+This MCP server brings the full power of Microsoft 365 to your AI workflows:
+
+- �?**Zero Configuration** - Device flow authentication, no Azure app registration required
+- 🔐 **Secure** - Token management with automatic refresh and secure storage
+- �?**Fast** - Optimized batch operations and intelligent caching
+- 🎯 **Comprehensive** - 30+ tools covering email, calendar, contacts, files, and Teams
+- 📝 **Well-Documented** - Extensive guides and examples for every feature
+- 🧪 **Production-Ready** - Robust error handling, rate limiting, and validation
+
+---
+
+## 🎯 Features
+
+### 🔑 Authentication and User Settings
 - Interactive device code flow authentication with Microsoft Graph (no Azure app registration required)
 - User settings management including timezone, search days, and page sizes
 - Authentication status checking and token management
 - Token refresh with `extend_token` action to extend sessions without re-login
 - Support for custom Azure app registration via `.env` configuration
 
-### Email Management
+### 📧 Email Management
 - Search and browse emails with advanced filtering (by sender, subject, body)
 - Configurable search range (default: 90 days, adjustable via `DEFAULT_SEARCH_DAYS`)
 - Compose, reply, and forward emails with HTML support
@@ -21,7 +48,9 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Email caching with pagination for efficient browsing
 - Timezone-aware email timestamps and filtering
 
-### Template Management
+### 📝 Template Management *(Experimental)*
+
+> **Note:** Template management is still experimental. We're actively improving this feature based on user feedback.
 - Create email templates from existing emails stored in a Templates folder
 - Browse templates with pagination support
 - View templates in simple text or full HTML format
@@ -35,7 +64,7 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
   - Users verify changes in simple text before sending
 - Ideal for recurring emails like newsletters, meeting reminders, and status reports
 
-### Calendar Management
+### 📅 Calendar Management
 - Search and browse calendar events with pagination
 - Create, update, and cancel your own events
 - Create recurring events with flexible patterns (daily, weekly, monthly, yearly)
@@ -46,25 +75,28 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
 - Forward events and reply to event attendees
 - Timezone-aware event scheduling
 
-### Contact Management
+### 👥 Contact Management
 - Search organization directory for people by name or email address
 - Returns contact information (name, email, etc.) from your organization
 - Configurable search limit (default: 10)
 - Automatic rate limiting with exponential backoff and retry logic
 - Clear error messages with retry-after information when rate limits are exceeded
 
-### File and Team Management
-- List files and folders in OneDrive
-- Access Microsoft Teams teams and channels
+### 📂 File and Team Management *(Workflows in Development)*
+- 📁 **list_files** - List OneDrive files and folders
+- 👥 **get_teams** - Get Teams you're a member of *(No workflow example yet)*
+- 💬 **get_team_channels** - Get channels for a Team *(No workflow example yet)*
 
-### Performance Optimizations
+> **Note:** File and Teams tools are functional but don't have complete workflow examples yet. Contributions welcome!
+
+### �?Performance & Architecture
 - Efficient bulk email operations with batch processing
 - Optimized email search with configurable limits
 - Timezone-aware date and time handling
 - Disk-based caching for persistence
 - API propagation delay handling for reliable operations
 
-### Architecture Improvements
+
 - **Input Validation Layer**: Comprehensive validation system for all tool inputs with clear error messages
   - Validates email addresses, cache numbers, and required/optional strings
   - Early error detection prevents processing invalid inputs
@@ -79,7 +111,41 @@ A Model Context Protocol (MCP) Server based on Microsoft Graph API, providing co
   - Added comprehensive unit tests for dispatch table and validation
   - Better separation of concerns with centralized validators
 
-## Installation
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.10 or higher
+- Microsoft 365 account (work, school, or personal)
+- No Azure app registration needed (uses device flow authentication)
+
+### Installation Options
+
+Choose your preferred installation method:
+
+#### Option 1: Using UVX (Recommended) ⭐`n
+Install the `uv` package manager and run directly:
+
+```bash
+# Install uv
+pip install uv
+
+# Run the server
+uvx .
+```
+
+#### Option 2: Using pip (Traditional)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+python -m microsoft_graph_mcp_server.main
+```
 
 ### Using pip (Traditional)
 
@@ -113,7 +179,10 @@ python verify_setup.py
 
 This will check that all dependencies are installed and the server can be instantiated correctly.
 
-## Configuration
+
+---
+
+## ⚙️ Configuration
 
 ### Interactive Authentication (Recommended)
 
@@ -205,7 +274,10 @@ If you have Microsoft Entra ID admin privileges, you can configure a **Token Lif
 
 **Recommendation:** Most users should use the `extend_token` action (Option 1) as it doesn't require admin access and provides the same result - longer token lifetime.
 
-## Usage
+
+---
+
+## 🎮 Usage
 
 ### Configure in Claude Desktop
 
@@ -269,7 +341,7 @@ Use an absolute path to your project directory:
 - **user_settings** - Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.
 - **search_contacts** - Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. This is NOT for searching email messages - use search_emails for that. Uses smart detection to automatically choose the optimal search method: email addresses use fast `$filter` with exact match (~10x faster), while name searches use `$search` with tokenization for contains-like behavior. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying.
 
-#### Email Management
+#### 📧 Email Management
 - **manage_mail_folder** - Manage mail folders. Supports list, create, delete, rename, get_details, and move operations
 - **manage_emails** - Manage emails with multiple actions. Supports moving, deleting, archiving, flagging, and categorizing emails. Actions include: move_single, move_all, delete_single, delete_multiple, delete_all, archive_single, archive_multiple, flag_single, flag_multiple, categorize_single, categorize_multiple
 - **search_emails** - Search or list emails by keywords, sender, subject, or body. Returns matching emails with summary information. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Note: Subject and body searches use exact substring matching (contains) for precise results, while sender searches use fuzzy matching. The search_type parameter supports: "sender" (search by sender name/email), "subject" (search by subject text), and "body" (search by body content).
@@ -278,7 +350,7 @@ Use an absolute path to your project directory:
 - **send_email** - Unified tool for composing, replying to, and forwarding emails. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content.
 - **manage_templates** - Manage email templates stored as drafts in a Templates folder. Actions include: create_from_email (copy an email as a template), list (browse templates), get (view template details with simple text or full HTML), update (edit template content), delete (remove a template - soft delete, moves to Deleted Items folder), and send (send a template while preserving the original). The template update workflow allows users to view simple text, provide update instructions to an LLM, and have the LLM apply changes to the full HTML while preserving formatting.
 
-#### Calendar Management
+#### 📅 Calendar Management
 - **browse_events** - Browse calendar events in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. Use search_events to load events into the cache first.
 - **get_event_detail** - Get detailed information for a specific calendar event by its cache number. Use the cache number from browse_events (e.g., 1, 2, 3) to retrieve complete event details.
 - **search_events** - Search or list calendar events by keywords. Returns matching events with summary information. If no query is provided, lists events within the specified time range. All time parameters use your local timezone. When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). The search_type parameter supports: "subject" (search by event subject) and "organizer" (search by organizer name with fuzzy matching).
@@ -291,7 +363,9 @@ Use an absolute path to your project directory:
 - **get_teams** - Get list of Teams that you are a member of
 - **get_team_channels** - Get channels for a specific Team
 
-### Template Management Workflow
+### 📝 Template Management *(Experimental)*
+
+> **Note:** Template management is still experimental. We're actively improving this feature based on user feedback. Workflow
 
 The template management system allows you to create, edit, and send email templates stored as drafts in a Templates folder. Templates are useful for emails you send regularly with similar content.
 
@@ -430,7 +504,10 @@ python -m microsoft_graph_mcp_server.main
 microsoft-graph-mcp-server
 ```
 
-## Development
+
+---
+
+## 🛠�?Development
 
 ### Using UVX (Recommended)
 
@@ -468,7 +545,10 @@ black .
 isort .
 ```
 
-## Recent Improvements
+
+---
+
+## 📈 Recent Improvements
 
 ### Timezone Support
 Email timestamps are now automatically converted to the user's local timezone for better readability. The system:
@@ -632,7 +712,9 @@ The email search functionality has been significantly optimized with server-side
 - Clear error messages when limit is exceeded
 - Consistent validation across all search functions (search_emails, search_emails_by_sender, search_emails_by_recipient, search_emails_by_subject, search_emails_by_body, load_emails_by_folder)
 
-### Template Management System
+### 📝 Template Management *(Experimental)*
+
+> **Note:** Template management is still experimental. We're actively improving this feature based on user feedback. System
 
 A comprehensive template management system has been implemented for creating, editing, and sending email templates:
 
@@ -686,7 +768,10 @@ Search with different batch sizes:
 
 The optimizations ensure efficient handling of large email batches while maintaining system stability and predictable performance.
 
-## Documentation
+
+---
+
+## 📚 Documentation
 
 Additional documentation is available in the `doc/` folder:
 - [QUICK_START.md](doc/QUICK_START.md) - Quick start guide for UVX setup
@@ -699,6 +784,9 @@ Additional documentation is available in the `doc/` folder:
 - [VALIDATION.md](doc/VALIDATION.md) - Input validation system documentation
 - [CONTRIBUTING.md](doc/CONTRIBUTING.md) - Contribution guidelines
 
-## License
+
+---
+
+## 📄 License
 
 MIT License
