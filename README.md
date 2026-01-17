@@ -6,8 +6,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Microsoft Graph API](https://img.shields.io/badge/Microsoft%20Graph-API-0078D4.svg)](https://developer.microsoft.com/en-us/graph)
 <br>**🚀 A powerful Model Context Protocol (MCP) Server for Microsoft 365 integration**
-<br>
-[![GitHub stars](https://img.shields.io/github/stars/marlonluo2018/microsoft_graph_mcp_server)](https://github.com/marlonluo2018/microsoft_graph_mcp_server/stargazers)<br>
+<br><br>
+[![GitHub stars](https://img.shields.io/github/stars/marlonluo2018/microsoft_graph_mcp_server)](https://github.com/marlonluo2018/microsoft_graph_mcp_server/stargazers)<br><br>
 *Seamlessly connect your AI assistants with Microsoft Graph API - Email, Calendar, Teams, OneDrive, and more!*
 
 [Features](#-features) • [Quick Start](doc/QUICK_START.md) • [Documentation](#-documentation) • [Examples](examples/)
