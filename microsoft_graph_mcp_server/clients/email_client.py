@@ -1343,9 +1343,17 @@ class EmailClient(BaseGraphClient):
         original_subject = email_content.get("subject", "")
         original_body = email_content.get("body", "")
         
-        # Outlook behavior: If to is None, sender becomes recipient
+        # Outlook behavior: If to is None, use Reply All behavior
         if to_recipients is None:
+            # Reply All: TO includes sender + original TO recipients
             to_recipients = [from_address]
+            
+            # Add original TO recipients (these should stay in TO, not move to CC)
+            original_to = email_content.get("to", [])
+            for recipient in original_to:
+                recipient_email = recipient.get("email", "")
+                if recipient_email and recipient_email not in to_recipients:
+                    to_recipients.append(recipient_email)
         
         # Outlook behavior: If cc is None, keep original CC recipients
         if cc_recipients is None:
