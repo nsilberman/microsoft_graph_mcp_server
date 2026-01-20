@@ -239,12 +239,12 @@ Get detailed information for a specific calendar event by its cache number. Use 
 {
   "subject": "Team Meeting",
   "start": {
-    "dateTime": "2026-01-06T06:00:00.0000000",
-    "timeZone": "UTC"
+    "time": "Mon 01/06/2026 02:00 PM",
+    "timeZone": "Asia/Shanghai"
   },
   "end": {
-    "dateTime": "2026-01-06T07:00:00.0000000",
-    "timeZone": "UTC"
+    "time": "Mon 01/06/2026 03:00 PM",
+    "timeZone": "Asia/Shanghai"
   },
   "location": {
     "displayName": "Conference Room A",
@@ -290,8 +290,12 @@ Get detailed information for a specific calendar event by its cache number. Use 
 
 ### Return Fields
 - `subject`: Event subject
-- `start`: Event start time (dateTime, timeZone)
-- `end`: Event end time (dateTime, timeZone)
+- `start`: Event start time with user-friendly format
+  - `time`: Formatted time string in user's local timezone (e.g., "Mon 01/06/2026 02:00 PM")
+  - `timeZone`: User's timezone (e.g., "Asia/Shanghai")
+- `end`: Event end time with user-friendly format
+  - `time`: Formatted time string in user's local timezone (e.g., "Mon 01/06/2026 03:00 PM")
+  - `timeZone`: User's timezone (e.g., "Asia/Shanghai")
 - `location`: Event location (displayName, locationUri, locationType)
 - `organizer`: Event organizer (name, email)
 - `attendees`: Array of attendees with response status
@@ -957,13 +961,58 @@ Recurring events are automatically expanded into individual occurrences within t
 - Modified occurrences (exceptions) are correctly displayed
 - The series master event is not included in the results (only occurrences)
 
+### Recurrence Detection
+The system automatically detects and marks events as recurring based on the following criteria:
+- Events with a `recurrence` object are marked as `recurrence: true`
+- Events of type "occurrence" or "seriesMaster" are marked as `recurrence: true`
+- Events of type "exception" (modified occurrences) are also marked as `recurrence: true`
+- For "occurrence" and "exception" types, the system fetches recurrence information from the series master event
+
 ### Example
 For a weekly recurring meeting:
 - Original: "Weekly Team Meeting" (seriesMaster)
 - Expanded: "Weekly Team Meeting" on Jan 6, Jan 13, Jan 20, etc. (occurrence)
 - Modified: "Weekly Team Meeting - Rescheduled" on Jan 20 (exception)
+- All of these will have `recurrence: true` and include `recurrenceInfo`
 
 ---
+
+## All-Day Events
+
+### Overview
+All-day events are treated specially by the system to ensure correct display and filtering behavior across different timezones.
+
+### Time Display
+- All-day events display "12:00 AM" for both start and end times
+- No timezone conversion is applied to all-day event times
+- This ensures consistent display regardless of user timezone
+
+### Filtering Behavior
+All-day events are filtered based on local midnight boundaries to ensure they appear in the correct date ranges:
+
+- **Client-side filtering**: Events are filtered after being retrieved from the API
+- **Local timezone normalization**: Event times are converted to the user's local timezone and normalized to midnight
+- **Boundary exclusion**: Events that end exactly at the start of a date range are excluded from that range
+
+### Example
+Consider an all-day event "Great Cold" that spans Jan 20-21:
+
+**UTC Storage**: 2026-01-20 00:00:00Z to 2026-01-21 00:00:00Z
+
+**Asia/Shanghai Display** (UTC+8): 2026-01-20 08:00:00 to 2026-01-21 08:00:00
+
+**Normalised for Filtering**: 2026-01-20 00:00:00 to 2026-01-21 00:00:00 (normalized to local midnight)
+
+**Result**:
+- Appears in "today" (Jan 20) because it overlaps with the range
+- Does NOT appear in "tomorrow" (Jan 21) because it ends exactly at midnight
+
+### Technical Implementation
+1. Microsoft Graph stores all-day events as UTC midnight
+2. When filtering, events are converted to user's local timezone
+3. Event times are normalized to local midnight (hour=0, minute=0, second=0)
+4. Events are included only if they have time strictly within the date range
+5. Events ending exactly at the range start are excluded
 
 ## Timezone Handling
 

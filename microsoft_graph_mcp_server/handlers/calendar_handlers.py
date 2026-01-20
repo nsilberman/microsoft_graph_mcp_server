@@ -310,10 +310,37 @@ class CalendarHandler(BaseHandler):
                     if body_type.lower() == "html" and body_content:
                         body_content = self._extract_text_from_html(body_content)
 
+                    # Get user timezone for time conversion
+                    user_timezone = await graph_client.get_user_timezone()
+
+                    # Format start time
+                    start_obj = full_event.get("start", {})
+                    start_utc = start_obj.get("dateTime", "")
+                    start_formatted = {
+                        "time": "",
+                        "timeZone": user_timezone,
+                    }
+                    if start_utc:
+                        start_formatted["time"] = DateHandler.convert_utc_to_user_timezone(
+                            start_utc, user_timezone, "%a %m/%d/%Y %I:%M %p"
+                        )
+
+                    # Format end time
+                    end_obj = full_event.get("end", {})
+                    end_utc = end_obj.get("dateTime", "")
+                    end_formatted = {
+                        "time": "",
+                        "timeZone": user_timezone,
+                    }
+                    if end_utc:
+                        end_formatted["time"] = DateHandler.convert_utc_to_user_timezone(
+                            end_utc, user_timezone, "%a %m/%d/%Y %I:%M %p"
+                        )
+
                     readable_event = {
                         "subject": full_event.get("subject", ""),
-                        "start": full_event.get("start", {}),
-                        "end": full_event.get("end", {}),
+                        "start": start_formatted,
+                        "end": end_formatted,
                         "location": full_event.get("location", {}),
                         "organizer": full_event.get("organizer", {}),
                         "attendees": full_event.get("attendees", []),

@@ -77,6 +77,7 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 - Check attendee availability for scheduling
 - Forward events and reply to event attendees
 - Timezone-aware event scheduling
+- Smart all-day event filtering (events ending at midnight are correctly excluded from next day)
 
 ### 👥 Contact Management
 - Search organization directory for people by name or email address

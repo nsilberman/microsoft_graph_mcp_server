@@ -1,11 +1,14 @@
 """Calendar client for Microsoft Graph API."""
 
+import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
 from .base_client import BaseGraphClient
 from ..utils import DateHandler as date_handler
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 MAX_EVENT_SEARCH_LIMIT = 1000
 
@@ -215,6 +218,75 @@ class CalendarClient(BaseGraphClient):
 
         events = result.get("value", [])
 
+        # Client-side filtering for all-day events: include events that overlap with the date range
+        # This ensures all-day events that span multiple days appear in relevant searches
+        # Exclude events that only touch the boundary (e.g., ending exactly at range start)
+        if start_date and end_date:
+            from datetime import datetime, timedelta
+            from zoneinfo import ZoneInfo
+
+            try:
+                # Ensure timezone-aware datetime objects for range
+                start_str = start_date.replace("Z", "+00:00") if "Z" in start_date else start_date + "+00:00"
+                end_str = end_date.replace("Z", "+00:00") if "Z" in end_date else end_date + "+00:00"
+
+                start_dt = datetime.fromisoformat(start_str)
+                end_dt = datetime.fromisoformat(end_str)
+
+                filtered_events = []
+                # Get user timezone object for local time conversion
+                user_tz = ZoneInfo(user_timezone_str)
+                
+                for event in events:
+                    is_all_day = event.get("isAllDay", False)
+                    if is_all_day:
+                        # For all-day events, check if they overlap with the date range
+                        event_start = event.get("start", {}).get("dateTime", "")
+                        event_end = event.get("end", {}).get("dateTime", "")
+
+                        if event_start and event_end:
+                            try:
+                                # Ensure timezone-aware datetime objects for event dates (in UTC)
+                                event_start_str = event_start.replace("Z", "+00:00") if "Z" in event_start else event_start + "+00:00"
+                                event_end_str = event_end.replace("Z", "+00:00") if "Z" in event_end else event_end + "+00:00"
+
+                                event_start_dt = datetime.fromisoformat(event_start_str)
+                                event_end_dt = datetime.fromisoformat(event_end_str)
+
+                                # Convert event dates to user timezone for filtering
+                                event_start_local = event_start_dt.astimezone(user_tz)
+                                event_end_local = event_end_dt.astimezone(user_tz)
+
+                                # For all-day events, normalize to local midnight
+                                # Microsoft Graph stores all-day events as UTC midnight, which converts to local time
+                                # We need to normalize these to local midnight for proper filtering
+                                event_start_local = event_start_local.replace(hour=0, minute=0, second=0, microsecond=0)
+                                event_end_local = event_end_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+                                # Convert range dates to user timezone for comparison
+                                start_local = start_dt.astimezone(user_tz)
+                                end_local = end_dt.astimezone(user_tz)
+
+                                # Include if the event has time strictly within the range:
+                                # event starts before range ends AND event ends after range starts (not at the boundary)
+                                # This excludes events that only touch the boundary (ending exactly at range start)
+                                if event_start_local < end_local and event_end_local > start_local:
+                                    filtered_events.append(event)
+                            except (ValueError, TypeError):
+                                # If we can't parse the dates, include it to be safe
+                                filtered_events.append(event)
+                        else:
+                            # If we can't parse the dates, include it to be safe
+                            filtered_events.append(event)
+                    else:
+                        # For non-all-day events, include them if they overlap with the range
+                        filtered_events.append(event)
+
+                events = filtered_events
+            except (ValueError, TypeError):
+                # If we can't parse the date range, skip filtering and use all events
+                pass
+
         # Client-side filtering for case-insensitive matching
         if original_query:
             query_lower = original_query.lower()
@@ -289,7 +361,7 @@ class CalendarClient(BaseGraphClient):
             recurrence = event.get("recurrence")
             recurrence_info = None
 
-            if not recurrence and event.get("type") == "occurrence":
+            if not recurrence and event.get("type") in ["occurrence", "exception"]:
                 series_master_id = event.get("seriesMasterId")
                 if series_master_id:
                     try:
@@ -319,10 +391,10 @@ class CalendarClient(BaseGraphClient):
                 "end_datetime": end_datetime,
                 "start": date_handler.convert_utc_to_user_timezone(
                     start_datetime, user_timezone_str
-                ),
+                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(start_datetime.replace('Z', '+00:00')).strftime('%a %m/%d/%Y')} 12:00 AM",
                 "end": date_handler.convert_utc_to_user_timezone(
                     end_datetime, user_timezone_str
-                ),
+                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(end_datetime.replace('Z', '+00:00')).strftime('%a %m/%d/%Y')} 12:00 AM",
                 "location": event.get("location", {}).get("displayName", ""),
                 "organizer": {
                     "name": event.get("organizer", {})
@@ -339,7 +411,7 @@ class CalendarClient(BaseGraphClient):
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
                 "recurrence": recurrence is not None
-                or event.get("type") in ["occurrence", "seriesMaster"],
+                or event.get("type") in ["occurrence", "seriesMaster", "exception"],
                 "recurrenceInfo": recurrence_info,
                 "seriesMasterId": event.get("seriesMasterId"),
                 "responseStatus": {
@@ -450,8 +522,10 @@ class CalendarClient(BaseGraphClient):
             List of formatted date strings for next occurrences
         """
         from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
 
-        today = datetime.now()
+        # Use timezone-aware datetime
+        today = datetime.now(ZoneInfo("UTC"))
         end_date = today + timedelta(days=365)
 
         start_date_str = today.strftime("%Y-%m-%dT%H:%M:%S")
