@@ -409,8 +409,8 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "cache_number": {
-                        "type": "string",
-                        "description": "Cache number from browse_events or search_events (e.g., '1', '2', '3')",
+                        "type": "integer",
+                        "description": "Cache number from browse_events or search_events (e.g., 1, 2, 3)",
                     }
                 },
                 "required": ["cache_number"],
