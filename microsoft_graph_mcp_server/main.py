@@ -7,9 +7,10 @@ import os
 try:
     from pathlib import Path
 
-    log_file = Path(__file__).resolve().parent / "mcp_server_auth.log"
+    # Place log file in project root (parent of the microsoft_graph_mcp_server directory)
+    log_file = Path(__file__).resolve().parent.parent / "mcp_server.log"
 except:
-    log_file = Path.cwd() / "mcp_server_auth.log"
+    log_file = Path.cwd() / "mcp_server.log"
 
 # Ensure log directory exists
 log_file.parent.mkdir(parents=True, exist_ok=True)
