@@ -505,7 +505,7 @@ class ToolRegistry:
                             "propose_new_time",
                             "delete",
                         ],
-                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer, 'delete' to remove cancelled event from calendar (use when organizer cancelled event)",
+                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer, 'delete' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
                     },
                     "cache_number": {
                         "type": "integer",
