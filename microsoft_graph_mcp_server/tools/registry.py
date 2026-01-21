@@ -113,10 +113,6 @@ class ToolRegistry:
                         ],
                         "description": "Action to perform: 'login' to initiate authentication and get verification URL/code, 'complete_login' to complete the login process after browser authentication (MUST call this after login), 'check_status' to check current authentication state and token expiry (read-only, no actions), 'extend_token' to refresh the access token using the refresh token without requiring user login - provides a fresh token with a new 1-hour lifetime from the time you call it (does NOT extend the old token's expiry time), 'logout' to clear authentication",
                     },
-                    "device_code": {
-                        "type": "string",
-                        "description": "Device code returned from the login action. Optional for 'complete_login' - if not provided, will automatically use the latest device_code from the login session. Not used for other actions.",
-                    },
                 },
                 "required": ["action"],
             },

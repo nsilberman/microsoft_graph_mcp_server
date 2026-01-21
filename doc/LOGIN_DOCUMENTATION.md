@@ -67,7 +67,7 @@ After completing authentication in the browser, the user calls `complete_login`:
    }
    ```
 
-**Note**: The `complete_login` call waits up to 3 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `complete_login` again after completing the authentication. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
+**Note**: The `complete_login` call waits up to 3 seconds for authentication to complete. If you haven't completed authentication in the browser within this time, the call will return a "pending" status, and you should call `complete_login` again after completing the authentication. The device_code is automatically loaded from the latest login session.
 
 ## Session Persistence
 
@@ -146,7 +146,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 
 **Actions:**
 - `login`: Authenticate with Microsoft Graph using device code flow. Automatically saves device_code to disk for automatic retrieval.
-- `complete_login`: Complete the login process after browser authentication. Waits for authentication to complete and finalizes the login by acquiring the access token. The device_code parameter is optional - if not provided, the server will automatically use the latest device_code from the login session.
+- `complete_login`: Complete the login process after browser authentication. Waits for authentication to complete and finalizes the login by acquiring the access token. The device_code is automatically loaded from the latest login session.
 - `check_status`: Check current authentication state and token expiry without triggering any actions (read-only). Returns authentication status, token expiry time, remaining time, and refresh token availability. Useful for debugging and monitoring.
 - `extend_token`: Refresh the access token using the refresh token without requiring user login. Gives you a fresh token with a new 1-hour lifetime. Can be called multiple times to refresh further.
 - `logout`: Logout from Microsoft Graph and clear authentication state
@@ -154,7 +154,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
 **Usage:**
 - Call with action="login": Returns verification link and user_code. Device_code is automatically saved to disk.
 - Complete authentication in browser using the verification_uri and user_code
-- Call with action="complete_login": Verifies authentication and saves tokens. Device_code is automatically loaded from disk if not provided.
+- Call with action="complete_login": Verifies authentication and saves tokens. Device_code is automatically loaded from disk.
 - Call with action="check_status": Checks authentication state and token expiry without triggering actions (read-only).
 - Call with action="logout": Clear authentication state
 
@@ -449,7 +449,7 @@ Server: {
 
 **Key Methods:**
 - `login()`: Initiate or verify authentication (in GraphAuthManager)
-- `complete_login()`: Complete the login process after browser authentication (in GraphAuthManager). Automatically loads the latest device_code from disk if not provided.
+- `complete_login()`: Complete the login process after browser authentication (in GraphAuthManager). Automatically loads the latest device_code from disk.
 - `check_status()`: Check current authentication state and token expiry without triggering actions (read-only) (in GraphAuthManager)
 - `logout()`: Clear authentication state (in GraphAuthManager)
 - `get_access_token()`: Get valid access token (auto-refreshes if needed) (in GraphAuthManager)

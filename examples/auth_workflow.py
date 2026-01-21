@@ -38,7 +38,8 @@ async def auth_workflow_example():
         "message": "Visit https://microsoft.com/devicelogin and enter code ABC123",
         "verification_url": "https://microsoft.com/devicelogin",
         "user_code": "ABC123",
-        "device_code": "...",
+        "expires_in": 900,
+        "interval": 5,
     }
 
     print("Expected Response:")
@@ -66,7 +67,6 @@ async def auth_workflow_example():
         "tool": "auth",
         "arguments": {
             "action": "complete_login",
-            "device_code": expected_login_response.get("device_code"),  # Optional
         },
     }
 
