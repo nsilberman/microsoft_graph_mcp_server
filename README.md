@@ -660,7 +660,7 @@ The email search functionality has been significantly optimized with server-side
 2. **Replaced $search with $filter**
    - **Before**: Used slow `$search` for full-text search across all fields
    - **After**:
-     - Sender search: `from/emailAddress/address eq '{sender}'` - targeted field filtering
+     - Sender search: `contains(from/emailAddress/address, '{sender}')` - targeted field filtering (eq doesn't work for sender email)
      - Recipient search: `toRecipients/any(r: r/emailAddress/address eq '{recipient}')`
      - Subject/Body: `contains(subject, '{query}')` or `contains(body, '{query}')`
    - **Impact**: ~70% faster for field-specific searches

@@ -288,7 +288,7 @@ class ToolRegistry:
                     "days": {
                         "type": "integer",
                         "description": f"Number of days to look back. Default: 1, maximum: {settings.default_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
-                        "default": 1,
+                        "default": settings.default_search_days,
                         "minimum": 1,
                         "maximum": settings.default_search_days,
                     },

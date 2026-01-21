@@ -1104,36 +1104,61 @@ class EmailClient(BaseGraphClient):
         # Store original query for client-side filtering
         original_query = query
 
+        # Check if query contains special characters that break Graph API's contains()
+        # These include: ., @, #, %, &, *, +, /, =, ?, ^, `, {, }, |, ~, [, ]
+        def has_special_chars(text):
+            special_chars = set('.@#%&*+/=?^`{}|~[]')
+            return any(char in text for char in special_chars)
+
+        # Flag to indicate if we need client-side filtering
+        needs_client_filter = False
+
         if search_type:
             if search_type == "subject" and query:
-                escaped_query = query.replace("'", "''")
-                filter_parts.append(f"contains(subject, '{escaped_query}')")
+                if has_special_chars(query):
+                    needs_client_filter = True
+                else:
+                    escaped_query = query.replace("'", "''")
+                    filter_parts.append(f"contains(subject, '{escaped_query}')")
             elif search_type == "body" and query:
-                escaped_query = query.replace("'", "''")
-                filter_parts.append(f"contains(body, '{escaped_query}')")
+                if has_special_chars(query):
+                    needs_client_filter = True
+                else:
+                    escaped_query = query.replace("'", "''")
+                    filter_parts.append(f"contains(body, '{escaped_query}')")
             elif search_type == "sender" and query:
-                # Use server-side filter for exact email match
+                # Use contains for sender email address
+                # Note: eq (equals) doesn't work for from/emailAddress/address in Graph API
+                # Using contains provides better results even for exact email match
                 if "@" in query:
                     escaped_query = query.replace("'", "''")
-                    filter_parts.append(f"from/emailAddress/address eq '{escaped_query}'")
-                # For sender name search, use client-side filtering
-                # Server-side doesn't support contains() on from/emailAddress/name
-                # We always add date filter to reduce dataset size
+                    filter_parts.append(f"contains(from/emailAddress/address, '{escaped_query}')")
+                else:
+                    # For sender name search, use client-side filtering
+                    # Server-side doesn't support contains() on from/emailAddress/name
+                    needs_client_filter = True
 
         elif query:
             # Default behavior: search subject for all keywords (AND logic)
             # Split query into individual keywords and require ALL to be present in subject
             keywords = query.split()
-            escaped_query = query.replace("'", "''")
             
             if len(keywords) == 1:
-                # Single keyword: use simple contains
-                filter_parts.append(f"contains(subject, '{escaped_query}')")
+                # Single keyword: check for special characters
+                if has_special_chars(query):
+                    needs_client_filter = True
+                else:
+                    escaped_query = query.replace("'", "''")
+                    filter_parts.append(f"contains(subject, '{escaped_query}')")
             else:
-                # Multiple keywords: create AND conditions for each keyword in subject
-                for keyword in keywords:
-                    escaped_keyword = keyword.replace("'", "''")
-                    filter_parts.append(f"contains(subject, '{escaped_keyword}')")
+                # Multiple keywords: check each for special characters
+                has_special = any(has_special_chars(kw) for kw in keywords)
+                if has_special:
+                    needs_client_filter = True
+                else:
+                    for keyword in keywords:
+                        escaped_keyword = keyword.replace("'", "''")
+                        filter_parts.append(f"contains(subject, '{escaped_keyword}')")
 
         if start_date and end_date:
             filter_parts.append(f"receivedDateTime ge {start_date}")
@@ -1155,10 +1180,41 @@ class EmailClient(BaseGraphClient):
             for idx, email in enumerate(emails)
         ]
 
-        # Client-side filtering for sender name search (case-insensitive)
-        # Server-side filter doesn't support contains() on from/emailAddress/name
+        # Client-side filtering for queries with special characters or sender name search
+        # Server-side filter doesn't support contains() with special characters or on from/emailAddress/name
         # Date filter reduces dataset size before client-side filtering
-        if original_query and search_type == "sender" and "@" not in original_query:
+        if needs_client_filter and original_query:
+            query_lower = original_query.lower()
+            filtered_summaries = []
+            for summary in summaries:
+                # Check subject
+                subject = summary.get("subject", "").lower()
+                # Check sender name and email
+                sender_name = summary.get("from", {}).get("name", "").lower()
+                sender_email = summary.get("from", {}).get("email", "").lower()
+                
+                # Check body preview if searching body
+                body_preview = summary.get("bodyPreview", "").lower()
+                
+                match = False
+                if search_type == "subject":
+                    match = query_lower in subject
+                elif search_type == "body":
+                    match = query_lower in body_preview
+                elif search_type == "sender":
+                    match = query_lower in sender_name or query_lower in sender_email
+                else:
+                    # Default: search in subject, sender name, sender email
+                    match = (query_lower in subject or 
+                           query_lower in sender_name or 
+                           query_lower in sender_email)
+                
+                if match:
+                    filtered_summaries.append(summary)
+            summaries = filtered_summaries
+        elif original_query and search_type == "sender" and "@" not in original_query:
+            # Client-side filtering for sender name search (case-insensitive)
+            # Server-side filter doesn't support contains() on from/emailAddress/name
             query_lower = original_query.lower()
             filtered_summaries = []
             for summary in summaries:

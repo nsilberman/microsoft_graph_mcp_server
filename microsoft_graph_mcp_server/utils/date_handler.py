@@ -212,10 +212,14 @@ class DateHandler:
 
             if "T" in date_str:
                 dt = datetime.fromisoformat(date_str)
+                # If the datetime already has timezone info, use it directly
+                # Otherwise, assume it's in the user's timezone
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=user_tz)
             else:
                 dt = datetime.fromisoformat(f"{date_str}T00:00:00")
+                dt = dt.replace(tzinfo=user_tz)
 
-            dt = dt.replace(tzinfo=user_tz)
             dt_utc = dt.astimezone(ZoneInfo("UTC"))
             return dt_utc.isoformat().replace("+00:00", "Z")
         except Exception as e:
