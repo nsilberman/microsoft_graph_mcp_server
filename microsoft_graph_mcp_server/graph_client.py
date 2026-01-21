@@ -120,6 +120,10 @@ class GraphClient:
         except Exception:
             return {}
 
+    async def get_user_email(self) -> Optional[str]:
+        """Get the current user's email address."""
+        return await self.user_client.get_user_email()
+
     async def get_user_timezone(self) -> str:
         """Get user's timezone identifier. Uses server local timezone."""
         return await self.user_client.get_user_timezone()

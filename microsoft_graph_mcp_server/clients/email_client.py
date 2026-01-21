@@ -35,6 +35,23 @@ class EmailClient(BaseGraphClient):
             "junk email": "JunkEmail",
         }
         self._user_timezone_cache: Optional[str] = None
+        self._user_email_cache: Optional[str] = None
+
+    async def get_user_email(self) -> str:
+        """Get user's email address with caching."""
+        if self._user_email_cache is not None:
+            return self._user_email_cache
+
+        try:
+            result = await self.get("/me", params={"$select": "mail"})
+            user_email = result.get("mail", "")
+            if user_email:
+                self._user_email_cache = user_email
+                return user_email
+        except Exception:
+            pass
+
+        return ""
 
     async def get_user_timezone(self) -> str:
         """Get user's timezone identifier. Uses server local timezone with caching."""
@@ -1342,23 +1359,27 @@ class EmailClient(BaseGraphClient):
         sent_date = email_metadata.get("sentDateTime", "")
         original_subject = email_content.get("subject", "")
         original_body = email_content.get("body", "")
-        
+
+        # Get user's email to filter out from recipients
+        user_email = await self.get_user_email()
+
         # Outlook behavior: If to is None, use Reply All behavior
         if to_recipients is None:
             # Reply All: TO includes sender + original TO recipients
             to_recipients = [from_address]
-            
+
             # Add original TO recipients (these should stay in TO, not move to CC)
             original_to = email_content.get("to", [])
             for recipient in original_to:
                 recipient_email = recipient.get("email", "")
-                if recipient_email and recipient_email not in to_recipients:
+                # Filter out user's own email
+                if recipient_email and recipient_email not in to_recipients and recipient_email != user_email:
                     to_recipients.append(recipient_email)
-        
+
         # Outlook behavior: If cc is None, keep original CC recipients
         if cc_recipients is None:
             original_cc = email_content.get("cc", [])
-            cc_recipients = [recipient.get("email", "") for recipient in original_cc if recipient.get("email")]
+            cc_recipients = [recipient.get("email", "") for recipient in original_cc if recipient.get("email") and recipient.get("email") != user_email]
 
         reply_subject = subject if subject else f"RE: {original_subject}"
 

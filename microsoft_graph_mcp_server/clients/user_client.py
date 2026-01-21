@@ -45,6 +45,16 @@ class UserClient(BaseGraphClient):
         logger.debug("Defaulting to UTC")
         return "UTC"
 
+    async def get_user_email(self) -> Optional[str]:
+        """Get the current user's email address."""
+        try:
+            params = {"$select": "mail"}
+            result = await self.get("/me", params=params)
+            return result.get("mail")
+        except Exception as e:
+            logger.warning(f"Failed to get user email: {e}")
+            return None
+
     async def get_user_timezone(self) -> str:
         """Get user's timezone identifier from Microsoft Graph mailbox settings."""
         try:
