@@ -1086,6 +1086,7 @@ class EmailClient(BaseGraphClient):
         params = {
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
+            "$orderby": "receivedDateTime desc",
         }
 
         endpoint = "/me/messages"
@@ -1115,50 +1116,22 @@ class EmailClient(BaseGraphClient):
 
         if search_type:
             if search_type == "subject" and query:
-                if has_special_chars(query):
-                    needs_client_filter = True
-                else:
-                    escaped_query = query.replace("'", "''")
-                    filter_parts.append(f"contains(subject, '{escaped_query}')")
+                # Use client-side filtering for subject search
+                # Server-side filter contains(subject, ...) with date filter and orderby causes "InefficientFilter" error
+                needs_client_filter = True
             elif search_type == "body" and query:
-                if has_special_chars(query):
-                    needs_client_filter = True
-                else:
-                    escaped_query = query.replace("'", "''")
-                    filter_parts.append(f"contains(body, '{escaped_query}')")
+                # Use client-side filtering for body search
+                # Server-side filter contains(body, ...) with date filter and orderby causes "InefficientFilter" error
+                needs_client_filter = True
             elif search_type == "sender" and query:
-                # Use contains for sender email address
-                # Note: eq (equals) doesn't work for from/emailAddress/address in Graph API
-                # Using contains provides better results even for exact email match
-                if "@" in query:
-                    escaped_query = query.replace("'", "''")
-                    filter_parts.append(f"contains(from/emailAddress/address, '{escaped_query}')")
-                else:
-                    # For sender name search, use client-side filtering
-                    # Server-side doesn't support contains() on from/emailAddress/name
-                    needs_client_filter = True
+                # Use client-side filtering for all sender searches (name and email)
+                # Server-side filter on from/emailAddress/address with date filter causes "InefficientFilter" error
+                needs_client_filter = True
 
         elif query:
             # Default behavior: search subject for all keywords (AND logic)
-            # Split query into individual keywords and require ALL to be present in subject
-            keywords = query.split()
-            
-            if len(keywords) == 1:
-                # Single keyword: check for special characters
-                if has_special_chars(query):
-                    needs_client_filter = True
-                else:
-                    escaped_query = query.replace("'", "''")
-                    filter_parts.append(f"contains(subject, '{escaped_query}')")
-            else:
-                # Multiple keywords: check each for special characters
-                has_special = any(has_special_chars(kw) for kw in keywords)
-                if has_special:
-                    needs_client_filter = True
-                else:
-                    for keyword in keywords:
-                        escaped_keyword = keyword.replace("'", "''")
-                        filter_parts.append(f"contains(subject, '{escaped_keyword}')")
+            # Use client-side filtering to avoid "InefficientFilter" error
+            needs_client_filter = True
 
         if start_date and end_date:
             filter_parts.append(f"receivedDateTime ge {start_date}")
@@ -1192,10 +1165,10 @@ class EmailClient(BaseGraphClient):
                 # Check sender name and email
                 sender_name = summary.get("from", {}).get("name", "").lower()
                 sender_email = summary.get("from", {}).get("email", "").lower()
-                
+
                 # Check body preview if searching body
                 body_preview = summary.get("bodyPreview", "").lower()
-                
+
                 match = False
                 if search_type == "subject":
                     match = query_lower in subject
@@ -1205,10 +1178,10 @@ class EmailClient(BaseGraphClient):
                     match = query_lower in sender_name or query_lower in sender_email
                 else:
                     # Default: search in subject, sender name, sender email
-                    match = (query_lower in subject or 
-                           query_lower in sender_name or 
+                    match = (query_lower in subject or
+                           query_lower in sender_name or
                            query_lower in sender_email)
-                
+
                 if match:
                     filtered_summaries.append(summary)
             summaries = filtered_summaries
