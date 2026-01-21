@@ -13,7 +13,7 @@ This document describes the code changes made on December 31, 2025, focusing on 
 - This occurred when trying to move a folder to Deleted Items if there was already a folder with the same name in Deleted Items
 
 **Solution**:
-- Updated [delete_folder](../microsoft_graph_mcp_server/clients/email_client.py#L955-L984) method in [email_client.py](../microsoft_graph_mcp_server/clients/email_client.py)
+- Updated [delete_folder](../microsoft_graph_mcp_server/clients/email_client.py#L1739-L1761) method in [email_client.py](../microsoft_graph_mcp_server/clients/email_client.py)
 - Added logic to check for existing folders with the same name in Deleted Items before moving
 - If a conflicting folder exists, it is deleted first to allow the move operation to succeed
 

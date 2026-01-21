@@ -121,8 +121,8 @@ send_email(action="reply", cache_number=5, htmlbody="<p>Thanks!</p>")
 
 **Important Notes:**
 - `search_emails` clears existing cache and loads new emails
-- Cache numbers are 1-based (start at 1, not 0)
-- Cache numbers persist across pagination (email #5 is always #5)
+- Cache numbers use the 'number' field from browse results
+- Cache numbers persist across pagination (email with number 5 is always number 5)
 - Browse modes:
   - `mode="user"`: 5 emails per page (human-friendly)
   - `mode="llm"`: 20 emails per page (LLM-friendly)
@@ -169,8 +169,8 @@ respond_to_event(action="accept", cache_number=3, comment="I'll be there!")
 
 **Important Notes:**
 - `search_events` clears existing cache and loads new events
-- Cache numbers are 1-based (start at 1, not 0)
-- Cache numbers persist across pagination (event #5 is always #5)
+- Cache numbers use the 'number' field from browse results
+- Cache numbers persist across pagination (event with number 5 is always number 5)
 - Browse modes:
   - `mode="user"`: 5 events per page (human-friendly)
   - `mode="llm"`: 20 events per page (LLM-friendly)
@@ -219,7 +219,7 @@ manage_templates(action="send", template_number=1, to=["recipient@example.com"])
 **Important Notes:**
 - Templates are draft emails in Templates folder
 - Templates have subject prefix "Template:" for identification
-- Cache numbers are 1-based
+- Template numbers use the 'number' field from browse results
 - Sending a template creates a copy and sends it (preserves original)
 
 ---
@@ -487,8 +487,8 @@ browse_events(page_number=1, mode="llm")
 browse_email_cache(page_number=1, mode="llm")
 # Or browse_events(page_number=1, mode="llm")
 
-# 2. Use a cache_number from the results
-get_email_content(cache_number=5)  # Must be a number from browse results
+# 2. Use a cache_number from the 'number' field in browse results
+get_email_content(cache_number=5)  # Must be a number from the 'number' field in browse results
 ```
 
 ---
@@ -501,7 +501,7 @@ get_email_content(cache_number=5)  # Must be a number from browse results
 - `get_email_content`: Get full email content
 - `send_email`: Send new email, reply, forward
 - `manage_emails`: Move, delete, archive, flag, categorize
-- `manage_mail_folder`: Create, rename, move, delete folders
+- `manage_mail_folder`: Create, rename, move, delete, get_details, list folders
 
 ### Calendar Tools
 - `search_events`: Load events into cache
@@ -534,8 +534,8 @@ get_email_content(cache_number=5)  # Must be a number from browse results
    - Then use `browse_*_cache` tools
 
 3. **Use cache numbers from browse results**
-   - Don't use array indices (1, 2, 3)
    - Use the `number` field from browse results (e.g., 21, 22, 23)
+   - Cache numbers are displayed in the browse results and persist across pagination
 
 4. **Check availability before creating meetings**
    - Use `check_attendee_availability` first
@@ -555,5 +555,5 @@ get_email_content(cache_number=5)  # Must be a number from browse results
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-01-09
+**Document Version:** 1.1
+**Last Updated:** 2026-01-21

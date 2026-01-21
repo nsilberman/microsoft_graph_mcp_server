@@ -76,3 +76,6 @@ investigation_test/
 debug_*.py
 test_debug*.py
 analyze_*.py
+
+# Windows reserved device names
+nul
