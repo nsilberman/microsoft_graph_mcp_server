@@ -34,7 +34,8 @@ Homepage = "https://github.com/your-username/microsoft-graph-mcp-server"
 Repository = "https://github.com/your-username/microsoft-graph-mcp-server"
 
 [project.scripts]
-microsoft-graph-mcp-server = "microsoft_graph_mcp_server.main:main"
+microsoft-graph-mcp-server = "microsoft_graph_mcp_server.server:run_stdio_server"
+microsoft-graph-mcp-server-cli = "microsoft_graph_mcp_server.main:main"
 
 [build-system]
 requires = ["hatchling"]

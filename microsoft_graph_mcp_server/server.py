@@ -128,20 +128,80 @@ class MicrosoftGraphMCPServer:
         logger.info("=" * 70)
 
         try:
-            async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-                logger.info("stdio_server acquired, starting server.run()...")
-                await self.server.run(
-                    read_stream,
-                    write_stream,
-                    InitializationOptions(
-                        server_name=settings.server_name,
-                        server_version=settings.server_version,
-                        capabilities=self.server.get_capabilities(
-                            notification_options=NotificationOptions(),
-                            experimental_capabilities={},
+            # Wrap sys.stdin to strip BOM characters before MCP library reads it
+            import sys
+
+            original_stdin = sys.stdin
+            bom_stripped = False
+
+            class BOMStrippingTextIOWrapper:
+                """Wrapper that strips BOM from stdin."""
+
+                def __init__(self, original):
+                    self._original = original
+
+                def read(self, size=-1):
+                    data = self._original.read(size)
+                    nonlocal bom_stripped
+                    if not bom_stripped and data:
+                        # Strip UTF-8 BOM (0xEF 0xBB 0xBF) or Unicode BOM (\ufeff)
+                        if data.startswith('\ufeff'):
+                            data = data[1:]
+                        elif data.startswith('\xef\xbb\xbf'):
+                            data = data[3:]
+                        bom_stripped = True
+                    return data
+
+                def readline(self, size=-1):
+                    data = self._original.readline(size)
+                    nonlocal bom_stripped
+                    if not bom_stripped and data:
+                        if data.startswith('\ufeff'):
+                            data = data[1:]
+                        elif data.startswith('\xef\xbb\xbf'):
+                            data = data[3:]
+                        bom_stripped = True
+                    return data
+
+                def __getattr__(self, name):
+                    return getattr(self._original, name)
+
+                @property
+                def encoding(self):
+                    return self._original.encoding
+
+            sys.stdin = BOMStrippingTextIOWrapper(original_stdin)
+
+            try:
+                async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+                    logger.info("stdio_server acquired, starting server.run()...")
+                    await self.server.run(
+                        read_stream,
+                        write_stream,
+                        InitializationOptions(
+                            server_name=settings.server_name,
+                            server_version=settings.server_version,
+                            capabilities=self.server.get_capabilities(
+                                notification_options=NotificationOptions(),
+                                experimental_capabilities={},
+                            ),
                         ),
-                    ),
-                )
+                    )
+            finally:
+                sys.stdin = original_stdin
+
         except Exception as e:
             logger.error(f"Error in server.run(): {e}", exc_info=True)
             raise
+
+
+def run_stdio_server():
+    """Entry point for stdio MCP server without click."""
+    # CRITICAL: Disable PYTHONSTARTUP to prevent it from corrupting stdio MCP protocol
+    # This must be done BEFORE any imports or stdio operations
+    import os
+    if "PYTHONSTARTUP" in os.environ:
+        del os.environ["PYTHONSTARTUP"]
+
+    server = MicrosoftGraphMCPServer()
+    asyncio.run(server.run())

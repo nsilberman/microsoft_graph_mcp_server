@@ -1,6 +1,7 @@
 """Email client for Microsoft Graph API."""
 
 import asyncio
+import logging
 import re
 import sys
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,8 @@ from zoneinfo import ZoneInfo
 from .base_client import BaseGraphClient
 from ..utils import DateHandler as date_handler
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 MAX_EMAIL_SEARCH_LIMIT = 1000
 
@@ -1271,10 +1274,7 @@ class EmailClient(BaseGraphClient):
                     content_bytes = attachment_with_content.get("contentBytes", "")
                     content_id = attachment_with_content.get("contentId", "")
                 except Exception as e:
-                    print(
-                        f"Warning: Could not fetch attachment content for {attachment.get('name')}: {e}",
-                        file=sys.stderr,
-                    )
+                    logger.warning(f"Could not fetch attachment content for {attachment.get('name')}: {e}")
                     content_bytes = ""
                     content_id = ""
 
@@ -1439,10 +1439,7 @@ Subject: {original_subject}
                     content_bytes = attachment_with_content.get("contentBytes", "")
                     content_id = attachment_with_content.get("contentId", "")
                 except Exception as e:
-                    print(
-                        f"Warning: Could not fetch attachment content for {attachment.get('name')}: {e}",
-                        file=sys.stderr,
-                    )
+                    logger.warning(f"Could not fetch attachment content for {attachment.get('name')}: {e}")
                     content_bytes = ""
                     content_id = ""
 
@@ -1499,14 +1496,8 @@ Subject: {original_subject}
         """
 
         if reply_to_message_id:
-            print(
-                f"[DEBUG] send_email: Routing to reply_to_message, body first 100 chars: {repr(body[:100])}",
-                file=sys.stderr,
-            )
-            print(
-                f"[DEBUG] send_email: body has {repr(body.count(chr(10)))} newlines, body_content_type={repr(body_content_type)}",
-                file=sys.stderr,
-            )
+            logger.debug(f"send_email: Routing to reply_to_message, body first 100 chars: {repr(body[:100])}")
+            logger.debug(f"send_email: body has {repr(body.count(chr(10)))} newlines, body_content_type={repr(body_content_type)}")
 
             return await self.reply_to_message(
                 message_id=reply_to_message_id,

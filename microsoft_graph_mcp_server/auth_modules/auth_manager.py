@@ -215,16 +215,14 @@ class GraphAuthManager:
             if "error" in flow:
                 raise Exception(f"Failed to initiate device flow: {flow['error']}")
 
-            print("\n" + "=" * 70)
-            print("MICROSOFT GRAPH AUTHENTICATION")
-            print("=" * 70)
-            print(f"\nTo sign in, use a web browser to open the page:")
-            print(f"\n{flow['verification_uri']}")
-            print(f"\nAnd enter the code:")
-            print(f"\n{flow['user_code']}")
-            print("\n" + "=" * 70)
-            print("Waiting for authentication...")
-            print("=" * 70 + "\n")
+            logger.info("=" * 70)
+            logger.info("MICROSOFT GRAPH AUTHENTICATION")
+            logger.info("=" * 70)
+            logger.info(f"To sign in, use a web browser to open the page: {flow['verification_uri']}")
+            logger.info(f"And enter the code: {flow['user_code']}")
+            logger.info("=" * 70)
+            logger.info("Waiting for authentication...")
+            logger.info("=" * 70)
 
             result = self.client_app.acquire_token_by_device_flow(flow)
 
@@ -234,7 +232,7 @@ class GraphAuthManager:
                     expires_in=result.get("expires_in", 3600),
                     refresh_token=result.get("refresh_token"),
                 )
-                print("\n✓ Authentication successful!\n")
+                logger.info("✓ Authentication successful!")
             else:
                 raise Exception(
                     f"Failed to acquire token: {result.get('error_description', 'Unknown error')}"

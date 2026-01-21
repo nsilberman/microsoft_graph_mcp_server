@@ -27,20 +27,17 @@ with open(log_file, "a") as f:
 # CRITICAL: Configure logging BEFORE importing any other modules!
 import logging
 
-# Create handlers FIRST
+# Create file handler ONLY - no console handler for stdio MCP server
 file_handler = logging.FileHandler(log_file, mode="a")
-console_handler = logging.StreamHandler(sys.stdout)
 
 # Set format
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
 
-# Configure root logger FIRST
+# Configure root logger FIRST - only file handler
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
 root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
 
 # NOW we can import other modules
 import asyncio
@@ -57,7 +54,6 @@ device_flow_logger = logging.getLogger(
 )
 device_flow_logger.setLevel(logging.DEBUG)
 device_flow_logger.addHandler(file_handler)
-device_flow_logger.addHandler(console_handler)
 device_flow_logger.propagate = False  # Don't duplicate logs
 
 auth_manager_logger = logging.getLogger(
@@ -65,7 +61,6 @@ auth_manager_logger = logging.getLogger(
 )
 auth_manager_logger.setLevel(logging.DEBUG)
 auth_manager_logger.addHandler(file_handler)
-auth_manager_logger.addHandler(console_handler)
 auth_manager_logger.propagate = False
 
 # Log that logging is configured
@@ -91,7 +86,6 @@ def main(client_id: str, tenant_id: str):
     """Microsoft Graph MCP Server - Provides access to Microsoft 365 ecosystem."""
 
     # Log that main() is called
-    print("\n[MCP] Microsoft Graph MCP Server starting...", file=sys.stdout, flush=True)
     logging.info("main() function called")
     logging.info(f"Client ID: {client_id[:20]}... if provided")
     logging.info(f"Tenant ID: {tenant_id}")
@@ -104,26 +98,16 @@ def main(client_id: str, tenant_id: str):
         settings.tenant_id = tenant_id
         logging.info(f"Tenant ID updated: {tenant_id}")
 
-    click.echo(f"Starting {settings.server_name} v{settings.server_version}...")
-    click.echo(f"Log file: {log_file.absolute()}")
-    click.echo(f"Log to stdout: Enabled")
-    click.echo("-" * 50)
-
     logging.info("Initializing MicrosoftGraphMCPServer...")
 
     try:
         server = MicrosoftGraphMCPServer()
         logging.info("Starting server.run()...")
-        print("\n[MCP] Server initialized and running\n", file=sys.stdout, flush=True)
         asyncio.run(server.run())
     except KeyboardInterrupt:
-        print("\n[MCP] Server stopped by user", file=sys.stdout, flush=True)
         logging.info("Server stopped by user (KeyboardInterrupt)")
-        click.echo("\nServer stopped by user.")
     except Exception as e:
-        print(f"\n[MCP] ERROR: {str(e)}", file=sys.stdout, flush=True)
         logging.error(f"Server error: {str(e)}", exc_info=True)
-        click.echo(f"Error: {str(e)}")
         sys.exit(1)
 
 

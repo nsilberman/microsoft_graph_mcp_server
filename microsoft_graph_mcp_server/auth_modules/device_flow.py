@@ -69,20 +69,15 @@ class DeviceFlowManager:
                     self.token_manager.save_device_flow(device_code, flow)
                     self.token_manager.save_latest_device_code(device_code)
 
-                print("\n" + "=" * 70)
-                print("MICROSOFT GRAPH AUTHENTICATION")
-                print("=" * 70)
-                print(f"\nTo sign in, use a web browser to open the page:")
-                print(f"\n{flow['verification_uri']}")
-                print(f"\nAnd enter the code:")
-                print(f"\n{flow['user_code']}")
-                print("\n" + "=" * 70)
-                print("NOTE: Previous tokens have been cleared.")
-                print(
-                    "IMPORTANT: After completing authentication, you MUST call complete_login"
-                )
-                print("to complete the authentication process.")
-                print("=" * 70 + "\n")
+                logger.info("=" * 70)
+                logger.info("MICROSOFT GRAPH AUTHENTICATION")
+                logger.info("=" * 70)
+                logger.info(f"To sign in, use a web browser to open the page: {flow['verification_uri']}")
+                logger.info(f"And enter the code: {flow['user_code']}")
+                logger.info("=" * 70)
+                logger.info("NOTE: Previous tokens have been cleared.")
+                logger.info("IMPORTANT: After completing authentication, you MUST call complete_login to complete the authentication process.")
+                logger.info("=" * 70)
 
                 return {
                     "status": "pending",
@@ -94,9 +89,7 @@ class DeviceFlowManager:
                 }
             except asyncio.TimeoutError:
                 if attempt < max_retries - 1:
-                    print(
-                        f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})"
-                    )
+                    logger.warning(f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 else:
                     raise Exception(
@@ -122,8 +115,8 @@ class DeviceFlowManager:
                 is_network_error = any(err in error_lower for err in network_errors)
 
                 if is_network_error and attempt < max_retries - 1:
-                    print(f"Network error: {error_msg}")
-                    print(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
+                    logger.warning(f"Network error: {error_msg}")
+                    logger.warning(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 elif is_network_error:
                     return {
@@ -183,18 +176,14 @@ class DeviceFlowManager:
 
                 self.device_flow = flow
 
-                print("\n" + "=" * 70)
-                print("MICROSOFT GRAPH AUTHENTICATION")
-                print("=" * 70)
-                print(f"\nTo sign in, use a web browser to open the page:")
-                print(f"\n{flow['verification_uri']}")
-                print(f"\nAnd enter the code:")
-                print(f"\n{flow['user_code']}")
-                print("\n" + "=" * 70)
-                print(
-                    f"Waiting for authentication (timeout: {max_wait_time} seconds)..."
-                )
-                print("=" * 70 + "\n")
+                logger.info("=" * 70)
+                logger.info("MICROSOFT GRAPH AUTHENTICATION")
+                logger.info("=" * 70)
+                logger.info(f"To sign in, use a web browser to open the page: {flow['verification_uri']}")
+                logger.info(f"And enter the code: {flow['user_code']}")
+                logger.info("=" * 70)
+                logger.info(f"Waiting for authentication (timeout: {max_wait_time} seconds)...")
+                logger.info("=" * 70)
 
                 elapsed = 0
                 last_progress = 0
@@ -232,7 +221,7 @@ class DeviceFlowManager:
                             else:
                                 time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
 
-                            print("\n✓ Authentication successful!\n")
+                            logger.info("✓ Authentication successful!")
 
                             return {
                                 "status": "success",
@@ -299,13 +288,11 @@ class DeviceFlowManager:
 
                     if elapsed - last_progress >= progress_interval:
                         remaining = max_wait_time - elapsed
-                        print(
-                            f"Still waiting for authentication... {remaining} seconds remaining"
-                        )
+                        logger.info(f"Still waiting for authentication... {remaining} seconds remaining")
                         last_progress = elapsed
 
                 remaining = max_wait_time - elapsed
-                print(f"\nAuthentication timed out after {max_wait_time} seconds.")
+                logger.warning(f"Authentication timed out after {max_wait_time} seconds.")
 
                 return {
                     "status": "pending",
@@ -316,9 +303,7 @@ class DeviceFlowManager:
                 }
             except asyncio.TimeoutError:
                 if attempt < max_retries - 1:
-                    print(
-                        f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})"
-                    )
+                    logger.warning(f"Connection timeout. Retrying... (Attempt {attempt + 1}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 else:
                     raise Exception(
@@ -344,8 +329,8 @@ class DeviceFlowManager:
                 is_network_error = any(err in error_lower for err in network_errors)
 
                 if is_network_error and attempt < max_retries - 1:
-                    print(f"Network error: {error_msg}")
-                    print(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
+                    logger.warning(f"Network error: {error_msg}")
+                    logger.warning(f"Retrying... (Attempt {attempt + 1}/{max_retries})")
                     await asyncio.sleep(retry_delay)
                 elif is_network_error:
                     raise Exception(

@@ -154,5 +154,5 @@ class UserClient(BaseGraphClient):
                 retry_after=e.retry_after
             )
         except Exception as e:
-            print(f"Error searching contacts: {e}")
+            logger.error(f"Error searching contacts: {e}")
             raise

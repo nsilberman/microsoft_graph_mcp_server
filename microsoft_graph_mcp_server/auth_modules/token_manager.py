@@ -37,7 +37,7 @@ class TokenManager:
             with open(TOKEN_FILE, "w") as f:
                 json.dump(token_data, f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to save tokens to disk: {e}")
+            logger.warning(f"Failed to save tokens to disk: {e}")
 
     def load_tokens_from_disk(self) -> None:
         """Load authentication tokens from disk."""
@@ -64,7 +64,7 @@ class TokenManager:
                     self.access_token = None
                     self.delete_tokens_from_disk()
         except Exception as e:
-            print(f"Warning: Failed to load tokens from disk: {e}")
+            logger.warning(f"Failed to load tokens from disk: {e}")
             self.delete_tokens_from_disk()
 
     def delete_tokens_from_disk(self) -> None:
@@ -73,7 +73,7 @@ class TokenManager:
             if TOKEN_FILE.exists():
                 os.remove(TOKEN_FILE)
         except Exception as e:
-            print(f"Warning: Failed to delete tokens from disk: {e}")
+            logger.warning(f"Failed to delete tokens from disk: {e}")
 
     def update_token(
         self,
@@ -127,7 +127,7 @@ class TokenManager:
             with open(DEVICE_FLOW_FILE, "w") as f:
                 json.dump(flows, f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to save device flow to disk: {e}")
+            logger.warning(f"Failed to save device flow to disk: {e}")
 
     def load_device_flow(self, device_code: str) -> Optional[Dict[str, Any]]:
         """Load device flow from disk using device_code as key."""
@@ -140,7 +140,7 @@ class TokenManager:
 
             return flows.get(device_code)
         except Exception as e:
-            print(f"Warning: Failed to load device flow from disk: {e}")
+            logger.warning(f"Failed to load device flow from disk: {e}")
             return None
 
     def delete_device_flow(self, device_code: str) -> None:
@@ -155,7 +155,7 @@ class TokenManager:
                     with open(DEVICE_FLOW_FILE, "w") as f:
                         json.dump(flows, f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to delete device flow from disk: {e}")
+            logger.warning(f"Failed to delete device flow from disk: {e}")
 
     def cleanup_expired_device_flows(self) -> None:
         """Clean up expired device flows from disk."""
@@ -181,7 +181,7 @@ class TokenManager:
                 with open(DEVICE_FLOW_FILE, "w") as f:
                     json.dump(flows, f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to cleanup expired device flows from disk: {e}")
+            logger.warning(f"Failed to cleanup expired device flows from disk: {e}")
 
     def save_latest_device_code(self, device_code: str) -> None:
         """Save the latest device_code to disk."""
@@ -190,7 +190,7 @@ class TokenManager:
             with open(LATEST_DEVICE_CODE_FILE, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
-            print(f"Warning: Failed to save latest device_code to disk: {e}")
+            logger.warning(f"Failed to save latest device_code to disk: {e}")
 
     def get_latest_device_code(self) -> Optional[str]:
         """Get the latest device_code from disk."""
@@ -207,7 +207,7 @@ class TokenManager:
                 return device_code
             return None
         except Exception as e:
-            print(f"Warning: Failed to load latest device_code from disk: {e}")
+            logger.warning(f"Failed to load latest device_code from disk: {e}")
             return None
 
     def clear_latest_device_code(self) -> None:
@@ -216,4 +216,4 @@ class TokenManager:
             if LATEST_DEVICE_CODE_FILE.exists():
                 os.remove(LATEST_DEVICE_CODE_FILE)
         except Exception as e:
-            print(f"Warning: Failed to clear latest device_code from disk: {e}")
+            logger.warning(f"Failed to clear latest device_code from disk: {e}")
