@@ -335,6 +335,17 @@ result = await get_event_detail(cache_number="5")
 ### Description
 Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, and delete cancelled events. This tool is for responding to events that you are invited to, not events you organized yourself.
 
+### Smart Handling of Events Without Response Requests
+
+When the organizer creates an event with `responseRequested: false` (meaning they don't require attendees to formally accept/decline), the system automatically handles these cases differently:
+
+- **Accept**: Updates the event to `showAs: "busy"` and enables reminders
+- **Tentatively Accept**: Updates the event to `showAs: "tentative"` and enables reminders
+- **Decline**: Deletes the event from your calendar (since you explicitly declined)
+- **Propose New Time**: Deletes the event and instructs you to contact the organizer directly (since proposals require responses)
+
+This behavior matches how Outlook handles such events - the time is marked on your calendar as busy/tentative without sending a formal response to the organizer.
+
 ### Parameters
 
 #### Common Parameters (All Actions)

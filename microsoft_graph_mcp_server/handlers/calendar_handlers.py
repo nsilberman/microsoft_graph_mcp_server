@@ -1,6 +1,7 @@
 """Calendar handlers for MCP tools."""
 
 import json
+import logging
 import re
 import urllib.parse
 from datetime import datetime
@@ -12,6 +13,8 @@ from ..config import settings
 from ..cache import event_cache
 from ..utils import DateHandler
 from ..clients.calendar_client import MAX_EVENT_SEARCH_LIMIT
+
+logger = logging.getLogger(__name__)
 
 
 class CalendarHandler(BaseHandler):
@@ -917,18 +920,43 @@ class CalendarHandler(BaseHandler):
         series = arguments.get("series", False)
         event_info = await self._resolve_event_id(event_number)
 
-        if series and event_info["series_master_id"]:
-            await graph_client.accept_event(
-                event_info["series_master_id"], comment, send_response, series
-            )
-            return self._format_response(
-                f"Entire recurring series accepted successfully."
-            )
+        try:
+            if series and event_info["series_master_id"]:
+                await graph_client.accept_event(
+                    event_info["series_master_id"], comment, send_response, series
+                )
+                return self._format_response(
+                    f"Entire recurring series accepted successfully."
+                )
 
-        await graph_client.accept_event(
-            event_info["event_id"], comment, send_response, series
-        )
-        return self._format_response(f"Event accepted successfully.")
+            await graph_client.accept_event(
+                event_info["event_id"], comment, send_response, series
+            )
+            return self._format_response(f"Event accepted successfully.")
+        except Exception as e:
+            error_msg = str(e)
+            if "organizer hasn't requested a response" in error_msg:
+                # Organizer didn't request responses, so we update the event to mark it as busy
+                # This uses the PATCH endpoint to set showAs property (same as Outlook behavior)
+                try:
+                    # Update the event to mark as busy with reminders
+                    event_data = {
+                        "showAs": "busy",
+                        "isReminderOn": True
+                    }
+                    
+                    await graph_client.update_event(event_info["event_id"], event_data)
+                    logger.info(f"Updated event {event_info['event_id']} to show as busy")
+                    
+                    return self._format_response(
+                        f"Event marked as busy on your calendar. The organizer didn't request a response, so the event was updated to show as busy with reminders."
+                    )
+                except Exception as update_error:
+                    logger.error(f"Failed to update event to busy: {update_error}")
+                    return self._format_response(
+                        f"Event is on your calendar. The organizer didn't request a response, so no acceptance was sent. Note: Unable to update event to show as busy due to: {str(update_error)}"
+                    )
+            raise
 
     async def _handle_decline_event_action(
         self, arguments: dict
@@ -940,18 +968,37 @@ class CalendarHandler(BaseHandler):
         series = arguments.get("series", False)
         event_info = await self._resolve_event_id(event_number)
 
-        if series and event_info["series_master_id"]:
-            await graph_client.decline_event(
-                event_info["series_master_id"], comment, send_response, series
-            )
-            return self._format_response(
-                f"Entire recurring series declined successfully."
-            )
+        try:
+            if series and event_info["series_master_id"]:
+                await graph_client.decline_event(
+                    event_info["series_master_id"], comment, send_response, series
+                )
+                return self._format_response(
+                    f"Entire recurring series declined successfully."
+                )
 
-        await graph_client.decline_event(
-            event_info["event_id"], comment, send_response, series
-        )
-        return self._format_response(f"Event declined successfully.")
+            await graph_client.decline_event(
+                event_info["event_id"], comment, send_response, series
+            )
+            return self._format_response(f"Event declined successfully.")
+        except Exception as e:
+            error_msg = str(e)
+            if "organizer hasn't requested a response" in error_msg:
+                # Cannot formally decline when responses aren't requested
+                # Delete the event from the calendar since the user declined it
+                try:
+                    await graph_client.delete_event(event_info["event_id"])
+                    logger.info(f"Deleted event {event_info['event_id']} from calendar (declined without response requested)")
+                    
+                    return self._format_response(
+                        f"Event deleted from your calendar. The organizer didn't request a response, so the event was deleted since you declined it."
+                    )
+                except Exception as delete_error:
+                    logger.error(f"Failed to delete event after decline: {delete_error}")
+                    return self._format_response(
+                        f"Event is on your calendar. The organizer didn't request a response, so it cannot be formally declined. Note: Unable to delete event due to: {str(delete_error)}"
+                    )
+            raise
 
     async def _handle_tentatively_accept_event_action(
         self, arguments: dict
@@ -963,18 +1010,43 @@ class CalendarHandler(BaseHandler):
         series = arguments.get("series", False)
         event_info = await self._resolve_event_id(event_number)
 
-        if series and event_info["series_master_id"]:
-            await graph_client.tentatively_accept_event(
-                event_info["series_master_id"], comment, send_response, series
-            )
-            return self._format_response(
-                f"Entire recurring series tentatively accepted successfully."
-            )
+        try:
+            if series and event_info["series_master_id"]:
+                await graph_client.tentatively_accept_event(
+                    event_info["series_master_id"], comment, send_response, series
+                )
+                return self._format_response(
+                    f"Entire recurring series tentatively accepted successfully."
+                )
 
-        await graph_client.tentatively_accept_event(
-            event_info["event_id"], comment, send_response, series
-        )
-        return self._format_response(f"Event tentatively accepted successfully.")
+            await graph_client.tentatively_accept_event(
+                event_info["event_id"], comment, send_response, series
+            )
+            return self._format_response(f"Event tentatively accepted successfully.")
+        except Exception as e:
+            error_msg = str(e)
+            if "organizer hasn't requested a response" in error_msg:
+                # Organizer didn't request responses, so we update the event to mark it as tentative
+                # This uses the PATCH endpoint to set showAs property (same as Outlook behavior)
+                try:
+                    # Update the event to mark as tentative with reminders
+                    event_data = {
+                        "showAs": "tentative",
+                        "isReminderOn": True
+                    }
+                    
+                    await graph_client.update_event(event_info["event_id"], event_data)
+                    logger.info(f"Updated event {event_info['event_id']} to show as tentative")
+                    
+                    return self._format_response(
+                        f"Event marked as tentative on your calendar. The organizer didn't request a response, so the event was updated to show as tentative with reminders."
+                    )
+                except Exception as update_error:
+                    logger.error(f"Failed to update event to tentative: {update_error}")
+                    return self._format_response(
+                        f"Event is on your calendar. The organizer didn't request a response, so no tentative acceptance was sent. Note: Unable to update event to show as tentative due to: {str(update_error)}"
+                    )
+            raise
 
     async def _handle_propose_new_time_action(
         self, arguments: dict
@@ -1005,12 +1077,31 @@ class CalendarHandler(BaseHandler):
             "end": {"dateTime": proposed_end_time_utc, "timeZone": "UTC"},
         }
 
-        await graph_client.propose_new_time(
-            event_info["event_id"], propose_new_time_data, comment, send_response
-        )
-        return self._format_response(
-            f"Event declined successfully with proposed new time: {proposed_time_local} ({user_timezone})."
-        )
+        try:
+            await graph_client.propose_new_time(
+                event_info["event_id"], propose_new_time_data, comment, send_response
+            )
+            return self._format_response(
+                f"Event declined successfully with proposed new time: {proposed_time_local} ({user_timezone})."
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "organizer hasn't requested a response" in error_msg:
+                # Cannot propose new time when responses aren't requested
+                # Delete the event and tell user to contact organizer directly
+                try:
+                    await graph_client.delete_event(event_info["event_id"])
+                    logger.info(f"Deleted event {event_info['event_id']} from calendar (propose new time without response requested)")
+                    
+                    return self._format_response(
+                        f"Event deleted from your calendar. The organizer didn't request a response, so you cannot propose a new time through the system. Please contact the organizer directly to suggest: {proposed_time_local} ({user_timezone})."
+                    )
+                except Exception as delete_error:
+                    logger.error(f"Failed to delete event after propose new time: {delete_error}")
+                    return self._format_response(
+                        f"Event is on your calendar. The organizer didn't request a response, so you cannot propose a new time. Please contact the organizer directly to suggest: {proposed_time_local} ({user_timezone}). Note: Unable to delete event due to: {str(delete_error)}"
+                    )
+            raise
 
     async def _handle_delete_cancelled_event_action(
         self, arguments: dict
@@ -1022,7 +1113,7 @@ class CalendarHandler(BaseHandler):
         await graph_client.delete_event(event_info["event_id"])
         await event_cache.remove_event_from_cache(event_info["event_id"])
         return self._format_response(
-            f"Cancelled event deleted successfully from your calendar."
+            f"Cancelled event deleted from your calendar."
         )
 
     async def handle_check_attendee_availability(

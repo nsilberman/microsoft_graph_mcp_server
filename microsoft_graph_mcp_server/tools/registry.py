@@ -492,7 +492,7 @@ class ToolRegistry:
         """Respond to event tool definition for responding to events organized by others."""
         return types.Tool(
             name="respond_to_event",
-            description="Respond to calendar events organized by others. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message.",
+            description="Respond to calendar events organized by others. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message. IMPORTANT: accept/decline/tentatively_accept/propose_new_time actions will automatically handle events where the organizer didn't request responses. For accept: updates the event to showAs='busy' and enables reminders. For tentatively_accept: updates the event to showAs='tentative' and enables reminders. For decline: deletes the event from your calendar. For propose_new_time: deletes the event from your calendar and instructs you to contact organizer directly (since proposals require responses). This matches Outlook's behavior. The delete action is specifically for removing a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -505,7 +505,7 @@ class ToolRegistry:
                             "propose_new_time",
                             "delete",
                         ],
-                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer, 'delete' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
+                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer (if responses aren't requested, deletes the event and instructs to contact organizer directly), 'delete' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
                     },
                     "cache_number": {
                         "type": "integer",
@@ -525,7 +525,7 @@ class ToolRegistry:
                     },
                     "propose_new_time": {
                         "type": "object",
-                        "description": "Propose a new time when using propose_new_time action (required for propose_new_time action)",
+                        "description": "Propose a new time when using propose_new_time action (required for propose_new_time action). Note: If the organizer hasn't requested responses, the event will be deleted and you'll need to contact the organizer directly to suggest the new time.",
                         "properties": {
                             "dateTime": {
                                 "type": "string",
