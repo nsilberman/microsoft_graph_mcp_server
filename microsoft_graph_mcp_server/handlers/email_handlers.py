@@ -1,5 +1,6 @@
 """Email handlers for MCP tools."""
 
+from typing import Optional, List
 import mcp.types as types
 from .base import BaseHandler
 from ..utils import read_bcc_from_csv, date_handler
@@ -225,9 +226,16 @@ class EmailHandler(BaseHandler):
 
         total_recipients = to_count + cc_count + bcc_count
 
+        # If total recipients exceed limit, batch them
         if total_recipients > MAX_RECIPIENTS_LIMIT:
-            return self._format_error(
-                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
+            return await self._handle_batch_send_new_email(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                importance=importance,
+                total_recipients=total_recipients,
             )
 
         success, result, error = await self._handle_auth_error(
@@ -274,9 +282,17 @@ class EmailHandler(BaseHandler):
 
         total_recipients = to_count + cc_count + bcc_count
 
+        # If total recipients exceed limit, batch them
         if total_recipients > MAX_RECIPIENTS_LIMIT:
-            return self._format_error(
-                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
+            return await self._handle_batch_reply_email(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                email_id=email_id,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                importance=importance,
+                total_recipients=total_recipients,
             )
 
         success, result, error = await self._handle_auth_error(
@@ -352,9 +368,17 @@ class EmailHandler(BaseHandler):
 
         total_recipients = to_count + cc_count + bcc_count
 
+        # If total recipients exceed limit, batch them
         if total_recipients > MAX_RECIPIENTS_LIMIT:
-            return self._format_error(
-                f"Error: Total recipients (TO: {to_count} + CC: {cc_count} + BCC: {bcc_count} = {total_recipients}) exceeds the maximum limit of {MAX_RECIPIENTS_LIMIT}. Please reduce the number of recipients."
+            return await self._handle_batch_forward_email(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                email_id=email_id,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                importance=importance,
+                total_recipients=total_recipients,
             )
 
         success, result, error = await self._handle_auth_error(
@@ -380,6 +404,327 @@ class EmailHandler(BaseHandler):
             )
 
         return self._format_response(response_message)
+
+    async def _handle_batch_forward_email(
+        self,
+        to_recipients: Optional[List[str]],
+        subject: Optional[str],
+        body: str,
+        email_id: str,
+        cc_recipients: Optional[List[str]],
+        bcc_recipients: Optional[List[str]],
+        importance: Optional[str],
+        total_recipients: int,
+    ) -> list[types.TextContent]:
+        """Handle batch forwarding of emails when recipients exceed the limit.
+
+        Splits recipients into batches and sends multiple emails.
+
+        Args:
+            to_recipients: List of TO recipients
+            subject: Email subject
+            body: Email body
+            email_id: ID of the email to forward
+            cc_recipients: List of CC recipients
+            bcc_recipients: List of BCC recipients
+            importance: Email importance
+            total_recipients: Total number of recipients
+
+        Returns:
+            Response with batch send results
+        """
+        from ..config import MAX_RECIPIENTS_LIMIT
+
+        sent_count = 0
+        failed_count = 0
+        errors = []
+
+        # Combine all recipients into a single list
+        all_recipients = []
+        if to_recipients:
+            all_recipients.extend([("to", email) for email in to_recipients])
+        if cc_recipients:
+            all_recipients.extend([("cc", email) for email in cc_recipients])
+        if bcc_recipients:
+            all_recipients.extend([("bcc", email) for email in bcc_recipients])
+
+        # Split into batches
+        batches = []
+        current_batch = {"to": [], "cc": [], "bcc": []}
+        current_count = 0
+
+        for recipient_type, email in all_recipients:
+            if current_count >= MAX_RECIPIENTS_LIMIT:
+                batches.append(current_batch)
+                current_batch = {"to": [], "cc": [], "bcc": []}
+                current_count = 0
+
+            current_batch[recipient_type].append(email)
+            current_count += 1
+
+        if current_batch["to"] or current_batch["cc"] or current_batch["bcc"]:
+            batches.append(current_batch)
+
+        # Send each batch
+        for idx, batch in enumerate(batches, 1):
+            batch_to_count = len(batch["to"])
+            batch_cc_count = len(batch["cc"])
+            batch_bcc_count = len(batch["bcc"])
+            batch_total = batch_to_count + batch_cc_count + batch_bcc_count
+
+            success, result, error = await self._handle_auth_error(
+                lambda b=batch: graph_client.batch_forward_emails(
+                    to_recipients=b["to"] if b["to"] else None,
+                    subject=subject,
+                    body=body,
+                    email_ids=[email_id],
+                    cc_recipients=b["cc"] if b["cc"] else None,
+                    bcc_recipients=b["bcc"] if b["bcc"] else None,
+                    body_content_type="HTML",
+                    importance=importance,
+                ),
+                f"forwarding email batch {idx}/{len(batches)}",
+            )
+
+            if success:
+                sent_count += batch_total
+            else:
+                failed_count += batch_total
+                errors.append(f"Batch {idx} ({batch_total} recipients): {error}")
+
+        # Prepare response
+        response_data = {
+            "success": True,
+            "message": f"Email forwarding completed in {len(batches)} batches",
+            "total_recipients": total_recipients,
+            "total_batches": len(batches),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "batch_size": MAX_RECIPIENTS_LIMIT,
+        }
+
+        if errors:
+            response_data["errors"] = errors
+
+        response_message = (
+            f"Email forwarded in {len(batches)} batches: "
+            f"{sent_count} sent, {failed_count} failed"
+        )
+
+        return self._format_response(response_data)
+
+    async def _handle_batch_send_new_email(
+        self,
+        to_recipients: List[str],
+        subject: str,
+        body: str,
+        cc_recipients: Optional[List[str]],
+        bcc_recipients: Optional[List[str]],
+        importance: Optional[str],
+        total_recipients: int,
+    ) -> list[types.TextContent]:
+        """Handle batch sending of new emails when recipients exceed the limit.
+
+        Splits recipients into batches and sends multiple emails.
+
+        Args:
+            to_recipients: List of TO recipients
+            subject: Email subject
+            body: Email body
+            cc_recipients: List of CC recipients
+            bcc_recipients: List of BCC recipients
+            importance: Email importance
+            total_recipients: Total number of recipients
+
+        Returns:
+            Response with batch send results
+        """
+        from ..config import MAX_RECIPIENTS_LIMIT
+
+        sent_count = 0
+        failed_count = 0
+        errors = []
+
+        # Combine all recipients into a single list
+        all_recipients = []
+        if to_recipients:
+            all_recipients.extend([("to", email) for email in to_recipients])
+        if cc_recipients:
+            all_recipients.extend([("cc", email) for email in cc_recipients])
+        if bcc_recipients:
+            all_recipients.extend([("bcc", email) for email in bcc_recipients])
+
+        # Split into batches
+        batches = []
+        current_batch = {"to": [], "cc": [], "bcc": []}
+        current_count = 0
+
+        for recipient_type, email in all_recipients:
+            if current_count >= MAX_RECIPIENTS_LIMIT:
+                batches.append(current_batch)
+                current_batch = {"to": [], "cc": [], "bcc": []}
+                current_count = 0
+
+            current_batch[recipient_type].append(email)
+            current_count += 1
+
+        if current_batch["to"] or current_batch["cc"] or current_batch["bcc"]:
+            batches.append(current_batch)
+
+        # Send each batch
+        for idx, batch in enumerate(batches, 1):
+            batch_to_count = len(batch["to"])
+            batch_cc_count = len(batch["cc"])
+            batch_bcc_count = len(batch["bcc"])
+            batch_total = batch_to_count + batch_cc_count + batch_bcc_count
+
+            success, result, error = await self._handle_auth_error(
+                lambda b=batch: graph_client.send_email(
+                    to_recipients=b["to"] if b["to"] else None,
+                    subject=subject,
+                    body=body,
+                    cc_recipients=b["cc"] if b["cc"] else None,
+                    bcc_recipients=b["bcc"] if b["bcc"] else None,
+                    body_content_type="HTML",
+                    importance=importance,
+                ),
+                f"sending email batch {idx}/{len(batches)}",
+            )
+
+            if success:
+                sent_count += batch_total
+            else:
+                failed_count += batch_total
+                errors.append(f"Batch {idx} ({batch_total} recipients): {error}")
+
+        # Prepare response
+        response_data = {
+            "success": True,
+            "message": f"Email sending completed in {len(batches)} batches",
+            "total_recipients": total_recipients,
+            "total_batches": len(batches),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "batch_size": MAX_RECIPIENTS_LIMIT,
+        }
+
+        if errors:
+            response_data["errors"] = errors
+
+        response_message = (
+            f"Email sent in {len(batches)} batches: "
+            f"{sent_count} sent, {failed_count} failed"
+        )
+
+        return self._format_response(response_data)
+
+    async def _handle_batch_reply_email(
+        self,
+        to_recipients: Optional[List[str]],
+        subject: Optional[str],
+        body: str,
+        email_id: str,
+        cc_recipients: Optional[List[str]],
+        bcc_recipients: Optional[List[str]],
+        importance: Optional[str],
+        total_recipients: int,
+    ) -> list[types.TextContent]:
+        """Handle batch replying to emails when recipients exceed the limit.
+
+        Splits recipients into batches and sends multiple reply emails.
+
+        Args:
+            to_recipients: List of TO recipients
+            subject: Email subject
+            body: Email body
+            email_id: ID of the email to reply to
+            cc_recipients: List of CC recipients
+            bcc_recipients: List of BCC recipients
+            importance: Email importance
+            total_recipients: Total number of recipients
+
+        Returns:
+            Response with batch send results
+        """
+        from ..config import MAX_RECIPIENTS_LIMIT
+
+        sent_count = 0
+        failed_count = 0
+        errors = []
+
+        # Combine all recipients into a single list
+        all_recipients = []
+        if to_recipients:
+            all_recipients.extend([("to", email) for email in to_recipients])
+        if cc_recipients:
+            all_recipients.extend([("cc", email) for email in cc_recipients])
+        if bcc_recipients:
+            all_recipients.extend([("bcc", email) for email in bcc_recipients])
+
+        # Split into batches
+        batches = []
+        current_batch = {"to": [], "cc": [], "bcc": []}
+        current_count = 0
+
+        for recipient_type, email in all_recipients:
+            if current_count >= MAX_RECIPIENTS_LIMIT:
+                batches.append(current_batch)
+                current_batch = {"to": [], "cc": [], "bcc": []}
+                current_count = 0
+
+            current_batch[recipient_type].append(email)
+            current_count += 1
+
+        if current_batch["to"] or current_batch["cc"] or current_batch["bcc"]:
+            batches.append(current_batch)
+
+        # Send each batch
+        for idx, batch in enumerate(batches, 1):
+            batch_to_count = len(batch["to"])
+            batch_cc_count = len(batch["cc"])
+            batch_bcc_count = len(batch["bcc"])
+            batch_total = batch_to_count + batch_cc_count + batch_bcc_count
+
+            success, result, error = await self._handle_auth_error(
+                lambda b=batch: graph_client.send_email(
+                    to_recipients=b["to"] if b["to"] else None,
+                    subject=subject,
+                    body=body,
+                    cc_recipients=b["cc"] if b["cc"] else None,
+                    bcc_recipients=b["bcc"] if b["bcc"] else None,
+                    reply_to_message_id=email_id,
+                    body_content_type="HTML",
+                    importance=importance,
+                ),
+                f"sending reply batch {idx}/{len(batches)}",
+            )
+
+            if success:
+                sent_count += batch_total
+            else:
+                failed_count += batch_total
+                errors.append(f"Batch {idx} ({batch_total} recipients): {error}")
+
+        # Prepare response
+        response_data = {
+            "success": True,
+            "message": f"Email reply completed in {len(batches)} batches",
+            "total_recipients": total_recipients,
+            "total_batches": len(batches),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "batch_size": MAX_RECIPIENTS_LIMIT,
+        }
+
+        if errors:
+            response_data["errors"] = errors
+
+        response_message = (
+            f"Email reply sent in {len(batches)} batches: "
+            f"{sent_count} sent, {failed_count} failed"
+        )
+
+        return self._format_response(response_data)
 
     async def handle_manage_mail_folder(
         self, arguments: dict
