@@ -95,8 +95,13 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 
 
 ### Performance Optimizations
+- **Server-Side Email Search**: Optimized search with Microsoft Graph API
+  - Exact email searches use `$filter` for server-side date filtering (best performance)
+  - Fuzzy name searches use `$search` with KQL syntax for partial matching
+  - Subject and body searches use `$search` with AND logic for multiple keywords
+  - Client-side date filtering only when necessary (Graph API limitation)
+  - Maximum 100 emails per search for optimal performance
 - Efficient bulk email operations with batch processing
-- Optimized email search with configurable limits
 - Timezone-aware date and time handling
 - Disk-based caching for persistence
 - API propagation delay handling for reliable operations

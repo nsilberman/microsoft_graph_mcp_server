@@ -19,14 +19,32 @@ This document describes the email-related functions available in the Microsoft G
 ### Description
 Unified search tool for emails. Search by sender, recipient, subject, or body text with configurable date range filtering. If no search_type and query are provided, lists recent emails from Inbox (default: 1 day, maximum: 7 days).
 
+### Server-Side Filtering Performance
+
+The search function uses optimized server-side filtering with Microsoft Graph API for maximum performance:
+
+| Search Type | API Method | Date Filtering | Performance |
+|-------------|------------|----------------|-------------|
+| **Sender fuzzy name** (e.g., "beng") | `$search="from:beng"` | Client-side | Good (100 emails max) |
+| **Sender exact email** (e.g., "john@example.com") | `$filter="from/emailAddress/address eq '...'"` | **Server-side** | **Best** |
+| **Subject search** | `$search="subject:keywords"` | Client-side | Good (100 emails max) |
+| **Body search** | `$search="keywords"` | Client-side | Good (100 emails max) |
+
+**Key Features:**
+- **Exact email searches** use `$filter` for optimal performance with server-side date filtering
+- **Fuzzy name searches** use `$search` for partial matching with minimal client-side overhead
+- **Subject and body searches** use `$search` with KQL syntax supporting AND logic for multiple keywords
+- **Client-side date filtering** is only applied when using `$search` (Graph API limitation)
+- Maximum 100 emails returned per search to balance performance and completeness
+
 ### Parameters
 - `search_type` (optional, string): Type of search to perform
   - Values: "sender", "subject", "body"
   - If not provided, lists recent emails from Inbox
 - `query` (optional, string): Search query
-  - For sender: sender name or email address
-  - For subject: subject text
-  - For body: body text content
+  - For sender: sender name or email address (fuzzy matching for names, exact match for emails)
+  - For subject: subject text (supports multiple keywords with AND logic)
+  - For body: body text content (supports multiple keywords with AND logic)
   - Required when search_type is provided
 - `folder` (optional, string): Folder to search (default: "Inbox" for recent emails, null for searches)
 - `days` (optional, integer): Number of days to search back

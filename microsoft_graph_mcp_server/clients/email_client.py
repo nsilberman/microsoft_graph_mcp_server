@@ -1086,7 +1086,6 @@ class EmailClient(BaseGraphClient):
         params = {
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
-            "$orderby": "receivedDateTime desc",
         }
 
         endpoint = "/me/messages"
@@ -1102,36 +1101,26 @@ class EmailClient(BaseGraphClient):
 
         filter_parts = []
 
-        # Store original query for client-side filtering
-        original_query = query
-
-        # Check if query contains special characters that break Graph API's contains()
-        # These include: ., @, #, %, &, *, +, /, =, ?, ^, `, {, }, |, ~, [, ]
-        def has_special_chars(text):
-            special_chars = set('.@#%&*+/=?^`{}|~[]')
-            return any(char in text for char in special_chars)
-
-        # Flag to indicate if we need client-side filtering
-        needs_client_filter = False
-
+        # Use server-side filtering optimized for performance
         if search_type:
             if search_type == "subject" and query:
-                # Use client-side filtering for subject search
-                # Server-side filter contains(subject, ...) with date filter and orderby causes "InefficientFilter" error
-                needs_client_filter = True
+                # Use $search for subject (fuzzy matching, but no date filtering)
+                params["$search"] = f'"subject:{query}"'
             elif search_type == "body" and query:
-                # Use client-side filtering for body search
-                # Server-side filter contains(body, ...) with date filter and orderby causes "InefficientFilter" error
-                needs_client_filter = True
+                # Use $search for body (fuzzy matching, but no date filtering)
+                params["$search"] = f'"{query}"'
             elif search_type == "sender" and query:
-                # Use client-side filtering for all sender searches (name and email)
-                # Server-side filter on from/emailAddress/address with date filter causes "InefficientFilter" error
-                needs_client_filter = True
-
+                # For sender: use $filter for exact email (supports date filtering)
+                # Use $search for fuzzy name match (no date filtering)
+                if "@" in query:
+                    # Exact email match - use $filter for better performance with date filtering
+                    filter_parts.append(f"from/emailAddress/address eq '{query}'")
+                else:
+                    # Fuzzy name match - use $search (requires client-side date filtering)
+                    params["$search"] = f'"from:{query}"'
         elif query:
-            # Default behavior: search subject for all keywords (AND logic)
-            # Use client-side filtering to avoid "InefficientFilter" error
-            needs_client_filter = True
+            # Default: search subject with $search
+            params["$search"] = f'"subject:{query}"'
 
         if start_date and end_date:
             filter_parts.append(f"receivedDateTime ge {start_date}")
@@ -1144,6 +1133,12 @@ class EmailClient(BaseGraphClient):
         if filter_parts and not params.get("$search"):
             params["$filter"] = " and ".join(filter_parts)
 
+        # Add $orderby only when NOT using $search or $filter (Graph API limitations)
+        # $search doesn't support $orderby
+        # $filter with date filters doesn't support $orderby (InefficientFilter error)
+        if not params.get("$search") and not filter_parts:
+            params["$orderby"] = "receivedDateTime desc"
+
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
@@ -1153,51 +1148,26 @@ class EmailClient(BaseGraphClient):
             for idx, email in enumerate(emails)
         ]
 
-        # Client-side filtering for queries with special characters or sender name search
-        # Server-side filter doesn't support contains() with special characters or on from/emailAddress/name
-        # Date filter reduces dataset size before client-side filtering
-        if needs_client_filter and original_query:
-            query_lower = original_query.lower()
+        # Client-side date filtering only when using $search
+        # $search and $filter with date ranges cannot be combined
+        # For exact email searches, we use $filter so server handles date filtering
+        if params.get("$search") and (start_date or end_date):
             filtered_summaries = []
             for summary in summaries:
-                # Check subject
-                subject = summary.get("subject", "").lower()
-                # Check sender name and email
-                sender_name = summary.get("from", {}).get("name", "").lower()
-                sender_email = summary.get("from", {}).get("email", "").lower()
+                received_dt = summary.get("receivedDateTimeOriginal", "")
+                if not received_dt:
+                    continue
 
-                # Check body preview if searching body
-                body_preview = summary.get("bodyPreview", "").lower()
+                # Check if within date range
+                if start_date and received_dt < start_date:
+                    continue
+                if end_date and received_dt > end_date:
+                    continue
 
-                match = False
-                if search_type == "subject":
-                    match = query_lower in subject
-                elif search_type == "body":
-                    match = query_lower in body_preview
-                elif search_type == "sender":
-                    match = query_lower in sender_name or query_lower in sender_email
-                else:
-                    # Default: search in subject, sender name, sender email
-                    match = (query_lower in subject or
-                           query_lower in sender_name or
-                           query_lower in sender_email)
-
-                if match:
-                    filtered_summaries.append(summary)
-            summaries = filtered_summaries
-        elif original_query and search_type == "sender" and "@" not in original_query:
-            # Client-side filtering for sender name search (case-insensitive)
-            # Server-side filter doesn't support contains() on from/emailAddress/name
-            query_lower = original_query.lower()
-            filtered_summaries = []
-            for summary in summaries:
-                sender_name = summary.get("from", {}).get("name", "").lower()
-                sender_email = summary.get("from", {}).get("email", "").lower()
-                # Match if query is in sender name or email
-                if query_lower in sender_name or query_lower in sender_email:
-                    filtered_summaries.append(summary)
+                filtered_summaries.append(summary)
             summaries = filtered_summaries
 
+        # Sort by receivedDateTime descending
         sorted_summaries = sorted(
             summaries, key=lambda x: x.get("receivedDateTime", ""), reverse=True
         )
