@@ -628,11 +628,21 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle update event action using cache number."""
-        cache_number_str = arguments["cache_number"]
+        cache_number_param = arguments["cache_number"]
 
-        if not cache_number_str or not cache_number_str.isdigit():
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
             return self._format_error(
-                f"Invalid cache number format: '{cache_number_str}'. "
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
                 f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
                 f"Use search_events and browse_events to find the cache number."
             )
@@ -777,12 +787,22 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle cancel event action using cache number."""
-        cache_number_str = arguments["cache_number"]
+        cache_number_param = arguments["cache_number"]
         comment = arguments.get("comment")
 
-        if not cache_number_str or not cache_number_str.isdigit():
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
             return self._format_error(
-                f"Invalid cache number format: '{cache_number_str}'. "
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
                 f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
                 f"Use search_events and browse_events to find the cache number."
             )
@@ -796,11 +816,11 @@ class CalendarHandler(BaseHandler):
             f"Event cancelled successfully. Cancellation notifications sent to attendees."
         )
 
-    async def _resolve_event_id(self, event_number: int) -> dict:
+    async def _resolve_event_id(self, event_number) -> dict:
         """Resolve cache event number to actual event ID and series information.
 
         Args:
-            event_number: The cache number from browse_events
+            event_number: The cache number from browse_events (can be int or string)
 
         Returns:
             Dictionary with event_id, series_master_id, and is_recurring
@@ -808,6 +828,12 @@ class CalendarHandler(BaseHandler):
         Raises:
             ValueError: If event number not found in cache
         """
+        # Convert to int if it's a string
+        if isinstance(event_number, str):
+            if not event_number.isdigit():
+                raise ValueError(f"Invalid event number format: '{event_number}'")
+            event_number = int(event_number)
+
         cached_events = event_cache.get_cached_events()
         for event in cached_events:
             if event.get("number") == event_number:
@@ -827,13 +853,23 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle forward event action (add optional attendees) using cache number."""
-        cache_number_str = arguments["cache_number"]
+        cache_number_param = arguments["cache_number"]
         attendees = arguments["attendees"]
         comment = arguments.get("comment")
 
-        if not cache_number_str or not cache_number_str.isdigit():
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
             return self._format_error(
-                f"Invalid cache number format: '{cache_number_str}'. "
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
                 f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
                 f"Use search_events and browse_events to find the cache number."
             )
@@ -857,15 +893,25 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle reply to event action (send email to attendees using event body as email content) using cache number."""
-        cache_number_str = arguments["cache_number"]
+        cache_number_param = arguments["cache_number"]
         subject = arguments.get("reply_subject", "Re: Event")
         body = arguments.get("body")
         to_recipients = arguments.get("to")
         cc_recipients = arguments.get("cc")
 
-        if not cache_number_str or not cache_number_str.isdigit():
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
             return self._format_error(
-                f"Invalid cache number format: '{cache_number_str}'. "
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
                 f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
                 f"Use search_events and browse_events to find the cache number."
             )
@@ -914,7 +960,26 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle accept event action using cache number."""
-        event_number = int(arguments["cache_number"])
+        cache_number_param = arguments["cache_number"]
+
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        event_number = int(cache_number_str)
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
         series = arguments.get("series", False)
@@ -962,7 +1027,26 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle decline event action using cache number."""
-        event_number = int(arguments["cache_number"])
+        cache_number_param = arguments["cache_number"]
+
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        event_number = int(cache_number_str)
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
         series = arguments.get("series", False)
@@ -1004,7 +1088,26 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle tentatively accept event action using cache number."""
-        event_number = int(arguments["cache_number"])
+        cache_number_param = arguments["cache_number"]
+
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        event_number = int(cache_number_str)
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
         series = arguments.get("series", False)
@@ -1052,7 +1155,26 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle propose new time action (decline event and propose new time) using cache number."""
-        event_number = int(arguments["cache_number"])
+        cache_number_param = arguments["cache_number"]
+
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        event_number = int(cache_number_str)
         propose_new_time = arguments["propose_new_time"]
         comment = arguments.get("comment")
         send_response = arguments.get("send_response", True)
@@ -1107,7 +1229,26 @@ class CalendarHandler(BaseHandler):
         self, arguments: dict
     ) -> list[types.TextContent]:
         """Handle delete cancelled event action using cache number."""
-        event_number = int(arguments["cache_number"])
+        cache_number_param = arguments["cache_number"]
+
+        # Handle both string and integer cache_number inputs
+        if cache_number_param is None:
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        # Convert to string to check if it's numeric
+        cache_number_str = str(cache_number_param)
+        if not cache_number_str.isdigit():
+            return self._format_error(
+                f"Invalid cache number format: '{cache_number_param}'. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Use search_events and browse_events to find the cache number."
+            )
+
+        event_number = int(cache_number_str)
         event_info = await self._resolve_event_id(event_number)
 
         await graph_client.delete_event(event_info["event_id"])
