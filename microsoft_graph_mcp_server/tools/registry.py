@@ -332,7 +332,7 @@ class ToolRegistry:
                     "to": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of recipient email addresses (required for send_new and reply, optional for forward when bcc_csv_file is provided)",
+                        "description": "List of recipient email addresses (required for send_new, optional for reply and forward). For reply: if not provided, defaults to original sender and recipients; if provided (even if empty), replaces original recipients. For forward: optional when bcc_csv_file is provided.",
                     },
                     "subject": {
                         "type": "string",
@@ -349,7 +349,7 @@ class ToolRegistry:
                     "cc": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of CC recipient email addresses (optional)",
+                        "description": "List of CC recipient email addresses (optional). For reply: if not provided, defaults to original CC recipients; if provided (even if empty), replaces original CC recipients.",
                     },
                     "bcc": {
                         "type": "array",

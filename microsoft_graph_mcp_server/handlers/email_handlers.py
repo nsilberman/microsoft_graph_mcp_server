@@ -276,8 +276,19 @@ class EmailHandler(BaseHandler):
         return self._format_response(f"Email sent successfully: {result}")
 
     async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
-        """Handle reply email action."""
+        """Handle reply email action.
+
+        Behavior:
+        - If 'to' and 'cc' are not provided in arguments, reply uses original recipients
+          (original sender + original 'to' recipients in 'to' field, original 'cc' in 'cc' field)
+        - If 'to' or 'cc' are provided in arguments (even if empty arrays),
+          they replace the original recipients
+        """
         cache_number = arguments["cache_number"]
+        # Check if 'to' and 'cc' were explicitly provided in the arguments
+        to_was_provided = 'to' in arguments
+        cc_was_provided = 'cc' in arguments
+
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
         body = arguments.get("htmlbody")
@@ -295,6 +306,18 @@ class EmailHandler(BaseHandler):
         email_id = email["id"]
 
         from ..config import MAX_RECIPIENTS_LIMIT
+
+        # For reply action, implement the following logic:
+        # 1. If 'to' and 'cc' are not provided at all, keep original values
+        # 2. If 'to' or 'cc' are provided (even if empty), use the provided values
+
+        # If 'to' was not provided, set to None to trigger default reply behavior
+        if not to_was_provided:
+            to_recipients = None
+
+        # If 'cc' was not provided, set to None to trigger default reply behavior
+        if not cc_was_provided:
+            cc_recipients = None
 
         to_count = len(to_recipients) if to_recipients else 0
         cc_count = len(cc_recipients) if cc_recipients else 0
