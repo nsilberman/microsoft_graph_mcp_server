@@ -206,7 +206,8 @@ If you want to use a custom Azure app registration, you can create a `.env` file
 CLIENT_ID=your_custom_client_id
 TENANT_ID=organizations
 USER_TIMEZONE=Asia/Shanghai
-DEFAULT_SEARCH_DAYS=90
+DEFAULT_SEARCH_DAYS=7
+MAX_SEARCH_DAYS=90
 PAGE_SIZE=5
 LLM_PAGE_SIZE=20
 CONTACT_SEARCH_LIMIT=10
@@ -216,7 +217,8 @@ CONTACT_SEARCH_LIMIT=10
 - `CLIENT_ID`: Custom Azure application client ID (optional)
 - `TENANT_ID`: Azure tenant ID (default: "organizations")
 - `USER_TIMEZONE`: User's timezone in IANA format (e.g., "Asia/Shanghai", "America/New_York")
-- `DEFAULT_SEARCH_DAYS`: Default search range in days for email searches (default: 90)
+- `DEFAULT_SEARCH_DAYS`: Default search range in days when not specified (default: 7)
+- `MAX_SEARCH_DAYS`: Maximum allowed search range in days (default: 90)
 - `PAGE_SIZE`: Number of items per page for browsing emails (default: 5)
 - `LLM_PAGE_SIZE`: Number of items per page for LLM browsing (default: 20)
 - `CONTACT_SEARCH_LIMIT`: Maximum contacts to return in search results (default: 10)
@@ -331,7 +333,7 @@ Use an absolute path to your project directory:
   - `logout`: Clears authentication tokens and signs out from Microsoft Graph.
 
 #### User and Contact Management
-- **user_settings** - Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.
+- **user_settings** - Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=7, MAX_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, MAX_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.
 - **search_contacts** - Search for people by name or email address in organization directory. Returns contact information (name, email, etc.). Use this when you need to find information about a person, such as 'who is John Smith' or 'find contact with email john@company.com'. This is NOT for searching email messages - use search_emails for that. Uses smart detection to automatically choose the optimal search method: email addresses use fast `$filter` with exact match (~10x faster), while name searches use `$search` with tokenization for contains-like behavior. Results are limited (default: 10). Response includes: contacts array, count (number of contacts returned), limit_reached (boolean), and message. If more results exist, limit_reached will be true - use more specific search terms to narrow results. Note: If you encounter a rate limit error (429), the response will include a 'retry_after' field indicating how many seconds to wait before retrying.
 
 #### Email Management
@@ -564,8 +566,9 @@ The `browse_email_cache` tool now provides clear pagination information:
 - `total_count` - Total number of emails in cache
 
 ### Configurable Search Range
-Email search functions now support a configurable default search range:
-- Default search range: 90 days (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+Email search functions now support configurable search range settings:
+- Default search range: 7 days (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+- Maximum allowed range: 90 days (configurable via `MAX_SEARCH_DAYS` environment variable)
 - Override default by specifying `days` parameter in search functions
 - Makes searches more efficient and predictable by limiting the time range
 

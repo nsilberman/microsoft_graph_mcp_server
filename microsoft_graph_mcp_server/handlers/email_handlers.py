@@ -66,18 +66,20 @@ class EmailHandler(BaseHandler):
         query = arguments.get("query")
         search_type = arguments.get("search_type")
         folder = arguments.get("folder", "Inbox")
-        days = arguments.get("days", 1)
+        days = arguments.get("days")
         start_date = arguments.get("start_date")
         end_date = arguments.get("end_date")
         time_range = arguments.get("time_range")
-        page_size = 100  # Limit to 100 results for better performance
+        page_size = 100
 
-        # Check if days was explicitly provided (not using default of 1)
+        if days is None:
+            days = settings.default_search_days
+
         days_provided = "days" in arguments
 
-        if days > settings.default_search_days:
+        if days > settings.max_search_days:
             return self._format_error(
-                f"Error: Days parameter must be {settings.default_search_days} or less."
+                f"Error: Days parameter must be {settings.max_search_days} or less."
             )
 
         # Clear cache and reload with search results - this is intentional for search operations
@@ -91,9 +93,7 @@ class EmailHandler(BaseHandler):
 
         today_date = date_handler.get_today_date(user_timezone)
 
-        # Parameter precedence: If days is explicitly provided and not default (1), use it instead of time_range
-        if days_provided and days != 1:
-            # Use days parameter, ignore time_range
+        if days_provided:
             start_date, end_date = date_handler.get_filter_date_range(days)
             start_date_display = date_handler.format_date_with_weekday(
                 start_date, user_timezone
@@ -102,12 +102,9 @@ class EmailHandler(BaseHandler):
                 end_date, user_timezone
             )
         elif time_range:
-            # Use time_range parameter - parse_date_range returns local timezone dates,
-            # but email filtering requires UTC, so convert them
             display_range, start_date_local, end_date_local = date_handler.parse_date_range(
                 time_range, user_timezone
             )
-            # Convert local timezone dates to UTC for email filtering
             start_date = date_handler.parse_local_date_to_utc(start_date_local, user_timezone)
             end_date = date_handler.parse_local_date_to_utc(end_date_local, user_timezone)
             start_date_display = date_handler.format_date_with_weekday(
@@ -117,7 +114,6 @@ class EmailHandler(BaseHandler):
                 end_date, user_timezone
             )
         elif not start_date and not end_date:
-            # Use default days (1) when no other time parameters provided
             start_date, end_date = date_handler.get_filter_date_range(days)
             start_date_display = date_handler.format_date_with_weekday(
                 start_date, user_timezone

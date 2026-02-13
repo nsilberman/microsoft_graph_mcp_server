@@ -32,8 +32,9 @@ async def test_user_settings_tool_schema():
     assert "page_size" in properties, "page_size property should exist"
     assert "llm_page_size" in properties, "llm_page_size property should exist"
     assert "default_search_days" in properties, "default_search_days property should exist"
+    assert "max_search_days" in properties, "max_search_days property should exist"
     assert "timezone" in properties, "timezone property should exist"
-    print("   ✓ All expected properties exist: action, page_size, llm_page_size, default_search_days, timezone")
+    print("   ✓ All expected properties exist: action, page_size, llm_page_size, default_search_days, max_search_days, timezone")
     
     action_schema = properties["action"]
     assert action_schema["type"] == "string", "action should be string"
@@ -58,6 +59,12 @@ async def test_user_settings_tool_schema():
     assert default_search_days_schema["minimum"] == 1, "default_search_days minimum should be 1"
     assert default_search_days_schema["maximum"] == 365, "default_search_days maximum should be 365"
     print("   ✓ default_search_days schema correct: integer, min=1, max=365")
+    
+    max_search_days_schema = properties["max_search_days"]
+    assert max_search_days_schema["type"] == "integer", "max_search_days should be integer"
+    assert max_search_days_schema["minimum"] == 1, "max_search_days minimum should be 1"
+    assert max_search_days_schema["maximum"] == 365, "max_search_days maximum should be 365"
+    print("   ✓ max_search_days schema correct: integer, min=1, max=365")
     
     timezone_schema = properties["timezone"]
     assert timezone_schema["type"] == "string", "timezone should be string"
@@ -115,8 +122,9 @@ async def test_user_settings_init_action():
             assert "settings" in content, "Result should have settings"
             assert content["settings"]["page_size"] == 5, "Default page_size should be 5"
             assert content["settings"]["llm_page_size"] == 20, "Default llm_page_size should be 20"
-            assert content["settings"]["default_search_days"] == 90, "Default default_search_days should be 90"
-            print("   ✓ Init action sets default values: page_size=5, llm_page_size=20, default_search_days=90")
+            assert content["settings"]["default_search_days"] == 7, "Default default_search_days should be 7"
+            assert content["settings"]["max_search_days"] == 90, "Default max_search_days should be 90"
+            print("   ✓ Init action sets default values: page_size=5, llm_page_size=20, default_search_days=7, max_search_days=90")
         else:
             print(f"   ✓ user_settings returned error status (expected if not authenticated): {content.get('message', 'Unknown error')}")
     except Exception as e:
@@ -140,7 +148,8 @@ async def test_user_settings_update_action():
         "action": "update",
         "page_size": 10,
         "llm_page_size": 30,
-        "default_search_days": 60
+        "default_search_days": 60,
+        "max_search_days": 120
     }
     
     try:
@@ -160,7 +169,8 @@ async def test_user_settings_update_action():
             assert content["settings"]["page_size"] == 10, "Custom page_size should be 10"
             assert content["settings"]["llm_page_size"] == 30, "Custom llm_page_size should be 30"
             assert content["settings"]["default_search_days"] == 60, "Custom default_search_days should be 60"
-            print("   ✓ Update action sets custom values: page_size=10, llm_page_size=30, default_search_days=60")
+            assert content["settings"]["max_search_days"] == 120, "Custom max_search_days should be 120"
+            print("   ✓ Update action sets custom values: page_size=10, llm_page_size=30, default_search_days=60, max_search_days=120")
         else:
             print(f"   ✓ user_settings returned error status (expected if not authenticated): {content.get('message', 'Unknown error')}")
     except Exception as e:
@@ -191,7 +201,8 @@ async def test_user_settings_env_file_updates():
 CLIENT_SECRET=test_secret
 TENANT_ID=organizations
 USER_TIMEZONE=America/New_York
-DEFAULT_SEARCH_DAYS=90
+DEFAULT_SEARCH_DAYS=7
+MAX_SEARCH_DAYS=90
 PAGE_SIZE=5
 LLM_PAGE_SIZE=20
 """
@@ -203,7 +214,8 @@ LLM_PAGE_SIZE=20
             "action": "update",
             "page_size": 15,
             "llm_page_size": 25,
-            "default_search_days": 120
+            "default_search_days": 120,
+            "max_search_days": 180
         }
         
         try:
@@ -221,7 +233,8 @@ LLM_PAGE_SIZE=20
         
         assert "PAGE_SIZE=15" in updated_content or "PAGE_SIZE=5" in updated_content, "PAGE_SIZE should be updated or remain"
         assert "LLM_PAGE_SIZE=25" in updated_content or "LLM_PAGE_SIZE=20" in updated_content, "LLM_PAGE_SIZE should be updated or remain"
-        assert "DEFAULT_SEARCH_DAYS=120" in updated_content or "DEFAULT_SEARCH_DAYS=90" in updated_content, "DEFAULT_SEARCH_DAYS should be updated or remain"
+        assert "DEFAULT_SEARCH_DAYS=120" in updated_content or "DEFAULT_SEARCH_DAYS=7" in updated_content, "DEFAULT_SEARCH_DAYS should be updated or remain"
+        assert "MAX_SEARCH_DAYS=180" in updated_content or "MAX_SEARCH_DAYS=90" in updated_content, "MAX_SEARCH_DAYS should be updated or remain"
         print("   ✓ .env file contains expected values")
         
     finally:
@@ -276,7 +289,8 @@ async def test_user_settings_response_format():
             assert "page_size" in content["settings"], "settings should have page_size"
             assert "llm_page_size" in content["settings"], "settings should have llm_page_size"
             assert "default_search_days" in content["settings"], "settings should have default_search_days"
-            print("   ✓ settings has required fields: page_size, llm_page_size, default_search_days")
+            assert "max_search_days" in content["settings"], "settings should have max_search_days"
+            print("   ✓ settings has required fields: page_size, llm_page_size, default_search_days, max_search_days")
         else:
             print(f"   ✓ Response has error status (expected if not authenticated)")
     except Exception as e:
@@ -297,9 +311,9 @@ async def test_user_settings_boundary_values():
     handler = UserHandler()
     
     test_cases = [
-        {"page_size": 1, "llm_page_size": 1, "default_search_days": 1, "desc": "minimum values"},
-        {"page_size": 50, "llm_page_size": 100, "default_search_days": 365, "desc": "maximum values"},
-        {"page_size": 25, "llm_page_size": 50, "default_search_days": 182, "desc": "middle values"},
+        {"page_size": 1, "llm_page_size": 1, "default_search_days": 1, "max_search_days": 1, "desc": "minimum values"},
+        {"page_size": 50, "llm_page_size": 100, "default_search_days": 365, "max_search_days": 365, "desc": "maximum values"},
+        {"page_size": 25, "llm_page_size": 50, "default_search_days": 182, "max_search_days": 182, "desc": "middle values"},
     ]
     
     for test_case in test_cases:
@@ -307,14 +321,15 @@ async def test_user_settings_boundary_values():
             "action": "update",
             "page_size": test_case["page_size"],
             "llm_page_size": test_case["llm_page_size"],
-            "default_search_days": test_case["default_search_days"]
+            "default_search_days": test_case["default_search_days"],
+            "max_search_days": test_case["max_search_days"]
         }
         
         try:
             result = await handler.handle_user_settings(arguments)
             assert isinstance(result, list), "Result should be a list"
             assert result[0].type == "text", "Result should be TextContent"
-            print(f"   ✓ {test_case['desc']} work: page_size={test_case['page_size']}, llm_page_size={test_case['llm_page_size']}, default_search_days={test_case['default_search_days']}")
+            print(f"   ✓ {test_case['desc']} work: page_size={test_case['page_size']}, llm_page_size={test_case['llm_page_size']}, default_search_days={test_case['default_search_days']}, max_search_days={test_case['max_search_days']}")
         except Exception as e:
             error_msg = str(e).lower()
             if "not authenticated" in error_msg or "graph_client" in error_msg or "token" in error_msg or "authorization" in error_msg:

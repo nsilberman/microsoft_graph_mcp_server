@@ -198,7 +198,7 @@ get_email_content(cache_number=21)  # Correct
 **Meaning:** Exceeded maximum search days limit.
 
 **When this happens:**
-- Using `days` parameter greater than `default_search_days` (default: 90)
+- Using `days` parameter greater than `max_search_days` (default: 90)
 
 **Solution:**
 ```python
@@ -214,7 +214,7 @@ search_emails(time_range="this_month")
 ```
 
 **Prevention:**
-- Maximum `days` is 90 (configurable via DEFAULT_SEARCH_DAYS)
+- Maximum `days` is 90 (configurable via MAX_SEARCH_DAYS)
 - Use `time_range` for broader ranges without hitting limit
 - Use `start_date`/`end_date` for specific ranges
 

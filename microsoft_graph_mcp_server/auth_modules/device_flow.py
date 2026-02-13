@@ -803,5 +803,7 @@ class DeviceFlowManager:
         }
 
     def clear_device_flow(self) -> None:
-        """Clear the device flow state."""
+        """Clear the device flow state from memory and disk."""
         self.device_flow = None
+        self.token_manager.clear_latest_device_code()
+        self.token_manager.clear_all_device_flows()

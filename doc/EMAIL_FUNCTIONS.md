@@ -48,8 +48,8 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
   - Required when search_type is provided
 - `folder` (optional, string): Folder to search (default: "Inbox" for recent emails, null for searches)
 - `days` (optional, integer): Number of days to search back
-  - Default: 1 for recent emails, 90 for searches (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
-  - Maximum: 7 for recent emails
+  - Default: 90 (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
+  - Maximum: 90 (configurable via `MAX_SEARCH_DAYS` environment variable)
   - Set to `null` to search all emails (not recommended for large mailboxes)
 
 ### Returns
@@ -128,11 +128,12 @@ result = await search_emails(search_type="sender", query="john@example.com", day
 ```
 
 ### Configuration
-The default search range can be configured via the `DEFAULT_SEARCH_DAYS` environment variable:
+The search range can be configured via environment variables:
 
 ```env
 # .env file
-DEFAULT_SEARCH_DAYS=90
+DEFAULT_SEARCH_DAYS=7    # Default search range when not specified
+MAX_SEARCH_DAYS=90       # Maximum allowed search range
 ```
 
 ### Notes

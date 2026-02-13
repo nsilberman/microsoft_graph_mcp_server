@@ -99,7 +99,8 @@ Note: Environment variables should be set in your system environment, not in the
       "args": ["C:/Project/microsoft_graph_mcp_server"],
       "env": {
         "USER_TIMEZONE": "America/New_York",
-        "DEFAULT_SEARCH_DAYS": "90"
+        "DEFAULT_SEARCH_DAYS": "90",
+        "MAX_SEARCH_DAYS": "90"
       }
     }
   }

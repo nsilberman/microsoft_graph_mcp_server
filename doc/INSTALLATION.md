@@ -142,7 +142,8 @@ Edit the `.env` file:
 CLIENT_ID=your_custom_client_id
 TENANT_ID=organizations
 USER_TIMEZONE=Asia/Shanghai
-DEFAULT_SEARCH_DAYS=90
+DEFAULT_SEARCH_DAYS=7
+MAX_SEARCH_DAYS=90
 PAGE_SIZE=5
 LLM_PAGE_SIZE=20
 CONTACT_SEARCH_LIMIT=10
@@ -153,7 +154,8 @@ MAX_BCC_BATCH_SIZE=500
 - `CLIENT_ID`: Custom Azure application client ID (optional)
 - `TENANT_ID`: Azure tenant ID (default: "organizations")
 - `USER_TIMEZONE`: User timezone in IANA format (e.g., "Asia/Shanghai", "America/New_York")
-- `DEFAULT_SEARCH_DAYS`: Default number of days for email search (default: 90)
+- `DEFAULT_SEARCH_DAYS`: Default number of days for email search when not specified (default: 7)
+- `MAX_SEARCH_DAYS`: Maximum allowed search range in days (default: 90)
 - `PAGE_SIZE`: Number of items to display per page when users browse emails (default: 5)
 - `LLM_PAGE_SIZE`: Number of items to display per page when LLM browses emails (default: 20)
 - `CONTACT_SEARCH_LIMIT`: Maximum number of contacts to return in search results (default: 10)

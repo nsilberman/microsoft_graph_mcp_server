@@ -59,6 +59,7 @@ class UserHandler(BaseHandler):
             page_size_updated = False
             llm_page_size_updated = False
             default_search_days_updated = False
+            max_search_days_updated = False
 
             for line in lines:
                 if line.startswith("USER_TIMEZONE="):
@@ -77,6 +78,11 @@ class UserHandler(BaseHandler):
                         f"DEFAULT_SEARCH_DAYS={arguments.get('default_search_days', 90)}"
                     )
                     default_search_days_updated = True
+                elif line.startswith("MAX_SEARCH_DAYS="):
+                    updated_lines.append(
+                        f"MAX_SEARCH_DAYS={arguments.get('max_search_days', 90)}"
+                    )
+                    max_search_days_updated = True
                 else:
                     updated_lines.append(line)
 
@@ -88,11 +94,14 @@ class UserHandler(BaseHandler):
                 if not llm_page_size_updated:
                     updated_lines.append("LLM_PAGE_SIZE=20")
                 if not default_search_days_updated:
-                    updated_lines.append("DEFAULT_SEARCH_DAYS=90")
+                    updated_lines.append("DEFAULT_SEARCH_DAYS=7")
+                if not max_search_days_updated:
+                    updated_lines.append("MAX_SEARCH_DAYS=90")
 
                 page_size = 5
                 llm_page_size = 20
-                default_search_days = 90
+                default_search_days = 7
+                max_search_days = 90
                 message = "User settings initialized successfully with default values"
             else:
                 if not timezone_updated:
@@ -105,12 +114,17 @@ class UserHandler(BaseHandler):
                     )
                 if not default_search_days_updated:
                     updated_lines.append(
-                        f"DEFAULT_SEARCH_DAYS={arguments.get('default_search_days', 90)}"
+                        f"DEFAULT_SEARCH_DAYS={arguments.get('default_search_days', 7)}"
+                    )
+                if not max_search_days_updated:
+                    updated_lines.append(
+                        f"MAX_SEARCH_DAYS={arguments.get('max_search_days', 90)}"
                     )
 
                 page_size = arguments.get("page_size", 5)
                 llm_page_size = arguments.get("llm_page_size", 20)
-                default_search_days = arguments.get("default_search_days", 90)
+                default_search_days = arguments.get("default_search_days", 7)
+                max_search_days = arguments.get("max_search_days", 90)
                 message = "User settings updated successfully"
 
             with open(env_path, "w") as f:
@@ -130,6 +144,7 @@ class UserHandler(BaseHandler):
                     "page_size": page_size,
                     "llm_page_size": llm_page_size,
                     "default_search_days": default_search_days,
+                    "max_search_days": max_search_days,
                 },
             }
 

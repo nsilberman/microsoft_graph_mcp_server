@@ -1,12 +1,15 @@
 """Token management for Microsoft Graph API authentication."""
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 TOKEN_FILE = Path.home() / ".microsoft_graph_mcp_tokens.json"
@@ -217,3 +220,11 @@ class TokenManager:
                 os.remove(LATEST_DEVICE_CODE_FILE)
         except Exception as e:
             logger.warning(f"Failed to clear latest device_code from disk: {e}")
+
+    def clear_all_device_flows(self) -> None:
+        """Clear all device flows from disk."""
+        try:
+            if DEVICE_FLOW_FILE.exists():
+                os.remove(DEVICE_FLOW_FILE)
+        except Exception as e:
+            logger.warning(f"Failed to clear device flows from disk: {e}")

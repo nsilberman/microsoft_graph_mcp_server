@@ -39,7 +39,7 @@ class ToolRegistry:
         """User settings tool definition."""
         return types.Tool(
             name="user_settings",
-            description="Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.",
+            description="Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=7, MAX_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, MAX_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -62,7 +62,13 @@ class ToolRegistry:
                     },
                     "default_search_days": {
                         "type": "integer",
-                        "description": "Default number of days to search for emails (default: 90). Only used with 'update' action.",
+                        "description": "Default number of days to search for emails when not specified (default: 90). Only used with 'update' action.",
+                        "minimum": 1,
+                        "maximum": 365,
+                    },
+                    "max_search_days": {
+                        "type": "integer",
+                        "description": "Maximum allowed search range in days (default: 90). Only used with 'update' action.",
                         "minimum": 1,
                         "maximum": 365,
                     },
@@ -283,10 +289,10 @@ class ToolRegistry:
                     },
                     "days": {
                         "type": "integer",
-                        "description": f"Number of days to look back. Default: 1, maximum: {settings.default_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
+                        "description": f"Number of days to look back. Default: {settings.default_search_days}, maximum: {settings.max_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
                         "default": settings.default_search_days,
                         "minimum": 1,
-                        "maximum": settings.default_search_days,
+                        "maximum": settings.max_search_days,
                     },
                 },
             },
