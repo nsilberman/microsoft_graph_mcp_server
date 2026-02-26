@@ -19,7 +19,9 @@ No Azure setup. No Graph API knowledge. Just install → sign in → your AI bec
 This is the **fastest way** to make your AI agent *actually useful* at work.
 
 If this project saves you time:  
-👉 **Please star the repo — it really helps!**
+👉 **Please star the repo — it really helps!** ⭐
+
+[![Star on GitHub](https://img.shields.io/github/stars/marlonluo2018/microsoft_graph_mcp_server?style=social)](https://github.com/marlonluo2018/microsoft_graph_mcp_server)
 
 ---
 
@@ -72,7 +74,8 @@ Claude will call:
 }
 ```
 
-Follow the link → enter the code → sign in.
+Follow the link → enter the code → sign in.  
+**Then tell Claude**: "I have completed the browser login"
 
 Then Claude will finalize:
 
@@ -219,32 +222,7 @@ Let your AI:
 - Create the meeting  
 - Send follow‑up reminders  
 
-**Workflow**
-
-```json
-{
-  "tool": "search_events",
-  "time_range": "this_week"
-}
-```
-
-```json
-{
-  "tool": "check_attendee_availability",
-  "attendees": ["alice@company.com", "bob@company.com"],
-  "date": "2026-02-27"
-}
-```
-
-```json
-{
-  "tool": "manage_my_event",
-  "action": "create",
-  "subject": "Weekly Sync",
-  "start": "2026-02-27T10:00",
-  "end": "2026-02-27T10:30"
-}
-```
+**How it works**: Use the **Calendar Workflow** below to search events and manage meetings.
 
 ---
 
@@ -309,12 +287,6 @@ Claude will call:
   "htmlbody": "<p>Here's the update...</p>"
 }
 ```
-
----
-
-# 🧭 AI‑Friendly Workflows (Designed for Claude)
-
-These workflows are crafted specifically for AI usage — simple, predictable, and reliable.
 
 ---
 
