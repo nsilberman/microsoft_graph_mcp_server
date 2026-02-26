@@ -1373,30 +1373,40 @@ The email search functionality has been significantly optimized with server-side
 
 ### Recent Optimizations (v2.0)
 
-1. **Server-Side Date Filtering**
-   - **Before**: Fetched all emails, then filtered by date in Python (client-side)
-   - **After**: Added date filters to API `$filter` parameter (server-side)
-   - **Impact**: ~90% faster for date-filtered searches
-   - **Example**: Searching last 90 days now returns only matching emails from the server, reducing data transfer and processing
+1. **KQL Date Filtering (NEW)**
+   - **Before**: `$search` queries couldn't combine with `$filter` for date filtering
+   - **After**: KQL date syntax embedded directly in `$search` queries
+   - **Impact**: All searches now have server-side date filtering
+   - **Example**: `"subject:meeting received:2026-02-01..2026-02-26"`
+   - **Syntax**:
+     - Date range: `received:2026-02-01..2026-02-26`
+     - From date: `received>=2026-02-01`
+     - Until date: `received<=2026-02-26`
 
-2. **Targeted $filter vs Full-Text $search**
+2. **Server-Side Date Filtering**
+   - **Before**: Fetched all emails, then filtered by date in Python
+   - **After**: All date filters applied at server-side (via `$filter` or KQL)
+   - **Impact**: ~90% faster for date-filtered searches
+   - **Example**: Searching last 7 days now returns only matching emails from the server, reducing data transfer and processing
+
+3. **Targeted $filter vs Full-Text $search**
    - **Before**: Used slow `$search` for full-text search across all fields
    - **After**:
-     - Sender search: `from/emailAddress/address eq '{sender}'` - targeted field filtering
-     - Recipient search: `toRecipients/any(r: r/emailAddress/address eq '{recipient}')`
-     - Subject/Body: `contains(subject, '{query}')` or `contains(body, '{query}')`
+     - Sender (exact email): `from/emailAddress/address eq '{sender}'` with `$filter`
+     - Sender (fuzzy name): `"from:{name} received>=YYYY-MM-DD"` with KQL
+     - Subject: `"subject:{query} received>=YYYY-MM-DD"` with KQL
+     - Body: `"{query} received>=YYYY-MM-DD"` with KQL
    - **Impact**: ~70% faster for field-specific searches
-   - **Note**: Only general keyword search uses `$search` for broad matching
 
-3. **Well-Known Folder Cache**
+4. **Well-Known Folder Cache**
    - **Before**: Always called `_get_folder_id_by_path()` requiring API calls
    - **After**: Added cache for common folders (Inbox, Sent, Drafts, Deleted, Archive, Junk)
    - **Impact**: Eliminates API calls for standard folders (~50% faster)
    - **Example**: Searching "Inbox" uses cached ID instead of API lookup
 
-4. **Combined Filter Expressions**
+5. **Combined Filter Expressions**
    - **Before**: Date filtering done separately after API call
-   - **After**: Combined all filters in single `$filter` expression
+   - **After**: Combined all filters in single `$filter` expression or KQL query
    - **Impact**: Reduces network round trips
    - **Example**: `from/emailAddress/address eq 'john@example.com' and receivedDateTime ge 2024-01-01T00:00:00Z`
 

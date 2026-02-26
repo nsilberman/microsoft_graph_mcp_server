@@ -650,7 +650,7 @@ Move all emails from 'Inbox/Projects' to 'Archive/2024':
 
 ### Email Search Performance Optimizations
 
-The email search functionality has been significantly optimized with server-side filtering and query optimization for dramatic performance improvements:
+The email search functionality has been significantly optimized with server-side filtering using KQL date syntax for dramatic performance improvements:
 
 **Performance Improvements**:
 - **All searches**: ~90% faster with server-side date filtering
@@ -665,46 +665,36 @@ The email search functionality has been significantly optimized with server-side
 
 **Key Optimizations**:
 
-1. **KQL Date Filtering (NEW)**
-   - **Before**: `$search` queries couldn't use `$filter` for date filtering
-   - **After**: KQL date syntax embedded in `$search` queries
+1. **KQL Date Filtering**
+   - KQL date syntax embedded directly in `$search` queries
+   - All searches now have server-side date filtering
    - **Example**: `"subject:meeting received:2026-02-01..2026-02-26"`
-   - **Impact**: All searches now have server-side date filtering
+   - **Syntax**:
+     - Date range: `received:2026-02-01..2026-02-26`
+     - From date: `received>=2026-02-01`
+     - Until date: `received<=2026-02-26`
 
-2. **Server-Side Date Filtering**
-   - **Before**: Fetched all emails, then filtered by date in Python
-   - **After**: Added date filters to API `$filter` parameter or KQL queries
-   - **Impact**: Reduces data transfer and processing time by ~90%
-
-3. **Replaced $search with $filter**
-   - **Before**: Used slow `$search` for full-text search across all fields
-   - **After**:
-     - Sender search: `contains(from/emailAddress/address, '{sender}')` - targeted field filtering
-     - Recipient search: `toRecipients/any(r: r/emailAddress/address eq '{recipient}')`
-     - Subject/Body: KQL syntax with date filtering
+2. **Optimized Query Strategy**
+   - Sender (exact email): Uses `$filter` for precise matching with date filtering
+   - Sender (fuzzy name): Uses `$search` with KQL date filter
+   - Subject/Body: Uses `$search` with KQL date filter
    - **Impact**: ~70% faster for field-specific searches
 
-4. **Well-Known Folder Cache**
-   - **Before**: Always called `_get_folder_id_by_path()` requiring API calls
-   - **After**: Added cache for common folders (Inbox, Sent, Drafts, Deleted, Archive, Junk)
-   - **Impact**: Eliminates API calls for standard folders (~50% faster)
+3. **Well-Known Folder Cache**
+   - Cache for common folders (Inbox, Sent, Drafts, Deleted, Archive, Junk)
+   - Eliminates API calls for standard folders (~50% faster)
 
-5. **Combined Filter Expressions**
-   - **Before**: Date filtering done separately after API call
-   - **After**: Combined all filters in single `$filter` expression
-   - **Impact**: Reduces network round trips
-
-5. **Other Optimizations**:
-   - **Hard Limit**: Maximum MAX_EMAIL_SEARCH_LIMIT (1000) emails per search to prevent excessive resource usage
-   - **Reduced API Response**: Only essential fields requested (10 fields instead of 18), reducing response size by ~40%
-   - **Efficient Processing**: Direct list comprehension for email summary creation (no thread overhead)
-   - **Cached Timezone Objects**: ZoneInfo objects cached to avoid redundant timezone conversions
+4. **Other Optimizations**:
+   - **Hard Limit**: Maximum 1000 emails per search to prevent excessive resource usage
+   - **Reduced API Response**: Only essential fields requested, reducing response size by ~40%
+   - **Efficient Processing**: Direct list comprehension for email summary creation
+   - **Cached Timezone Objects**: ZoneInfo objects cached to avoid redundant conversions
    - **Scalable Performance**: Processing rate improves with larger batches due to amortized overhead
 
 **Safety Features**:
 - All email search methods enforce MAX_EMAIL_SEARCH_LIMIT email limit
 - Clear error messages when limit is exceeded
-- Consistent validation across all search functions (search_emails, search_emails_by_sender, search_emails_by_recipient, search_emails_by_subject, search_emails_by_body, load_emails_by_folder)
+- Consistent validation across all search functions
 
 ### Template Management System
 
