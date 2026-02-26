@@ -189,9 +189,9 @@ Just install and go.
 
 ---
 
-# 🔥 Real‑World Use Cases
+# 🔥 Real‑World Use Cases & AI‑Friendly Workflows
 
-These practical examples show potential users exactly **why this project matters**.
+These practical examples show potential users exactly **why this project matters**, with workflows designed specifically for AI usage — simple, predictable, and reliable.
 
 ---
 
@@ -205,65 +205,7 @@ Your AI can:
 - Move low‑priority emails to folders  
 - Clean up newsletters  
 
-**Workflow**
-
-1. **Ask Claude to search emails**: "Find emails from today"
-
-Claude will call:
-
-```json
-{
-  "tool": "search_emails",
-  "time_range": "today"
-}
-```
-
-2. **Ask Claude to browse the results**: "Show me the emails"
-
-Claude will call:
-
-```json
-{
-  "tool": "browse_email_cache",
-  "page_number": 1,
-  "mode": "llm"
-}
-```
-
-**Returns**: Email summaries with sender, subject, date, and cache numbers for easy reference. In `llm` mode, Claude gets more emails per page (default 20) for efficient analysis.
-
-3. **Ask Claude to view specific email**: "Show me the first email"
-
-Claude will call:
-
-```json
-{
-  "tool": "get_email_content",
-  "cache_number": 1
-}
-```
-
-4. **Ask Claude to manage emails**: "Move the first email to Archive" or "Reply to the second email"
-
-Claude will call:
-
-```json
-{
-  "tool": "manage_emails",
-  "action": "move_single",
-  "cache_number": 1,
-  "destination_folder": "Archive"
-}
-```
-
-```json
-{
-  "tool": "send_email",
-  "action": "reply",
-  "cache_number": 2,
-  "htmlbody": "<p>Thanks! I'll handle this.</p>"
-}
-```
+**How it works**: Use the **Email Workflow (LLM Mode)** below to search, analyze, and manage emails efficiently.
 
 ---
 
@@ -389,11 +331,11 @@ Claude will call:
 }
 ```
 
-2. User opens URL manually and completes authentication
+2. **User opens the URL** in browser, enters the code, and completes authentication
 
-3. **Ask Claude to complete login**: "I've completed the browser authentication"
+3. **Tell Claude login is done**: "I've completed the browser authentication"
 
-Claude will call:
+Claude will then call:
 
 ```json
 {
