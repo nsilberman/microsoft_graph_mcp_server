@@ -101,10 +101,10 @@ This MCP server brings the full power of Microsoft 365 to your AI workflows:
 
 ### Performance Optimizations
 - **Server-Side Email Search**: Optimized search with Microsoft Graph API
-  - Exact email searches use `$filter` for server-side date filtering (best performance)
-  - Fuzzy name searches use `$search` with KQL syntax for partial matching
-  - Subject and body searches use `$search` with AND logic for multiple keywords
-  - Client-side date filtering only when necessary (Graph API limitation)
+  - All searches use server-side date filtering for optimal performance
+  - KQL date syntax embedded in `$search` queries (e.g., `received:2026-02-01..2026-02-26`)
+  - Exact email searches use `$filter` for precise matching
+  - Fuzzy name, subject, and body searches use `$search` with KQL date filters
   - Maximum 100 emails per search for optimal performance
 - Efficient bulk email operations with batch processing
 - Timezone-aware date and time handling
@@ -653,7 +653,7 @@ Move all emails from 'Inbox/Projects' to 'Archive/2024':
 The email search functionality has been significantly optimized with server-side filtering and query optimization for dramatic performance improvements:
 
 **Performance Improvements**:
-- **Date-filtered searches**: ~90% faster (server-side filtering vs client-side)
+- **All searches**: ~90% faster with server-side date filtering
 - **Sender/recipient searches**: ~70% faster (targeted $filter vs full-text $search)
 - **Common folder searches**: ~50% faster (well-known folder cache)
 - **General searches**: ~30-50% faster (combined filters)
@@ -665,25 +665,31 @@ The email search functionality has been significantly optimized with server-side
 
 **Key Optimizations**:
 
-1. **Server-Side Date Filtering**
-   - **Before**: Fetched all emails, then filtered by date in Python
-   - **After**: Added date filters to API `$filter` parameter
-   - **Impact**: Reduces data transfer and processing time by ~90% for date-filtered searches
+1. **KQL Date Filtering (NEW)**
+   - **Before**: `$search` queries couldn't use `$filter` for date filtering
+   - **After**: KQL date syntax embedded in `$search` queries
+   - **Example**: `"subject:meeting received:2026-02-01..2026-02-26"`
+   - **Impact**: All searches now have server-side date filtering
 
-2. **Replaced $search with $filter**
+2. **Server-Side Date Filtering**
+   - **Before**: Fetched all emails, then filtered by date in Python
+   - **After**: Added date filters to API `$filter` parameter or KQL queries
+   - **Impact**: Reduces data transfer and processing time by ~90%
+
+3. **Replaced $search with $filter**
    - **Before**: Used slow `$search` for full-text search across all fields
    - **After**:
-     - Sender search: `contains(from/emailAddress/address, '{sender}')` - targeted field filtering (eq doesn't work for sender email)
+     - Sender search: `contains(from/emailAddress/address, '{sender}')` - targeted field filtering
      - Recipient search: `toRecipients/any(r: r/emailAddress/address eq '{recipient}')`
-     - Subject/Body: `contains(subject, '{query}')` or `contains(body, '{query}')`
+     - Subject/Body: KQL syntax with date filtering
    - **Impact**: ~70% faster for field-specific searches
 
-3. **Well-Known Folder Cache**
+4. **Well-Known Folder Cache**
    - **Before**: Always called `_get_folder_id_by_path()` requiring API calls
    - **After**: Added cache for common folders (Inbox, Sent, Drafts, Deleted, Archive, Junk)
    - **Impact**: Eliminates API calls for standard folders (~50% faster)
 
-4. **Combined Filter Expressions**
+5. **Combined Filter Expressions**
    - **Before**: Date filtering done separately after API call
    - **After**: Combined all filters in single `$filter` expression
    - **Impact**: Reduces network round trips

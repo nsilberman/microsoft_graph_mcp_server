@@ -1101,34 +1101,66 @@ class EmailClient(BaseGraphClient):
 
         filter_parts = []
 
+        # Helper function to convert ISO date to KQL date format (YYYY-MM-DD)
+        def iso_to_kql_date(iso_date: str) -> str:
+            """Convert ISO date string to KQL date format (YYYY-MM-DD)."""
+            if not iso_date:
+                return ""
+            # Extract date part from ISO format (e.g., "2026-02-26T10:30:00Z" -> "2026-02-26")
+            return iso_date[:10] if len(iso_date) >= 10 else iso_date
+
+        # Build KQL date filter for $search queries
+        # KQL syntax: The entire search expression must be wrapped in double quotes
+        # Date filter format: received:YYYY-MM-DD..YYYY-MM-DD (inside the quotes)
+        kql_date_filter = ""
+        if start_date or end_date:
+            start_kql = iso_to_kql_date(start_date) if start_date else None
+            end_kql = iso_to_kql_date(end_date) if end_date else None
+            
+            if start_kql and end_kql:
+                # Date range: received:2026-02-01..2026-02-26
+                kql_date_filter = f" received:{start_kql}..{end_kql}"
+            elif start_kql:
+                # Date from: received:>=2026-02-01
+                kql_date_filter = f" received>={start_kql}"
+            elif end_kql:
+                # Date until: received:<=2026-02-26
+                kql_date_filter = f" received<={end_kql}"
+
         # Use server-side filtering optimized for performance
+        # KQL syntax: entire expression wrapped in double quotes
+        # Format: "property:value AND property:value"
         if search_type:
             if search_type == "subject" and query:
-                # Use $search for subject (fuzzy matching, but no date filtering)
-                params["$search"] = f'"subject:{query}"'
+                # Use $search for subject with KQL date filter (server-side filtering)
+                # KQL: "subject:value received:YYYY-MM-DD..YYYY-MM-DD"
+                params["$search"] = f'"subject:{query}{kql_date_filter}"'
             elif search_type == "body" and query:
-                # Use $search for body (fuzzy matching, but no date filtering)
-                params["$search"] = f'"{query}"'
+                # Use $search for body with KQL date filter (server-side filtering)
+                params["$search"] = f'"{query}{kql_date_filter}"'
             elif search_type == "sender" and query:
                 # For sender: use $filter for exact email (supports date filtering)
-                # Use $search for fuzzy name match (no date filtering)
+                # Use $search for fuzzy name match with KQL date filter
                 if "@" in query:
                     # Exact email match - use $filter for better performance with date filtering
                     filter_parts.append(f"from/emailAddress/address eq '{query}'")
                 else:
-                    # Fuzzy name match - use $search (requires client-side date filtering)
-                    params["$search"] = f'"from:{query}"'
+                    # Fuzzy name match - use $search with KQL date filter
+                    params["$search"] = f'"from:{query}{kql_date_filter}"'
         elif query:
-            # Default: search subject with $search
-            params["$search"] = f'"subject:{query}"'
+            # Default: search subject with KQL date filter
+            params["$search"] = f'"subject:{query}{kql_date_filter}"'
 
-        if start_date and end_date:
-            filter_parts.append(f"receivedDateTime ge {start_date}")
-            filter_parts.append(f"receivedDateTime le {end_date}")
-        elif start_date:
-            filter_parts.append(f"receivedDateTime ge {start_date}")
-        elif end_date:
-            filter_parts.append(f"receivedDateTime le {end_date}")
+        # Add $filter for date range only when NOT using $search
+        # (when using $search, date is already included in KQL query)
+        if not params.get("$search"):
+            if start_date and end_date:
+                filter_parts.append(f"receivedDateTime ge {start_date}")
+                filter_parts.append(f"receivedDateTime le {end_date}")
+            elif start_date:
+                filter_parts.append(f"receivedDateTime ge {start_date}")
+            elif end_date:
+                filter_parts.append(f"receivedDateTime le {end_date}")
 
         if filter_parts and not params.get("$search"):
             params["$filter"] = " and ".join(filter_parts)
@@ -1148,24 +1180,10 @@ class EmailClient(BaseGraphClient):
             for idx, email in enumerate(emails)
         ]
 
-        # Client-side date filtering only when using $search
-        # $search and $filter with date ranges cannot be combined
-        # For exact email searches, we use $filter so server handles date filtering
-        if params.get("$search") and (start_date or end_date):
-            filtered_summaries = []
-            for summary in summaries:
-                received_dt = summary.get("receivedDateTimeOriginal", "")
-                if not received_dt:
-                    continue
-
-                # Check if within date range
-                if start_date and received_dt < start_date:
-                    continue
-                if end_date and received_dt > end_date:
-                    continue
-
-                filtered_summaries.append(summary)
-            summaries = filtered_summaries
+        # Note: Client-side date filtering is no longer needed because
+        # KQL date filters are now embedded in $search query for server-side filtering.
+        # KQL uses date format (YYYY-MM-DD) which filters at day granularity.
+        # This provides good performance while ensuring emails are not missed.
 
         # Sort by receivedDateTime descending
         sorted_summaries = sorted(

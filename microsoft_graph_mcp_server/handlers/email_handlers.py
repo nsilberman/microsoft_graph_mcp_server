@@ -72,10 +72,12 @@ class EmailHandler(BaseHandler):
         time_range = arguments.get("time_range")
         page_size = 100
 
+        days_provided = "days" in arguments
+
+        # Apply default days for performance optimization
+        # KQL date filters are now embedded in $search query for server-side filtering
         if days is None:
             days = settings.default_search_days
-
-        days_provided = "days" in arguments
 
         if days > settings.max_search_days:
             return self._format_error(
@@ -114,6 +116,7 @@ class EmailHandler(BaseHandler):
                 end_date, user_timezone
             )
         elif not start_date and not end_date:
+            # Calculate date range using days parameter (default or user-specified)
             start_date, end_date = date_handler.get_filter_date_range(days)
             start_date_display = date_handler.format_date_with_weekday(
                 start_date, user_timezone

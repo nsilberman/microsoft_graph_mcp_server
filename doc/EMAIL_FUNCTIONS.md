@@ -25,17 +25,22 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
 
 | Search Type | API Method | Date Filtering | Performance |
 |-------------|------------|----------------|-------------|
-| **Sender fuzzy name** (e.g., "beng") | `$search="from:beng"` | Client-side | Good (100 emails max) |
+| **Sender fuzzy name** (e.g., "beng") | `$search="from:beng received>=YYYY-MM-DD"` | **Server-side (KQL)** | **Best** |
 | **Sender exact email** (e.g., "john@example.com") | `$filter="from/emailAddress/address eq '...'"` | **Server-side** | **Best** |
-| **Subject search** | `$search="subject:keywords"` | Client-side | Good (100 emails max) |
-| **Body search** | `$search="keywords"` | Client-side | Good (100 emails max) |
+| **Subject search** | `$search="subject:keywords received>=YYYY-MM-DD"` | **Server-side (KQL)** | **Best** |
+| **Body search** | `$search="keywords received>=YYYY-MM-DD"` | **Server-side (KQL)** | **Best** |
 
 **Key Features:**
-- **Exact email searches** use `$filter` for optimal performance with server-side date filtering
-- **Fuzzy name searches** use `$search` for partial matching with minimal client-side overhead
-- **Subject and body searches** use `$search` with KQL syntax supporting AND logic for multiple keywords
-- **Client-side date filtering** is only applied when using `$search` (Graph API limitation)
+- **All searches now use server-side date filtering** for optimal performance
+- **KQL date syntax** is embedded in `$search` queries (e.g., `received:2026-02-01..2026-02-26`)
+- **Exact email searches** use `$filter` for precise matching
+- **Fuzzy name, subject, and body searches** use `$search` with KQL date filters
 - Maximum 100 emails returned per search to balance performance and completeness
+
+**KQL Date Syntax:**
+- Date range: `received:2026-02-01..2026-02-26`
+- From date: `received>=2026-02-01`
+- Until date: `received<=2026-02-26`
 
 ### Parameters
 - `search_type` (optional, string): Type of search to perform
