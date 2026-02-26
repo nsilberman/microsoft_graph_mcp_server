@@ -19,9 +19,7 @@ No Azure setup. No Graph API knowledge. Just install → sign in → your AI bec
 This is the **fastest way** to make your AI agent *actually useful* at work.
 
 If this project saves you time:  
-👉 **Please star the repo — it really helps!** ⭐
-
-[![Star on GitHub](https://img.shields.io/github/stars/marlonluo2018/microsoft_graph_mcp_server?style=social)](https://github.com/marlonluo2018/microsoft_graph_mcp_server)
+👉 **Please star the repo — it really helps!** ⭐[![Star on GitHub](https://img.shields.io/github/stars/marlonluo2018/microsoft_graph_mcp_server?style=social)](https://github.com/marlonluo2018/microsoft_graph_mcp_server)
 
 ---
 
@@ -198,35 +196,11 @@ These practical examples show potential users exactly **why this project matters
 
 ---
 
-## 📨 Use Case: “AI Email Triage Assistant”
 
-Your AI can:
 
-- Summarize unread emails  
-- Highlight urgent items  
-- Draft replies automatically  
-- Move low‑priority emails to folders  
-- Clean up newsletters  
 
-**How it works**: Use the **Email Workflow (LLM Mode)** below to search, analyze, and manage emails efficiently.
 
----
-
-## 📅 Use Case: “Automatic Meeting Manager”
-
-Let your AI:
-
-- Scan calendars  
-- Propose new meeting times  
-- Check availability of attendees  
-- Create the meeting  
-- Send follow‑up reminders  
-
-**How it works**: Use the **Calendar Workflow** below to search events and manage meetings.
-
----
-
-## 📥 Use Case: “Automated Reporting Agent”
+## Use Case: “Automated Reporting Agent”
 
 Your AI can scan your inbox and calendar, then build a weekly summary report.
 
@@ -290,46 +264,9 @@ Claude will call:
 
 ---
 
-### 1️⃣ Login Workflow (AI Oriented)
 
-1. **Ask Claude to sign in**: "Please help me sign in to Microsoft Graph"
 
-Claude will call:
-
-```json
-{
-  "tool": "auth",
-  "action": "login"
-}
-```
-
-2. **User opens the URL** in browser, enters the code, and completes authentication
-
-3. **Tell Claude login is done**: "I've completed the browser authentication"
-
-Claude will then call:
-
-```json
-{
-  "tool": "auth",
-  "action": "complete_login"
-}
-```
-
-4. **Optionally check status**: "Check if we're connected"
-
-Claude will call:
-
-```json
-{
-  "tool": "auth",
-  "action": "check_status"
-}
-```
-
----
-
-### 2️⃣ User Mode Email Browsing
+### User Mode Email Browsing
 
 **For human browsing** (when you want to see emails page by page):
 
@@ -385,7 +322,7 @@ Claude will call:
 
 ---
 
-### 3️⃣ Email Workflow (LLM Mode)
+### Email Workflow (LLM Mode)
 
 1. **Ask Claude to search emails**: "Find emails about budget"
 
@@ -438,63 +375,13 @@ Claude will call:
 
 ---
 
-### 4️⃣ User Mode Email Browsing
 
-**For human browsing** (when you want to see emails page by page):
 
-1. **Ask Claude to search emails**: "Find emails from this week"
+### Calendar Workflow
 
-Claude will call:
-
-```json
-{
-  "tool": "search_emails",
-  "time_range": "this_week"
-}
-```
-
-2. **Ask Claude to browse page by page**: "Show me the first page of emails"
+1. **Ask Claude to search events**: "Find calendar events from this week"
 
 Claude will call:
-
-```json
-{
-  "tool": "browse_email_cache",
-  "page_number": 1,
-  "mode": "user"
-}
-```
-
-**Returns**: Email summaries with sender, subject, date, and cache numbers. In `user` mode, you get fewer emails per page (default 5) for easier human reading.
-
-3. **Navigate to next page**: "Show me the next page"
-
-Claude will call:
-
-```json
-{
-  "tool": "browse_email_cache",
-  "page_number": 2,
-  "mode": "user"
-}
-```
-
-4. **View specific email**: "Show me email number 3"
-
-Claude will call:
-
-```json
-{
-  "tool": "get_email_content",
-  "cache_number": 3
-}
-```
-
-**Key difference**: Use `"mode": "user"` when you want to browse emails manually, page by page, with smaller page sizes that are easier for humans to read.
-
----
-
-### 4️⃣ Calendar Workflow
 
 ```json
 {
@@ -503,12 +390,32 @@ Claude will call:
 }
 ```
 
+2. **Ask Claude to browse events**: "Show me the first page of events"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_events",
+  "page_number": 1,
+  "mode": "user"
+}
+```
+
+3. **Ask Claude to view event details**: "Show me event number 1"
+
+Claude will call:
+
 ```json
 {
   "tool": "get_event_detail",
   "cache_number": 1
 }
 ```
+
+4. **Ask Claude to respond to event**: "Accept event number 1"
+
+Claude will call:
 
 ```json
 {
@@ -520,9 +427,13 @@ Claude will call:
 
 ---
 
-### 5️⃣ Template Workflow (Super Useful for Repeated Messages)
+### Template Workflow (Super Useful for Repeated Messages)
 
 > ⚠️ **Experimental** — This feature is still being tested.
+
+1. **Ask Claude to get a template**: "Get template number 1 as text only"
+
+Claude will call:
 
 ```json
 {
@@ -533,6 +444,10 @@ Claude will call:
 }
 ```
 
+2. **Ask Claude to get a template with HTML**: "Get template number 1 with HTML"
+
+Claude will call:
+
 ```json
 {
   "tool": "manage_templates",
@@ -542,6 +457,10 @@ Claude will call:
 }
 ```
 
+3. **Ask Claude to update a template**: "Update template number 1 with new content"
+
+Claude will call:
+
 ```json
 {
   "tool": "manage_templates",
@@ -550,6 +469,10 @@ Claude will call:
   "htmlbody": "<html>...</html>"
 }
 ```
+
+4. **Ask Claude to send a template**: "Send template number 1 to john@example.com"
+
+Claude will call:
 
 ```json
 {
@@ -562,7 +485,7 @@ Claude will call:
 
 ---
 
-### 📁 OneDrive & Teams (Experimental)
+### OneDrive & Teams (Experimental)
 
 > ⚠️ **Experimental** — This feature is still being tested.
 
