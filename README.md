@@ -264,6 +264,106 @@ Claude will call:
 
 ---
 
+## Use Case: Batch BCC Forward
+
+Your AI can search for emails and forward them to multiple recipients via BCC using a CSV file.
+
+**Workflow**
+
+1. **Ask Claude to search emails by subject**: "Find emails with subject 'Company Announcement'"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "query": "Company Announcement",
+  "search_type": "subject"
+}
+```
+
+2. **Ask Claude to browse the email cache**: "Show me the emails with subject 'Company Announcement'"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+3. **Ask Claude to verify email content**: "Show me email number 1"
+
+Claude will call:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 1
+}
+```
+
+4. **Ask Claude to batch forward via BCC using CSV**: "Forward email number 1 to all recipients in the CSV file"
+
+Claude will call:
+
+```json
+{
+  "tool": "send_email",
+  "action": "forward",
+  "cache_number": 1,
+  "bcc_csv_file": "C:/path/to/recipients.csv",
+  "subject": "Fwd: Company Announcement",
+  "htmlbody": "<p>Please see the company announcement below.</p>"
+}
+```
+
+**Note**: The CSV file should have a single column with header 'Email' containing all recipient email addresses.
+
+---
+
+
+
+## Use Case: Schedule a Meeting
+
+Your AI can check availability and schedule meetings with Teams links.
+
+**Workflow**
+
+1. **Ask Claude to check attendee availability**: "Check availability for John and Jane on March 1st"
+
+Claude will call:
+
+```json
+{
+  "tool": "check_attendee_availability",
+  "attendees": ["john@example.com", "jane@example.com"],
+  "date": "2026-03-01"
+}
+```
+
+2. **Ask Claude to schedule a meeting**: "Schedule a meeting with John and Jane on March 1st at 2 PM for 30 minutes"
+
+Claude will call:
+
+```json
+{
+  "tool": "manage_my_event",
+  "action": "create",
+  "subject": "Project Discussion",
+  "start": "2026-03-01T14:00",
+  "end": "2026-03-01T14:30",
+  "attendees": ["john@example.com", "jane@example.com"],
+  "team": true
+}
+```
+
+**Note**: The `"team": true` parameter adds a Teams meeting link to the event.
+
+---
+
 
 
 ### User Mode Email Browsing
@@ -315,6 +415,19 @@ Claude will call:
 {
   "tool": "get_email_content",
   "cache_number": 3
+}
+```
+
+5. **Ask Claude to reply to the email**: "Reply to email number 3 saying thank you"
+
+Claude will call:
+
+```json
+{
+  "tool": "send_email",
+  "action": "reply",
+  "cache_number": 3,
+  "htmlbody": "<p>Thank you!</p>"
 }
 ```
 
