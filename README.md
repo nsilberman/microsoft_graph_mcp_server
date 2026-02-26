@@ -63,16 +63,22 @@ Insert:
 
 In Claude:
 
-```
-auth action="login"
+```json
+{
+  "tool": "auth",
+  "action": "login"
+}
 ```
 
 Follow the link → enter the code → sign in.
 
 Then finalize:
 
-```
-auth action="complete_login"
+```json
+{
+  "tool": "auth",
+  "action": "complete_login"
+}
 ```
 
 You're connected. Your AI assistant now has Microsoft 365 access.
@@ -100,8 +106,12 @@ Your AI can:
 
 **Example**
 
-```
-search_emails query="invoices" search_type="subject"
+```json
+{
+  "tool": "search_emails",
+  "query": "invoices",
+  "search_type": "subject"
+}
 ```
 
 ---
@@ -120,8 +130,14 @@ Your AI can:
 
 **Example**
 
-```
-manage_my_event action="create" subject="Project Sync" start="2026-02-26T14:00" end="2026-02-26T14:30"
+```json
+{
+  "tool": "manage_my_event",
+  "action": "create",
+  "subject": "Project Sync",
+  "start": "2026-02-26T14:00",
+  "end": "2026-02-26T14:30"
+}
 ```
 
 ---
@@ -133,7 +149,10 @@ manage_my_event action="create" subject="Project Sync" start="2026-02-26T14:00" 
 - Works instantly after login  
 
 ```
-search_contacts query="john li"
+{
+  "tool": "search_contacts",
+  "query": "john li"
+}
 ```
 
 ---
@@ -186,11 +205,54 @@ Your AI can:
 
 **Workflow**
 
+1. **Search emails** to load them into cache:
+
+```json
+{
+  "tool": "search_emails",
+  "time_range": "today"
+}
 ```
-search_emails time_range="today"
-get_email_content cache_number=1
-manage_emails action="move_single" cache_number=1 destination_folder="Archive"
-send_email action="reply" cache_number=2 htmlbody="<p>Thanks! I’ll handle this.</p>"
+
+2. **Browse email cache** with appropriate mode:
+   - Use `"mode": "llm"` for AI to summarize and analyze
+   - Use `"mode": "user"` for human browsing (page by page)
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+3. **Get specific email content**:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 1
+}
+```
+
+4. **Manage emails** (move, delete, etc.):
+
+```json
+{
+  "tool": "manage_emails",
+  "action": "move_single",
+  "cache_number": 1,
+  "destination_folder": "Archive"
+}
+```
+
+```json
+{
+  "tool": "send_email",
+  "action": "reply",
+  "cache_number": 2,
+  "htmlbody": "<p>Thanks! I'll handle this.</p>"
+}
 ```
 
 ---
@@ -207,10 +269,29 @@ Let your AI:
 
 **Workflow**
 
+```json
+{
+  "tool": "search_events",
+  "time_range": "this_week"
+}
 ```
-search_events time_range="this_week"
-check_attendee_availability attendees=["alice@company.com","bob@company.com"] date="2026-02-27"
-manage_my_event action="create" subject="Weekly Sync" start="2026-02-27T10:00" end="2026-02-27T10:30"
+
+```json
+{
+  "tool": "check_attendee_availability",
+  "attendees": ["alice@company.com", "bob@company.com"],
+  "date": "2026-02-27"
+}
+```
+
+```json
+{
+  "tool": "manage_my_event",
+  "action": "create",
+  "subject": "Weekly Sync",
+  "start": "2026-02-27T10:00",
+  "end": "2026-02-27T10:30"
+}
 ```
 
 ---
@@ -227,25 +308,44 @@ Your AI can scan your inbox and calendar, then build a weekly summary report.
 
 **Workflow**
 
+1. **Search emails** to load them into cache:
+
+```json
+{
+  "tool": "search_emails",
+  "days": 7
+}
 ```
-search_emails days=7
-search_events time_range="last_week"
-send_email action="send_new" to=["team@example.com"] subject="Weekly Summary" htmlbody="<p>Here’s the update...</p>"
+
+2. **Browse email cache** for AI analysis:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
 ```
 
----
+3. **Search calendar events**:
 
-## 📂 Use Case: “OneDrive Document Navigator”
-
-Your AI can:
-
-- Browse folders  
-- Find files by name  
-- Summarize contents (e.g., PDFs, Word documents)  
-- Prepare quick digests or export instructions  
-
+```json
+{
+  "tool": "search_events",
+  "time_range": "last_week"
+}
 ```
-list_files folder_path="/Documents"
+
+4. **Send summary email**:
+
+```json
+{
+  "tool": "send_email",
+  "action": "send_new",
+  "to": ["team@example.com"],
+  "subject": "Weekly Summary",
+  "htmlbody": "<p>Here's the update...</p>"
+}
 ```
 
 ---
@@ -258,41 +358,155 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 
 ### 1️⃣ Login Workflow (AI Oriented)
 
-1. `auth action="login"`  
+```json
+{
+  "tool": "auth",
+  "action": "login"
+}
+```
+
 2. User opens URL manually  
-3. AI calls: `auth action="complete_login"`  
-4. AI optionally calls: `auth action="check_status"`
+
+```json
+{
+  "tool": "auth",
+  "action": "complete_login"
+}
+```
+
+4. Optionally:
+
+```json
+{
+  "tool": "auth",
+  "action": "check_status"
+}
+```
 
 ---
 
 ### 2️⃣ Email Workflow
 
+1. **Search emails** to load them into cache:
+
+```json
+{
+  "tool": "search_emails",
+  "query": "budget"
+}
 ```
-search_emails query="budget"
-browse_email_cache page_number=1 mode="llm"
-get_email_content cache_number=2
-send_email action="reply" cache_number=2 htmlbody="<p>Looks good!</p>"
+
+2. **Browse email cache** with appropriate mode:
+   - Use `"mode": "llm"` for AI to summarize and analyze
+   - Use `"mode": "user"` for human browsing (page by page)
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+3. **Get specific email content**:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 2
+}
+```
+
+4. **Send reply**:
+
+```json
+{
+  "tool": "send_email",
+  "action": "reply",
+  "cache_number": 2,
+  "htmlbody": "<p>Looks good!</p>"
+}
 ```
 
 ---
 
 ### 3️⃣ Calendar Workflow
 
+```json
+{
+  "tool": "search_events",
+  "time_range": "this_week"
+}
 ```
-search_events time_range="this_week"
-get_event_detail cache_number=1
-respond_to_event action="accept" cache_number=1
+
+```json
+{
+  "tool": "get_event_detail",
+  "cache_number": 1
+}
+```
+
+```json
+{
+  "tool": "respond_to_event",
+  "action": "accept",
+  "cache_number": 1
+}
 ```
 
 ---
 
 ### 4️⃣ Template Workflow (Super Useful for Repeated Messages)
 
+> ⚠️ **Experimental** — This feature is still being tested.
+
+```json
+{
+  "tool": "manage_templates",
+  "action": "get",
+  "template_number": 1,
+  "text_only": true
+}
 ```
-manage_templates action="get" template_number=1 text_only=true
-manage_templates action="get" template_number=1 text_only=false
-manage_templates action="update" template_number=1 htmlbody="<html>...</html>"
-manage_templates action="send" template_number=1 to=["john@example.com"]
+
+```json
+{
+  "tool": "manage_templates",
+  "action": "get",
+  "template_number": 1,
+  "text_only": false
+}
+```
+
+```json
+{
+  "tool": "manage_templates",
+  "action": "update",
+  "template_number": 1,
+  "htmlbody": "<html>...</html>"
+}
+```
+
+```json
+{
+  "tool": "manage_templates",
+  "action": "send",
+  "template_number": 1,
+  "to": ["john@example.com"]
+}
+```
+
+---
+
+### 📁 OneDrive & Teams (Experimental)
+
+> ⚠️ **Experimental** — This feature is still being tested.
+
+```json
+{
+  "tool": "list_files",
+  "folder_path": "/Documents"
+}
 ```
 
 ---
@@ -304,8 +518,59 @@ It motivates ongoing development and helps others discover the tool.
 
 ---
 
-## 📚 Explore More
+## � Complete MCP Tool Reference
 
-Full documentation lives in the `doc/` folder.
+Here's a comprehensive list of all available MCP tools with simple explanations:
 
-This README stays focused on clarity + marketing — so new users can understand the value instantly, start quickly, and discover advanced tools when they’re ready.
+### 🔐 Authentication & Settings
+- **`auth`** - Manage Microsoft Graph authentication (login, logout, check status, extend tokens)
+- **`user_settings`** - Configure user preferences like timezone, search days, and page sizes
+
+### 📧 Email Management
+- **`search_emails`** - Search or list emails by sender, subject, body, or time range
+- **`browse_email_cache`** - Browse cached emails with pagination (user mode for humans, llm mode for AI analysis)
+- **`get_email_content`** - Get full email content including attachments
+- **`send_email`** - Send new emails, replies, or forwards with HTML support
+- **`manage_emails`** - Move, delete, archive, flag, or categorize emails
+- **`manage_mail_folder`** - Create, rename, delete, or move email folders
+- **`manage_templates`** - Manage reusable email templates (experimental)
+
+### 📅 Calendar Management
+- **`search_events`** - Search or list calendar events by subject or organizer
+- **`browse_events`** - Browse cached calendar events with pagination
+- **`get_event_detail`** - Get detailed information for specific events
+- **`manage_my_event`** - Create, update, cancel, or forward your own events
+- **`respond_to_event`** - Accept, decline, or propose new times for event invitations
+- **`check_attendee_availability`** - Check availability for meeting scheduling
+
+### 👥 People & Contacts
+- **`search_contacts`** - Find people in your organization by name or email
+
+### 📁 Files & Teams (Experimental)
+- **`list_files`** - Browse files and folders in OneDrive
+- **`get_teams`** - Get list of Microsoft Teams you're a member of
+- **`get_team_channels`** - Get channels for a specific Team
+
+### 🔑 Key Workflow Patterns
+
+**Email Workflow:**
+1. `search_emails` - Load emails into cache
+2. `browse_email_cache` - Browse with appropriate mode (`llm` for AI, `user` for humans)
+3. `get_email_content` - View specific email details
+4. `send_email` or `manage_emails` - Take action
+
+**Calendar Workflow:**
+1. `search_events` - Load events into cache  
+2. `browse_events` - Browse events
+3. `get_event_detail` - View specific event
+4. `respond_to_event` or `manage_my_event` - Take action
+
+**Authentication Workflow:**
+1. `auth` with `login` action
+2. Complete browser authentication
+3. `auth` with `complete_login` action
+4. Optionally `auth` with `check_status` to verify
+
+All tools follow the JSON format with `"tool": "tool_name"` as the first parameter, making them easy to use with AI assistants like Claude.
+
+---
