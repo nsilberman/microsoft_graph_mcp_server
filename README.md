@@ -61,7 +61,9 @@ Insert:
 
 ### 3. Sign In
 
-In Claude:
+In Claude, simply ask: "Please help me sign in to Microsoft Graph"
+
+Claude will call:
 
 ```json
 {
@@ -72,7 +74,7 @@ In Claude:
 
 Follow the link → enter the code → sign in.
 
-Then finalize:
+Then Claude will finalize:
 
 ```json
 {
@@ -205,7 +207,9 @@ Your AI can:
 
 **Workflow**
 
-1. **Search emails** to load them into cache:
+1. **Ask Claude to search emails**: "Find emails from today"
+
+Claude will call:
 
 ```json
 {
@@ -214,9 +218,9 @@ Your AI can:
 }
 ```
 
-2. **Browse email cache** with appropriate mode:
-   - Use `"mode": "llm"` for AI to summarize and analyze
-   - Use `"mode": "user"` for human browsing (page by page)
+2. **Ask Claude to browse the results**: "Show me the emails"
+
+Claude will call:
 
 ```json
 {
@@ -226,7 +230,11 @@ Your AI can:
 }
 ```
 
-3. **Get specific email content**:
+**Returns**: Email summaries with sender, subject, date, and cache numbers for easy reference. In `llm` mode, Claude gets more emails per page (default 20) for efficient analysis.
+
+3. **Ask Claude to view specific email**: "Show me the first email"
+
+Claude will call:
 
 ```json
 {
@@ -235,7 +243,9 @@ Your AI can:
 }
 ```
 
-4. **Manage emails** (move, delete, etc.):
+4. **Ask Claude to manage emails**: "Move the first email to Archive" or "Reply to the second email"
+
+Claude will call:
 
 ```json
 {
@@ -308,7 +318,9 @@ Your AI can scan your inbox and calendar, then build a weekly summary report.
 
 **Workflow**
 
-1. **Search emails** to load them into cache:
+1. **Ask Claude to search emails**: "Find emails from the last 7 days"
+
+Claude will call:
 
 ```json
 {
@@ -317,7 +329,9 @@ Your AI can scan your inbox and calendar, then build a weekly summary report.
 }
 ```
 
-2. **Browse email cache** for AI analysis:
+2. **Ask Claude to browse the results**: "Analyze the emails for me"
+
+Claude will call:
 
 ```json
 {
@@ -327,7 +341,11 @@ Your AI can scan your inbox and calendar, then build a weekly summary report.
 }
 ```
 
-3. **Search calendar events**:
+**Returns**: Email summaries with sender, subject, date, and cache numbers for easy reference. In `llm` mode, Claude gets more emails per page (default 20) for efficient analysis.
+
+3. **Ask Claude to search events**: "Find calendar events from last week"
+
+Claude will call:
 
 ```json
 {
@@ -336,7 +354,9 @@ Your AI can scan your inbox and calendar, then build a weekly summary report.
 }
 ```
 
-4. **Send summary email**:
+4. **Ask Claude to send summary email**: "Send a weekly summary to the team"
+
+Claude will call:
 
 ```json
 {
@@ -358,6 +378,10 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 
 ### 1️⃣ Login Workflow (AI Oriented)
 
+1. **Ask Claude to sign in**: "Please help me sign in to Microsoft Graph"
+
+Claude will call:
+
 ```json
 {
   "tool": "auth",
@@ -365,7 +389,11 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 }
 ```
 
-2. User opens URL manually  
+2. User opens URL manually and completes authentication
+
+3. **Ask Claude to complete login**: "I've completed the browser authentication"
+
+Claude will call:
 
 ```json
 {
@@ -374,7 +402,9 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 }
 ```
 
-4. Optionally:
+4. **Optionally check status**: "Check if we're connected"
+
+Claude will call:
 
 ```json
 {
@@ -385,9 +415,67 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 
 ---
 
-### 2️⃣ Email Workflow
+### 2️⃣ User Mode Email Browsing
 
-1. **Search emails** to load them into cache:
+**For human browsing** (when you want to see emails page by page):
+
+1. **Ask Claude to search emails**: "Find emails from this week"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "time_range": "this_week"
+}
+```
+
+2. **Ask Claude to browse page by page**: "Show me the first page of emails"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "user"
+}
+```
+
+**Returns**: Email summaries with sender, subject, date, and cache numbers. In `user` mode, you get fewer emails per page (default 5) for easier human reading.
+
+3. **Navigate to next page**: "Show me the next page"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 2,
+  "mode": "user"
+}
+```
+
+4. **View specific email**: "Show me email number 3"
+
+Claude will call:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 3
+}
+```
+
+**Key difference**: Use `"mode": "user"` when you want to browse emails manually, page by page, with smaller page sizes that are easier for humans to read.
+
+---
+
+### 3️⃣ Email Workflow (LLM Mode)
+
+1. **Ask Claude to search emails**: "Find emails about budget"
+
+Claude will call:
 
 ```json
 {
@@ -396,9 +484,9 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 }
 ```
 
-2. **Browse email cache** with appropriate mode:
-   - Use `"mode": "llm"` for AI to summarize and analyze
-   - Use `"mode": "user"` for human browsing (page by page)
+2. **Ask Claude to browse the results**: "Show me the budget emails"
+
+Claude will call:
 
 ```json
 {
@@ -408,7 +496,11 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 }
 ```
 
-3. **Get specific email content**:
+**Returns**: Email summaries with sender, subject, date, and cache numbers for easy reference. In `llm` mode, Claude gets more emails per page (default 20) for efficient analysis.
+
+3. **Ask Claude to view specific email**: "Show me the second email"
+
+Claude will call:
 
 ```json
 {
@@ -417,7 +509,9 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 }
 ```
 
-4. **Send reply**:
+4. **Ask Claude to reply**: "Reply to this email saying it looks good"
+
+Claude will call:
 
 ```json
 {
@@ -430,7 +524,63 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 
 ---
 
-### 3️⃣ Calendar Workflow
+### 4️⃣ User Mode Email Browsing
+
+**For human browsing** (when you want to see emails page by page):
+
+1. **Ask Claude to search emails**: "Find emails from this week"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "time_range": "this_week"
+}
+```
+
+2. **Ask Claude to browse page by page**: "Show me the first page of emails"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "user"
+}
+```
+
+**Returns**: Email summaries with sender, subject, date, and cache numbers. In `user` mode, you get fewer emails per page (default 5) for easier human reading.
+
+3. **Navigate to next page**: "Show me the next page"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 2,
+  "mode": "user"
+}
+```
+
+4. **View specific email**: "Show me email number 3"
+
+Claude will call:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 3
+}
+```
+
+**Key difference**: Use `"mode": "user"` when you want to browse emails manually, page by page, with smaller page sizes that are easier for humans to read.
+
+---
+
+### 4️⃣ Calendar Workflow
 
 ```json
 {
@@ -456,7 +606,7 @@ These workflows are crafted specifically for AI usage — simple, predictable, a
 
 ---
 
-### 4️⃣ Template Workflow (Super Useful for Repeated Messages)
+### 5️⃣ Template Workflow (Super Useful for Repeated Messages)
 
 > ⚠️ **Experimental** — This feature is still being tested.
 
