@@ -263,12 +263,12 @@ class ToolRegistry:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query for email messages. For 'sender': sender name or email address. For 'subject': subject text. For 'body': body text content. Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
+                        "description": "Search query for email messages. For 'sender': email address only. For 'subject': subject text. For 'body': body text content. Required when search_type is provided. Optional - if not provided with search_type, lists emails within the time range",
                     },
                     "search_type": {
                         "type": "string",
                         "enum": ["sender", "subject", "body"],
-                        "description": "Type of search to perform (optional). Options: 'sender' (search by sender name/email with fuzzy matching), 'subject' (search by subject text with exact substring matching), 'body' (search by body content with exact substring matching). If not provided, lists emails within the time range without filtering",
+                        "description": "Type of search to perform (optional). Options: 'sender' (search by sender email address only), 'subject' (search by subject text with exact substring matching), 'body' (search by body content with exact substring matching). If not provided, lists emails within the time range without filtering",
                     },
                     "folder": {
                         "type": "string",
