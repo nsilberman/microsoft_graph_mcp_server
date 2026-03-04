@@ -213,13 +213,7 @@ class DeviceFlowManager:
                             )
                             expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                            remaining_hours = expiry_info["remaining_hours"]
-                            remaining_minutes = expiry_info["remaining_minutes"]
-
-                            if remaining_hours > 0:
-                                time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                            else:
-                                time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                            time_remaining = expiry_info["display"]
 
                             logger.info("✓ Authentication successful!")
 
@@ -255,15 +249,7 @@ class DeviceFlowManager:
                                             "%Y-%m-%d %H:%M:%S"
                                         )
 
-                                        remaining_hours = expiry_info["remaining_hours"]
-                                        remaining_minutes = expiry_info[
-                                            "remaining_minutes"
-                                        ]
-
-                                        if remaining_hours > 0:
-                                            time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                                        else:
-                                            time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                                        time_remaining = expiry_info["display"]
 
                                         return {
                                             "status": "success",
@@ -350,13 +336,7 @@ class DeviceFlowManager:
                             )
                             expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                            remaining_hours = expiry_info["remaining_hours"]
-                            remaining_minutes = expiry_info["remaining_minutes"]
-
-                            if remaining_hours > 0:
-                                time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                            else:
-                                time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                            time_remaining = expiry_info["display"]
 
                             return {
                                 "status": "success",
@@ -431,13 +411,7 @@ class DeviceFlowManager:
                 )
                 expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                remaining_hours = expiry_info["remaining_hours"]
-                remaining_minutes = expiry_info["remaining_minutes"]
-
-                if remaining_hours > 0:
-                    time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                else:
-                    time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                time_remaining = expiry_info["display"]
 
                 return {
                     "status": "success",
@@ -470,13 +444,7 @@ class DeviceFlowManager:
                         )
                         expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                        remaining_hours = expiry_info["remaining_hours"]
-                        remaining_minutes = expiry_info["remaining_minutes"]
-
-                        if remaining_hours > 0:
-                            time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                        else:
-                            time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                        time_remaining = expiry_info["display"]
 
                         return {
                             "status": "success",
@@ -508,13 +476,7 @@ class DeviceFlowManager:
                     )
                     expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                    remaining_hours = expiry_info["remaining_hours"]
-                    remaining_minutes = expiry_info["remaining_minutes"]
-
-                    if remaining_hours > 0:
-                        time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                    else:
-                        time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                    time_remaining = expiry_info["display"]
 
                     return {
                         "status": "success",
@@ -577,13 +539,7 @@ class DeviceFlowManager:
                 )
                 expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                remaining_hours = expiry_info["remaining_hours"]
-                remaining_minutes = expiry_info["remaining_minutes"]
-
-                if remaining_hours > 0:
-                    time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                else:
-                    time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                time_remaining = expiry_info["display"]
 
                 return {
                     "status": "authenticated",
@@ -620,13 +576,7 @@ class DeviceFlowManager:
                     )
                     expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                    remaining_hours = expiry_info["remaining_hours"]
-                    remaining_minutes = expiry_info["remaining_minutes"]
-
-                    if remaining_hours > 0:
-                        time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                    else:
-                        time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                    time_remaining = expiry_info["display"]
 
                     return {
                         "status": "authenticated",
@@ -672,13 +622,7 @@ class DeviceFlowManager:
                         )
                         expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                        remaining_hours = expiry_info["remaining_hours"]
-                        remaining_minutes = expiry_info["remaining_minutes"]
-
-                        if remaining_hours > 0:
-                            time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                        else:
-                            time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                        time_remaining = expiry_info["display"]
 
                         return {
                             "status": "authenticated",
@@ -730,13 +674,7 @@ class DeviceFlowManager:
                             )
                             expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-                            remaining_hours = expiry_info["remaining_hours"]
-                            remaining_minutes = expiry_info["remaining_minutes"]
-
-                            if remaining_hours > 0:
-                                time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-                            else:
-                                time_remaining = f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
+                            time_remaining = expiry_info["display"]
 
                             # Delete the device flow from disk since authentication is complete
                             if flow_device_code:
@@ -784,15 +722,7 @@ class DeviceFlowManager:
         )
         expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
-        remaining_hours = expiry_info["remaining_hours"]
-        remaining_minutes = expiry_info["remaining_minutes"]
-
-        if remaining_hours > 0:
-            time_remaining = f"{remaining_hours} hour{'s' if remaining_hours > 1 else ''} and {remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-        else:
-            time_remaining = (
-                f"{remaining_minutes} minute{'s' if remaining_minutes != 1 else ''}"
-            )
+        time_remaining = expiry_info["display"]
 
         return {
             "status": "authenticated",

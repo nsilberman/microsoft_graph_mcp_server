@@ -119,10 +119,8 @@ class TokenManager:
             display = f"{remaining_minutes_display}m"
 
         return {
-            "remaining_seconds": remaining_seconds,
-            "remaining_minutes": remaining_minutes_display,
-            "remaining_hours": remaining_hours,
-            "display": display,  # Simple format: "1h 26m" or "26m"
+            "seconds": remaining_seconds,
+            "display": display,
         }
 
     def save_device_flow(self, device_code: str, device_flow: Dict[str, Any]) -> None:

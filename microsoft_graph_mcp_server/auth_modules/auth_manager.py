@@ -101,11 +101,7 @@ class GraphAuthManager:
             "authenticated": True,
             "message": "Successfully refreshed access token.",
             "token_expires_at": token_expires_at_local,
-            "time_remaining": {
-                "seconds": expiry_info["remaining_seconds"],
-                "minutes": expiry_info["remaining_minutes"],
-                "hours": expiry_info["remaining_hours"],
-            },
+            "time_remaining": expiry_info,
             "refresh_available": self.token_manager.refresh_token is not None,
             "timezone": user_timezone,
         }
@@ -145,7 +141,7 @@ class GraphAuthManager:
 
         expiry_info = self.token_manager.get_token_expiry_info()
 
-        if expiry_info["remaining_seconds"] <= 0:
+        if expiry_info["seconds"] <= 0:
             return {
                 "status": "token_expired",
                 "authenticated": False,
@@ -167,11 +163,7 @@ class GraphAuthManager:
             "authenticated": True,
             "message": "Successfully authenticated with Microsoft Graph.",
             "token_expires_at": token_expires_at_local,
-            "time_remaining": {
-                "seconds": expiry_info["remaining_seconds"],
-                "minutes": expiry_info["remaining_minutes"],
-                "hours": expiry_info["remaining_hours"],
-            },
+            "time_remaining": expiry_info,
             "refresh_available": self.token_manager.refresh_token is not None,
             "timezone": user_timezone,
         }
