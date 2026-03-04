@@ -346,7 +346,7 @@ class ToolRegistry:
                     },
                     "htmlbody": {
                         "type": "string",
-                        "description": "Email body content in HTML format. Use HTML tags like <p>, <br>, <strong>, <em>, <ul>, <li>, etc. Example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><br><p>Best regards</p>'",
+                        "description": "Email body content in HTML format. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. Using both creates excessive spacing in email clients. (2) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (3) Only use <br> for line breaks WITHIN a paragraph, not between paragraphs. Correct example: '<p>Hello,</p><p>This is <strong>important</strong>.</p><p>Best regards</p>'",
                     },
                     "cache_number": {
                         "type": "integer",
@@ -589,7 +589,7 @@ class ToolRegistry:
                     },
                     "body": {
                         "type": "string",
-                        "description": "Event body content (optional for create, update, reply)",
+                        "description": "Event body content in HTML format (optional for create, update, reply). IMPORTANT: Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation to avoid excessive spacing. Use <p> for paragraphs, <strong>/<em> for emphasis.",
                     },
                     "body_content_type": {
                         "type": "string",
@@ -833,7 +833,7 @@ class ToolRegistry:
                     },
                     "htmlbody": {
                         "type": "string",
-                        "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. Note: When updating body, you should first call get with text_only=false to get the full HTML, then provide the complete updated HTML here.",
+                        "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. Using both creates excessive spacing. (2) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (3) Only use <br> for line breaks WITHIN a paragraph. Note: When updating body, first call get with text_only=false to get the full HTML, then provide the complete updated HTML here.",
                     },
                     "text_only": {
                         "type": "boolean",

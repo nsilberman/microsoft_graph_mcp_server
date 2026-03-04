@@ -3,7 +3,7 @@
 from typing import Optional, List
 import mcp.types as types
 from .base import BaseHandler
-from ..utils import read_bcc_from_csv, date_handler
+from ..utils import read_bcc_from_csv, date_handler, normalize_email_html
 from ..cache import email_cache, template_cache
 from ..graph_client import graph_client
 from ..config import settings
@@ -232,7 +232,7 @@ class EmailHandler(BaseHandler):
         """Handle send_new email action."""
         to_recipients = arguments["to"]
         subject = arguments["subject"]
-        body = arguments["htmlbody"]
+        body = normalize_email_html(arguments["htmlbody"])
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         importance = arguments.get("importance")
@@ -290,7 +290,7 @@ class EmailHandler(BaseHandler):
 
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
-        body = arguments.get("htmlbody")
+        body = normalize_email_html(arguments.get("htmlbody"))
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         importance = arguments.get("importance")
@@ -360,7 +360,7 @@ class EmailHandler(BaseHandler):
         cache_number = arguments["cache_number"]
         to_recipients = arguments.get("to")
         subject = arguments.get("subject")
-        body = arguments.get("htmlbody")
+        body = normalize_email_html(arguments.get("htmlbody"))
         cc_recipients = arguments.get("cc")
         bcc_recipients = arguments.get("bcc")
         bcc_csv_file = arguments.get("bcc_csv_file")
@@ -1472,7 +1472,7 @@ class EmailHandler(BaseHandler):
         """Handle update template action."""
         template_number = arguments["template_number"]
         subject = arguments.get("subject")
-        htmlbody = arguments.get("htmlbody")
+        htmlbody = normalize_email_html(arguments.get("htmlbody"))
         to = arguments.get("to")
         cc = arguments.get("cc")
         bcc = arguments.get("bcc")

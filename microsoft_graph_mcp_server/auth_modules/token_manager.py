@@ -119,7 +119,9 @@ class TokenManager:
             display = f"{remaining_minutes_display}m"
 
         return {
-            "seconds": remaining_seconds,
+            "remaining_seconds": remaining_seconds,
+            "remaining_minutes": remaining_minutes_display,
+            "remaining_hours": remaining_hours,
             "display": display,  # Simple format: "1h 26m" or "26m"
         }
 

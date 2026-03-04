@@ -11,7 +11,7 @@ from .base import BaseHandler
 from ..graph_client import graph_client
 from ..config import settings
 from ..cache import event_cache
-from ..utils import DateHandler
+from ..utils import DateHandler, normalize_email_html
 from ..clients.calendar_client import MAX_EVENT_SEARCH_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -512,7 +512,7 @@ class CalendarHandler(BaseHandler):
         if "body" in arguments:
             event_data["body"] = {
                 "contentType": arguments.get("body_content_type", "HTML"),
-                "content": arguments["body"],
+                "content": normalize_email_html(arguments["body"]),
             }
 
         if "location" in arguments:
@@ -670,7 +670,7 @@ class CalendarHandler(BaseHandler):
         if "body" in arguments:
             event_data["body"] = {
                 "contentType": arguments.get("body_content_type", "HTML"),
-                "content": arguments["body"],
+                "content": normalize_email_html(arguments["body"]),
             }
         if "location" in arguments:
             event_data["location"] = {"displayName": arguments["location"]}
@@ -895,7 +895,7 @@ class CalendarHandler(BaseHandler):
         """Handle reply to event action (send email to attendees using event body as email content) using cache number."""
         cache_number_param = arguments["cache_number"]
         subject = arguments.get("reply_subject", "Re: Event")
-        body = arguments.get("body")
+        body = normalize_email_html(arguments.get("body"))
         to_recipients = arguments.get("to")
         cc_recipients = arguments.get("cc")
 
