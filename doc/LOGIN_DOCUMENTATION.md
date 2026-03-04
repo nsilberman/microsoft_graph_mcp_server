@@ -61,9 +61,10 @@ After completing authentication in the browser, the user calls `complete_login`:
      "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes and 59 seconds at 2025-12-26 15:30:00",
      "token_expiry": 1735216200,
      "expiry_datetime": "2025-12-26 15:30:00",
-     "remaining_seconds": 3599,
-     "remaining_minutes": 59,
-     "remaining_hours": 0
+     "time_remaining": {
+       "seconds": 3599,
+       "display": "59m"
+     }
    }
    ```
 
@@ -165,9 +166,10 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
   "message": "You are already authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00",
   "token_expiry": 1735216200,
   "expiry_datetime": "2025-12-26 15:30:00",
-  "remaining_seconds": 3599,
-  "remaining_minutes": 59,
-  "remaining_hours": 0
+  "time_remaining": {
+    "seconds": 3599,
+    "display": "59m"
+  }
 }
 ```
 
@@ -178,9 +180,10 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
   "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00",
   "token_expiry": 1735216200,
   "expiry_datetime": "2025-12-26 15:30:00",
-  "remaining_seconds": 3599,
-  "remaining_minutes": 59,
-  "remaining_hours": 0
+  "time_remaining": {
+    "seconds": 3599,
+    "display": "59m"
+  }
 }
 ```
 
@@ -355,72 +358,6 @@ To use a custom Azure app registration:
 2. Enable "Public client" and "Mobile and desktop applications"
 3. Add "Microsoft Graph" permissions
 4. Set `CLIENT_ID` and `TENANT_ID` in environment variables or `.env` file
-
-## Example Usage
-
-### First-time Login
-```
-User: auth with action="login"
-Server: {
-  "status": "pending",
-  "message": "Please complete authentication using the link and code below. NOTE: Previous tokens have been cleared. You can not use it any more. IMPORTANT: After completing authentication, you MUST call complete_login to verify your authentication status and complete the login process.",
-  "verification_uri": "https://microsoft.com/devicelogin",
-  "user_code": "ABC12345",
-  "expires_in": 900,
-  "interval": 5
-}
-
-[User opens browser, enters user_code, signs in]
-
-User: auth with action="complete_login"
-Server: {
-  "status": "success",
-  "message": "Successfully authenticated with Microsoft Graph. Token expires in 59 minutes at 2025-12-26 15:30:00"
-}
-```
-
-### Check Authentication Status
-```
-User: auth with action="check_status"
-Server: {
-  "status": "authenticated",
-  "authenticated": true,
-  "message": "Successfully authenticated with Microsoft Graph.",
-  "token_expires_at": "2025-12-26T10:30:00-05:00",
-  "time_remaining": {
-    "seconds": 2700,
-    "display": "45m"
-  },
-  "refresh_available": true,
-  "timezone": "America/New_York"
-}
-```
-
-### Logout
-```
-User: auth with action="logout"
-Server: {
-  "status": "logged_out",
-  "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared."
-}
-```
-
-### Extend Token
-```
-User: auth with action="extend_token"
-Server: {
-  "status": "refreshed",
-  "authenticated": true,
-  "message": "Successfully refreshed access token.",
-  "token_expires_at": "2025-12-26T10:30:00-05:00",
-  "time_remaining": {
-    "seconds": 3600,
-    "display": "1h 0m"
-  },
-  "refresh_available": true,
-  "timezone": "America/New_York"
-}
-```
 
 ## Implementation Details
 
