@@ -98,6 +98,10 @@ class MicrosoftGraphMCPServer:
             if "time_range" in arguments and arguments["time_range"]:
                 arguments["time_range"] = arguments["time_range"].lower()
 
+            # Normalize boolean parameters (text_only) from string to bool
+            if "text_only" in arguments and isinstance(arguments["text_only"], str):
+                arguments["text_only"] = arguments["text_only"].lower() == "true"
+
             logger.info(f"Server: Tool called - {name} with args: {arguments}")
 
             try:
