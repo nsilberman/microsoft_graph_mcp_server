@@ -193,8 +193,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
   "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
     "seconds": 3599,
-    "minutes": 59,
-    "hours": 0
+    "display": "59m"
   },
   "refresh_available": true,
   "timezone": "America/New_York"
@@ -236,8 +235,7 @@ Manage authentication with Microsoft Graph using device code flow. Supports logi
   "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
     "seconds": 3600,
-    "minutes": 60,
-    "hours": 1
+    "display": "1h 0m"
   },
   "refresh_available": true,
   "timezone": "America/New_York"
@@ -391,8 +389,7 @@ Server: {
   "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
     "seconds": 2700,
-    "minutes": 45,
-    "hours": 0
+    "display": "45m"
   },
   "refresh_available": true,
   "timezone": "America/New_York"
@@ -410,20 +407,18 @@ Server: {
 
 ### Extend Token
 ```
-User: auth with action="extend_token" hours=12
+User: auth with action="extend_token"
 Server: {
   "status": "refreshed",
   "authenticated": true,
-  "message": "Successfully extended access token by 12 hour(s).",
+  "message": "Successfully refreshed access token.",
   "token_expires_at": "2025-12-26T10:30:00-05:00",
   "time_remaining": {
-    "seconds": 43200,
-    "minutes": 720,
-    "hours": 12
+    "seconds": 3600,
+    "display": "1h 0m"
   },
   "refresh_available": true,
-  "timezone": "America/New_York",
-  "hours_extended": 12
+  "timezone": "America/New_York"
 }
 ```
 

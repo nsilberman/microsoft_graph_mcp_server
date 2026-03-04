@@ -110,12 +110,17 @@ class TokenManager:
         remaining_seconds = int(self.token_expiry - time.time())
         remaining_minutes = remaining_seconds // 60
         remaining_hours = remaining_minutes // 60
-        remaining_minutes = remaining_minutes % 60
+        remaining_minutes_display = remaining_minutes % 60
+
+        # Simple display string
+        if remaining_hours > 0:
+            display = f"{remaining_hours}h {remaining_minutes_display}m"
+        else:
+            display = f"{remaining_minutes_display}m"
 
         return {
-            "remaining_seconds": remaining_seconds,
-            "remaining_minutes": remaining_minutes,
-            "remaining_hours": remaining_hours,
+            "seconds": remaining_seconds,
+            "display": display,  # Simple format: "1h 26m" or "26m"
         }
 
     def save_device_flow(self, device_code: str, device_flow: Dict[str, Any]) -> None:
