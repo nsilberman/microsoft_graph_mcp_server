@@ -312,7 +312,7 @@ class ToolRegistry:
                         "description": "Cache number from browse_email_cache (e.g., 1, 2, 3)",
                     },
                     "text_only": {
-                        "type": "boolean",
+                        "type": ["boolean", "string"],
                         "description": "If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.",
                         "default": True,
                     },
@@ -836,7 +836,7 @@ class ToolRegistry:
                         "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. Using both creates excessive spacing. (2) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (3) Only use <br> for line breaks WITHIN a paragraph. Note: When updating body, first call get with text_only=false to get the full HTML, then provide the complete updated HTML here.",
                     },
                     "text_only": {
-                        "type": "boolean",
+                        "type": ["boolean", "string"],
                         "description": "For 'get' action: if true, returns simple text body (default). If false, returns full HTML body. Default: true",
                     },
                 },
