@@ -258,7 +258,7 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). When using time_range, the response includes a user-friendly display string (e.g., 'Today', 'This Week', 'This Month'). Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
+            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). **IMPORTANT FOR OLD EMAILS**: The 'days' parameter has a maximum limit (default 90 days). To search emails older than this limit, use start_date/end_date parameters instead - they have NO date range restriction and can search any historical emails. Example: start_date='2023-01-01', end_date='2023-12-31'. Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -278,11 +278,11 @@ class ToolRegistry:
                     },
                     "start_date": {
                         "type": "string",
-                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30') (optional). Overridden by time_range if both are provided.",
+                        "description": "Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30'). Overridden by time_range if both are provided. **NO DATE RANGE LIMIT**: Unlike 'days' parameter, start_date has no restriction - use this to search old emails beyond the default 90-day limit.",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59') (optional). Overridden by time_range if both are provided.",
+                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59'). Overridden by time_range if both are provided. **NO DATE RANGE LIMIT**: Unlike 'days' parameter, end_date has no restriction - use this to search old emails beyond the default 90-day limit.",
                     },
                     "time_range": {
                         "type": "string",
@@ -290,7 +290,7 @@ class ToolRegistry:
                     },
                     "days": {
                         "type": "integer",
-                        "description": f"Number of days to look back. Default: {settings.default_search_days}, maximum: {settings.max_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. Ignored if any other time parameter is present.",
+                        "description": f"Number of days to look back. Default: {settings.default_search_days}, maximum: {settings.max_search_days}. LOWEST PRIORITY: Used only when no time_range, start_date, or end_date are provided. **TIP**: For searching emails older than {settings.max_search_days} days, use start_date and end_date parameters instead.",
                         "default": settings.default_search_days,
                         "minimum": 1,
                         "maximum": settings.max_search_days,
