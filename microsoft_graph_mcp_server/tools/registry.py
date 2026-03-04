@@ -245,10 +245,11 @@ class ToolRegistry:
                     "mode": {
                         "type": "string",
                         "enum": ["user", "llm"],
-                        "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
+                        "description": "Browsing mode. DEFAULT to 'llm' for most cases - use 'llm' when user wants you to analyze, summarize, or process emails (~20 per page for comprehensive view). Use 'user' ONLY when user EXPLICITLY requests to browse page-by-page themselves (~5 per page for human reading).",
+                        "default": "llm",
                     },
                 },
-                "required": ["page_number", "mode"],
+                "required": ["page_number"],
             },
         )
 
@@ -393,8 +394,8 @@ class ToolRegistry:
                     "mode": {
                         "type": "string",
                         "enum": ["user", "llm"],
-                        "description": "Browsing mode: 'user' for human browsing (smaller page size, default 5), 'llm' for LLM browsing (larger page size, default 20)",
-                        "default": "user",
+                        "description": "Browsing mode. DEFAULT to 'llm' for most cases - use 'llm' when user wants you to analyze, summarize, or process events (~20 per page for comprehensive view). Use 'user' ONLY when user EXPLICITLY requests to browse page-by-page themselves (~5 per page for human reading).",
+                        "default": "llm",
                     },
                 },
                 "required": ["page_number"],

@@ -211,7 +211,7 @@ class CalendarHandler(BaseHandler):
     async def handle_browse_events(self, arguments: dict) -> list[types.TextContent]:
         """Handle browse_events tool."""
         page_number = arguments["page_number"]
-        mode = arguments.get("mode", "user")
+        mode = arguments.get("mode", "llm")
 
         page_size = settings.llm_page_size if mode == "llm" else settings.page_size
         skip = (page_number - 1) * page_size

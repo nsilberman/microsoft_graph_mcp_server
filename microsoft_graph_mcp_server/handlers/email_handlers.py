@@ -19,7 +19,7 @@ class EmailHandler(BaseHandler):
     ) -> list[types.TextContent]:
         """Handle browse_email_cache tool."""
         page_number = arguments["page_number"]
-        mode = arguments["mode"]
+        mode = arguments.get("mode", "llm")
 
         cached_emails = email_cache.get_cached_emails()
         total_count = len(cached_emails)
