@@ -1301,6 +1301,34 @@ The recommended workflow for updating templates involves a 7-step process:
 
 ---
 
+## Email Sorting
+
+### Sorting Order
+
+Emails are always sorted by received date in **descending order** (newest first). This applies to:
+- API responses from `search_emails`
+- Cached emails retrieved via `browse_email_cache`
+
+### Timestamp Fields
+
+Each email includes two timestamp fields:
+
+| Field | Purpose | Format | Timezone |
+|-------|---------|--------|----------|
+| `receivedDateTime` | Display | "Fri 12/26/2025 09:27 PM" | User's local timezone |
+| `receivedDateTimeOriginal` | Sorting | "2025-12-26T13:27:44Z" | UTC |
+
+### Best Practices
+
+1. **Always use `receivedDateTimeOriginal` for sorting** - This ensures accurate sorting regardless of timezone
+2. **Check pagination bounds** - Verify `page_number <= total_pages` before requesting
+3. **Configure appropriate page sizes**:
+   - Small (5-10): Slow connections, limited display space
+   - Medium (20-50): Good balance for most use cases
+   - Large (100+): Batch processing or data export
+
+---
+
 ## Cache Management
 
 ### Automatic Cache Clearing
@@ -1322,18 +1350,17 @@ The cache is persisted to disk at `~/.microsoft_graph_mcp_browsing.json` with th
 
 ## Best Practices
 
-1. **Use search_emails for quick access**: For viewing recent emails, use `search_emails` with the default 1-day parameter (no search_type and query).
+1. **Use search_emails for quick access**: For viewing recent emails, use `search_emails` with the default 1-day parameter.
 
-2. **Specify folder for targeted searches**: Use the `folder` parameter in `search_emails` to narrow down search results.
+2. **Specify folder for targeted searches**: Use the `folder` parameter to narrow down results.
 
-3. **Use pagination for large result sets**: When browsing emails, use pagination with the configured `page_size` to manage memory usage. Configure `PAGE_SIZE` in your environment variables to adjust the number of items per page.
+3. **Use pagination for large result sets**: Configure `PAGE_SIZE` in environment variables.
 
-4. **Use HTML format for email bodies**: When using `send_email`, ensure the htmlbody parameter is in HTML format for all actions (send_new, reply, forward).
+4. **Use HTML format for email bodies**: The `htmlbody` parameter must be in HTML format.
 
-5. **Respect parameter limits**: 
+5. **Respect parameter limits**:
    - `days` parameter for recent emails: maximum 7
-   - `days` parameter for searches: configurable via `DEFAULT_SEARCH_DAYS` environment variable
-   - `top` parameter: maximum 99 (not 100)
+   - `days` parameter for searches: configurable via `DEFAULT_SEARCH_DAYS`
 
 ---
 

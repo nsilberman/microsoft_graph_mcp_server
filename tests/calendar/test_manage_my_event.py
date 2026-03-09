@@ -1,4 +1,4 @@
-"""Test script for manage_my_event tool functionality."""
+"""Test script for manage_event_as_organizer tool functionality."""
 
 import asyncio
 import json
@@ -13,20 +13,20 @@ from microsoft_graph_mcp_server.handlers.calendar_handlers import CalendarHandle
 
 
 async def test_manage_my_event_schema():
-    """Test that manage_my_event tool schema is correctly defined."""
-    print("\n[Test 1] Checking manage_my_event tool schema...")
-    
-    tool = ToolRegistry.manage_my_event()
-    
-    assert tool.name == "manage_my_event", f"Tool name should be 'manage_my_event', got '{tool.name}'"
+    """Test that manage_event_as_organizer tool schema is correctly defined."""
+    print("\n[Test 1] Checking manage_event_as_organizer tool schema...")
+
+    tool = ToolRegistry.manage_event_as_organizer()
+
+    assert tool.name == "manage_event_as_organizer", f"Tool name should be 'manage_event_as_organizer', got '{tool.name}'"
     print(f"   ✓ Tool name: {tool.name}")
-    
+
     schema = tool.inputSchema
     assert schema["type"] == "object", "Schema should be an object"
     print("   ✓ Schema type: object")
-    
+
     action_enum = schema["properties"]["action"]["enum"]
-    expected_actions = ["create", "update", "cancel", "delete", "forward", "reply"]
+    expected_actions = ["create", "update", "cancel", "forward", "email_attendees"]
     
     for action in expected_actions:
         assert action in action_enum, f"Action '{action}' not found in enum"
@@ -44,7 +44,7 @@ async def test_manage_my_event_schema():
     assert "action" in required_fields, "action should be required"
     print("   ✓ Required field: action")
     
-    print("\n[Test 1] ✓ PASSED: manage_my_event tool schema is correct")
+    print("\n[Test 1] ✓ PASSED: manage_event_as_organizer tool schema is correct")
 
 
 async def test_handler_methods():

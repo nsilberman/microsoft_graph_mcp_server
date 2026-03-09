@@ -1,4 +1,4 @@
-"""Test script for respond_to_event tool functionality."""
+"""Test script for manage_event_as_attendee tool functionality."""
 
 import asyncio
 import json
@@ -13,20 +13,20 @@ from microsoft_graph_mcp_server.handlers.calendar_handlers import CalendarHandle
 
 
 async def test_respond_to_event_schema():
-    """Test that respond_to_event tool schema is correctly defined."""
-    print("\n[Test 1] Checking respond_to_event tool schema...")
-    
-    tool = ToolRegistry.respond_to_event()
-    
-    assert tool.name == "respond_to_event", f"Tool name should be 'respond_to_event', got '{tool.name}'"
+    """Test that manage_event_as_attendee tool schema is correctly defined."""
+    print("\n[Test 1] Checking manage_event_as_attendee tool schema...")
+
+    tool = ToolRegistry.manage_event_as_attendee()
+
+    assert tool.name == "manage_event_as_attendee", f"Tool name should be 'manage_event_as_attendee', got '{tool.name}'"
     print(f"   ✓ Tool name: {tool.name}")
-    
+
     schema = tool.inputSchema
     assert schema["type"] == "object", "Schema should be an object"
     print("   ✓ Schema type: object")
-    
+
     action_enum = schema["properties"]["action"]["enum"]
-    expected_actions = ["accept", "decline", "tentatively_accept", "propose_new_time", "delete"]
+    expected_actions = ["accept", "decline", "tentatively_accept", "propose_new_time", "delete_cancelled"]
     
     for action in expected_actions:
         assert action in action_enum, f"Action '{action}' not found in enum"
@@ -42,10 +42,10 @@ async def test_respond_to_event_schema():
     
     required_fields = schema.get("required", [])
     assert "action" in required_fields, "action should be required"
-    assert "event_id" in required_fields, "event_id should be required"
-    print("   ✓ Required fields: action, event_id")
-    
-    print("\n[Test 1] ✓ PASSED: respond_to_event tool schema is correct")
+    assert "cache_number" in required_fields, "cache_number should be required"
+    print("   ✓ Required fields: action, cache_number")
+
+    print("\n[Test 1] ✓ PASSED: manage_event_as_attendee tool schema is correct")
 
 
 async def test_handler_methods():

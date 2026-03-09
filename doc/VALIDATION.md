@@ -169,8 +169,8 @@ The following handlers are candidates for future validation:
 
 - **CalendarHandler**:
   - `handle_get_event`: Validate cache_number
-  - `handle_manage_my_event`: Validate action enum, required parameters
-  - `handle_respond_to_event`: Validate cache_number, action enum
+  - `handle_manage_my_event`: Validate action enum, required parameters (for manage_event_as_organizer)
+  - `handle_respond_to_event`: Validate cache_number, action enum (for manage_event_as_attendee)
 
 - **Handlers with date/time parameters**: Add date validation for start/end times
 

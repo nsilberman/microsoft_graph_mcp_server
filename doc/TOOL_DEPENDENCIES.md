@@ -144,12 +144,12 @@ These tools require events to be loaded into cache first:
 **Cache-Dependent Tools:**
 - `browse_events` - Requires `search_events` to be called first
 - `get_event_detail` - Requires cache_number from `browse_events` or `search_events`
-- `respond_to_event` - Requires cache_number from `browse_events` or `search_events`
-- `manage_my_event` (update/cancel/forward/reply) - Requires cache_number
+- `manage_event_as_attendee` - Requires cache_number from `browse_events` or `search_events`
+- `manage_event_as_organizer` (update/cancel/forward/email_attendees) - Requires cache_number
 
 **Workflow:**
 ```
-search_events → browse_events → get_event_detail / respond_to_event / manage_my_event
+search_events → browse_events → get_event_detail / manage_event_as_attendee / manage_event_as_organizer
 ```
 
 **Example - Complete event workflow:**
@@ -164,7 +164,7 @@ browse_events(page_number=1, mode="llm")  # Returns 20 events
 get_event_detail(cache_number="3")  # Get full event #3
 
 # Step 4: Act on event
-respond_to_event(action="accept", cache_number=3, comment="I'll be there!")
+manage_event_as_attendee(action="accept", cache_number=3, comment="I'll be there!")
 ```
 
 **Important Notes:**
@@ -334,7 +334,7 @@ check_attendee_availability(
 # Returns: availability_view, schedule_items, top_slots
 
 # 2. Create meeting at free slot
-manage_my_event(
+manage_event_as_organizer(
     action="create",
     subject="Project Review",
     start="2024-01-15T10:00",
@@ -355,7 +355,7 @@ browse_events(page_number=1, mode="llm")
 get_event_detail(cache_number="1")
 
 # 6. Optional: Respond to someone else's event
-respond_to_event(
+manage_event_as_attendee(
     action="accept",
     cache_number="5",
     comment="I'll attend!"
@@ -508,8 +508,8 @@ get_email_content(cache_number=5)  # Must be a number from the 'number' field in
 - `browse_events`: Browse cached events (pagination)
 - `get_event_detail`: Get full event details
 - `check_attendee_availability`: Check when people are free
-- `manage_my_event`: Create, update, cancel, forward, reply
-- `respond_to_event`: Accept, decline, tentatively accept
+- `manage_event_as_organizer`: Create, update, cancel, forward, email_attendees
+- `manage_event_as_attendee`: Accept, decline, tentatively accept, propose_new_time, delete_cancelled
 
 ### User Tools
 - `search_contacts`: Find people in organization directory

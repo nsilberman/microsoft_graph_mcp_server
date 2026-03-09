@@ -73,7 +73,7 @@ async def calendar_availability_and_create_workflow():
     print("-" * 70)
 
     create_result = {
-        "tool": "manage_my_event",
+        "tool": "manage_event_as_organizer",
         "arguments": {
             "action": "create",
             "subject": "Project Review",
@@ -210,7 +210,7 @@ async def calendar_actions_workflow():
     print("-" * 70)
 
     accept_result = {
-        "tool": "respond_to_event",
+        "tool": "manage_event_as_attendee",
         "arguments": {
             "action": "accept",
             "cache_number": 3,
@@ -239,7 +239,7 @@ async def calendar_actions_workflow():
     print("-" * 70)
 
     propose_result = {
-        "tool": "respond_to_event",
+        "tool": "manage_event_as_attendee",
         "arguments": {
             "action": "propose_new_time",
             "cache_number": 5,
@@ -270,7 +270,7 @@ async def calendar_actions_workflow():
     print("-" * 70)
 
     cancel_result = {
-        "tool": "manage_my_event",
+        "tool": "manage_event_as_organizer",
         "arguments": {
             "action": "cancel",
             "cache_number": 1,
@@ -304,7 +304,7 @@ async def recurring_event_example():
     print("-" * 70)
 
     recurring_result = {
-        "tool": "manage_my_event",
+        "tool": "manage_event_as_organizer",
         "arguments": {
             "action": "create",
             "subject": "Weekly Team Standup",
@@ -357,14 +357,14 @@ async def common_mistakes_example():
 
     print("Incorrect:")
     print("  Create meeting at random time")
-    print("  manage_my_event(action='create', start='2024-01-15T10:00', ...)")
+    print("  manage_event_as_organizer(action='create', start='2024-01-15T10:00', ...)")
     print("  → May conflict with existing meetings")
     print()
 
     print("Correct:")
     print("  1. check_attendee_availability(date='2024-01-15', ...)")
     print("  2. Create meeting at free slot from top_slots")
-    print("  3. manage_my_event(action='create', start=free_time, ...)")
+    print("  3. manage_event_as_organizer(action='create', start=free_time, ...)")
     print()
 
     # ============================================
@@ -374,12 +374,12 @@ async def common_mistakes_example():
     print("-" * 70)
 
     print("Incorrect:")
-    print("  manage_my_event(action='create', start='Jan 15, 2024', ...)")
+    print("  manage_event_as_organizer(action='create', start='Jan 15, 2024', ...)")
     print("  → Invalid time format")
     print()
 
     print("Correct:")
-    print("  manage_my_event(action='create', start='2024-01-15T10:00', ...)")
+    print("  manage_event_as_organizer(action='create', start='2024-01-15T10:00', ...)")
     print("  OR start='2024-01-15 10:00'")
     print("  → ISO format or space-separated date/time")
     print()

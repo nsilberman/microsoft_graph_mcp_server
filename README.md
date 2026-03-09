@@ -135,7 +135,7 @@ Your AI can:
 
 ```json
 {
-  "tool": "manage_my_event",
+  "tool": "manage_event_as_organizer",
   "action": "create",
   "subject": "Project Sync",
   "start": "2026-02-26T14:00",
@@ -350,7 +350,7 @@ Claude will call:
 
 ```json
 {
-  "tool": "manage_my_event",
+  "tool": "manage_event_as_organizer",
   "action": "create",
   "subject": "Project Discussion",
   "start": "2026-03-01T14:00",
@@ -532,7 +532,7 @@ Claude will call:
 
 ```json
 {
-  "tool": "respond_to_event",
+  "tool": "manage_event_as_attendee",
   "action": "accept",
   "cache_number": 1
 }
@@ -639,8 +639,8 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 - **`search_events`** - Search or list calendar events by subject or organizer
 - **`browse_events`** - Browse cached calendar events with pagination
 - **`get_event_detail`** - Get detailed information for specific events
-- **`manage_my_event`** - Create, update, cancel, or forward your own events
-- **`respond_to_event`** - Accept, decline, or propose new times for event invitations
+- **`manage_event_as_organizer`** - Create, update, cancel, forward, or email attendees for your own events
+- **`manage_event_as_attendee`** - Accept, decline, tentatively accept, propose new times, or delete cancelled event invitations
 - **`check_attendee_availability`** - Check availability for meeting scheduling
 
 ### 👥 People & Contacts
@@ -660,10 +660,10 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 4. `send_email` or `manage_emails` - Take action
 
 **Calendar Workflow:**
-1. `search_events` - Load events into cache  
+1. `search_events` - Load events into cache
 2. `browse_events` - Browse events
 3. `get_event_detail` - View specific event
-4. `respond_to_event` or `manage_my_event` - Take action
+4. `manage_event_as_attendee` or `manage_event_as_organizer` - Take action
 
 **Authentication Workflow:**
 1. `auth` with `login` action

@@ -455,7 +455,7 @@ class CalendarHandler(BaseHandler):
         return self._format_response(response_data)
 
     async def handle_respond_to_event(self, arguments: dict) -> list[types.TextContent]:
-        """Handle respond_to_event tool for responding to events organized by others: accept, decline, tentatively_accept, propose_new_time, delete."""
+        """Handle manage_event_as_attendee tool for managing events as attendee: accept, decline, tentatively_accept, propose_new_time, delete_cancelled."""
         action = arguments["action"]
 
         if action == "accept":
@@ -466,15 +466,15 @@ class CalendarHandler(BaseHandler):
             return await self._handle_tentatively_accept_event_action(arguments)
         elif action == "propose_new_time":
             return await self._handle_propose_new_time_action(arguments)
-        elif action == "delete":
+        elif action == "delete_cancelled":
             return await self._handle_delete_cancelled_event_action(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'accept', 'decline', 'tentatively_accept', 'propose_new_time', or 'delete'."
+                f"Invalid action: {action}. Must be 'accept', 'decline', 'tentatively_accept', 'propose_new_time', or 'delete_cancelled'."
             )
 
     async def handle_manage_my_event(self, arguments: dict) -> list[types.TextContent]:
-        """Handle manage_my_event tool for managing user's own events: create, update, cancel, forward, reply."""
+        """Handle manage_event_as_organizer tool for managing user's own events: create, update, cancel, forward, email_attendees."""
         action = arguments["action"]
 
         if action == "create":
@@ -485,11 +485,11 @@ class CalendarHandler(BaseHandler):
             return await self._handle_cancel_event_action(arguments)
         elif action == "forward":
             return await self._handle_forward_event_action(arguments)
-        elif action == "reply":
+        elif action == "email_attendees":
             return await self._handle_reply_event_action(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'create', 'update', 'cancel', 'forward', or 'reply'."
+                f"Invalid action: {action}. Must be 'create', 'update', 'cancel', 'forward', or 'email_attendees'."
             )
 
     async def _handle_create_event_action(
@@ -892,9 +892,9 @@ class CalendarHandler(BaseHandler):
     async def _handle_reply_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle reply to event action (send email to attendees using event body as email content) using cache number."""
+        """Handle email attendees action (send email to attendees using event body as email content) using cache number."""
         cache_number_param = arguments["cache_number"]
-        subject = arguments.get("reply_subject", "Re: Event")
+        subject = arguments.get("email_subject", "Re: Event")
         body = normalize_email_html(arguments.get("body"))
         to_recipients = arguments.get("to")
         cc_recipients = arguments.get("cc")

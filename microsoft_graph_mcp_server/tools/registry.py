@@ -495,11 +495,11 @@ class ToolRegistry:
         )
 
     @staticmethod
-    def respond_to_event() -> types.Tool:
-        """Respond to event tool definition for responding to events organized by others."""
+    def manage_event_as_attendee() -> types.Tool:
+        """Manage event as attendee tool definition for responding to events organized by others."""
         return types.Tool(
-            name="respond_to_event",
-            description="Respond to calendar events organized by others. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message. IMPORTANT: accept/decline/tentatively_accept/propose_new_time actions will automatically handle events where the organizer didn't request responses. For accept: updates the event to showAs='busy' and enables reminders. For tentatively_accept: updates the event to showAs='tentative' and enables reminders. For decline: deletes the event from your calendar. For propose_new_time: deletes the event from your calendar and instructs you to contact organizer directly (since proposals require responses). This matches Outlook's behavior. The delete action is specifically for removing a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations).",
+            name="manage_event_as_attendee",
+            description="Manage calendar events where you are an attendee (events organized by others). Actions: accept, decline, tentatively_accept, propose_new_time, delete_cancelled. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message. IMPORTANT: accept/decline/tentatively_accept/propose_new_time actions will automatically handle events where the organizer didn't request responses. For accept: updates the event to showAs='busy' and enables reminders. For tentatively_accept: updates the event to showAs='tentative' and enables reminders. For decline: deletes the event from your calendar. For propose_new_time: deletes the event from your calendar and instructs you to contact organizer directly (since proposals require responses). This matches Outlook's behavior. The delete_cancelled action is specifically for removing a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -510,9 +510,9 @@ class ToolRegistry:
                             "decline",
                             "tentatively_accept",
                             "propose_new_time",
-                            "delete",
+                            "delete_cancelled",
                         ],
-                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer (if responses aren't requested, deletes the event and instructs to contact organizer directly), 'delete' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
+                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer (if responses aren't requested, deletes the event and instructs to contact organizer directly), 'delete_cancelled' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
                     },
                     "cache_number": {
                         "type": "integer",
@@ -551,22 +551,22 @@ class ToolRegistry:
         )
 
     @staticmethod
-    def manage_my_event() -> types.Tool:
-        """Manage my event tool definition for managing user's own events."""
+    def manage_event_as_organizer() -> types.Tool:
+        """Manage event as organizer tool definition for managing user's own events."""
         return types.Tool(
-            name="manage_my_event",
-            description="Manage your own calendar events. WORKFLOW: For update, cancel, forward, and reply actions, use cache number from browse_events or returned when creating an event. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Conflict errors may occur when updating event times that overlap with existing events.",
+            name="manage_event_as_organizer",
+            description="Manage calendar events where you are the organizer (events you created). Actions: create, update, cancel, forward, email_attendees. WORKFLOW: For update, cancel, forward, and email_attendees actions, use cache number from browse_events or returned when creating an event. Returns: Event object with id, subject, start, end, location, attendees, body, recurrence, and online meeting details. Note: Conflict errors may occur when updating event times that overlap with existing events.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["create", "update", "cancel", "forward", "reply"],
-                        "description": "Action to perform: 'create' to create a new calendar event, 'update' to update an existing event, 'cancel' to cancel an event and send cancellation notifications to attendees, 'forward' to forward event by adding new optional attendees, 'reply' to send email to event attendees using event body as content (to=required attendees, cc=optional attendees)",
+                        "enum": ["create", "update", "cancel", "forward", "email_attendees"],
+                        "description": "Action to perform: 'create' to create a new calendar event, 'update' to update an existing event, 'cancel' to cancel an event and send cancellation notifications to attendees, 'forward' to forward event by adding new optional attendees, 'email_attendees' to send email to event attendees using event body as content (to=required attendees, cc=optional attendees)",
                     },
                     "cache_number": {
                         "type": "integer",
-                        "description": "Cache number from browse_events or returned when creating an event (required for update, cancel, forward, reply actions, e.g., 1, 2, 3)",
+                        "description": "Cache number from browse_events or returned when creating an event (required for update, cancel, forward, email_attendees actions, e.g., 1, 2, 3)",
                     },
                     "subject": {
                         "type": "string",
@@ -720,19 +720,19 @@ class ToolRegistry:
                         "type": "string",
                         "description": "Optional comment for cancel, forward actions",
                     },
-                    "reply_subject": {
+                    "email_subject": {
                         "type": "string",
-                        "description": "Email subject for reply action (optional, default: 'Re: Event')",
+                        "description": "Email subject for email_attendees action (optional, default: 'Re: Event')",
                     },
                     "to": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of 'to' recipient email addresses for reply action (optional, defaults to required event attendees)",
+                        "description": "List of 'to' recipient email addresses for email_attendees action (optional, defaults to required event attendees)",
                     },
                     "cc": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "List of 'cc' recipient email addresses for reply action (optional, defaults to optional event attendees)",
+                        "description": "List of 'cc' recipient email addresses for email_attendees action (optional, defaults to optional event attendees)",
                     },
                 },
                 "required": ["action"],

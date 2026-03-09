@@ -115,16 +115,6 @@ result = await search_events(query="John", search_type="organizer", start_date="
 - Maximum MAX_EVENT_SEARCH_LIMIT events per search
 - Subject search uses server-side filtering (contains) for exact matches
 - Organizer search uses hybrid filtering: server-side for exact email matches, client-side for fuzzy name matches
-- Use `browse_events` to view the results
-- Time ranges are calculated in the user's local timezone and converted to UTC for API calls
-- Recurring events are automatically expanded into individual occurrences within the specified date range
-- Maximum MAX_EVENT_SEARCH_LIMIT events per search
-- Subject search uses server-side filtering (contains) for exact matches
-- Organizer search uses hybrid filtering: server-side for exact email matches, client-side for fuzzy name matches
-- Use `browse_events` to view the results
-- Time ranges are calculated in the user's local timezone and converted to UTC for API calls
-- Recurring events are automatically expanded into individual occurrences within the specified date range
-- Maximum MAX_EVENT_SEARCH_LIMIT events per search
 
 ---
 
@@ -417,7 +407,7 @@ This behavior matches how Outlook handles such events - the time is marked on yo
 
 #### Accept Event:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="accept",
     cache_number="1",
     comment="Looking forward to it"
@@ -426,7 +416,7 @@ result = await respond_to_event(
 
 #### Accept Entire Recurring Series:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="accept",
     cache_number="1",
     series=True,
@@ -436,7 +426,7 @@ result = await respond_to_event(
 
 #### Decline Event:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="decline",
     cache_number="2",
     comment="I have a conflict at that time"
@@ -445,7 +435,7 @@ result = await respond_to_event(
 
 #### Decline Entire Recurring Series:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="decline",
     cache_number="3",
     series=True,
@@ -455,7 +445,7 @@ result = await respond_to_event(
 
 #### Tentatively Accept Event:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="tentatively_accept",
     cache_number="4",
     comment="I'll try to make it"
@@ -464,7 +454,7 @@ result = await respond_to_event(
 
 #### Propose New Time:
 ```python
-result = await respond_to_event(
+result = await manage_event_as_attendee(
     action="propose_new_time",
     cache_number="5",
     propose_new_time={
@@ -477,8 +467,8 @@ result = await respond_to_event(
 
 #### Delete Cancelled Event:
 ```python
-result = await respond_to_event(
-    action="delete",
+result = await manage_event_as_attendee(
+    action="delete_cancelled",
     cache_number="6",
     comment="Removing cancelled event"
 )
@@ -514,20 +504,20 @@ result = await respond_to_event(
 #### General Notes
 - Cache number is from browse_events or search_events
 - Event must be in cache (use search_events first)
-- For user-organized events, use the manage_my_event tool instead
+- For user-organized events, use the manage_event_as_organizer tool instead
 
 ---
 
-## Manage My Event
+## Manage Event As Organizer
 
 ### Description
-Manage your own calendar events with multiple actions: create, update, cancel, forward, and reply. This tool is for events that you organized yourself, not events you were invited to.
+Manage calendar events where you are the organizer (events you created). Actions: create, update, cancel, forward, email_attendees. This tool is for events that you organized yourself, not events you were invited to.
 
 ### Parameters
 
 #### Common Parameters (All Actions)
 - `action` (required, string): Action to perform
-  - Values: "create", "update", "cancel", "forward", "reply"
+  - Values: "create", "update", "cancel", "forward", "email_attendees"
 
 #### Create Action Parameters
 - `subject` (required, string): Event subject
@@ -593,9 +583,9 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 - `attendees` (required, array): List of attendee email addresses to add as optional attendees
 - `comment` (optional, string): Message to include in forward
 
-#### Reply Action Parameters
+#### Email Attendees Action Parameters
 - `cache_number` (required, string): Cache number from browse_events or search_events results (e.g., '1', '2', '3')
-- `subject` (optional, string): Email subject (default: "Re: Event")
+- `email_subject` (optional, string): Email subject (default: "Re: Event")
 - `body` (optional, string): Email body content (default: event body content)
 - `to` (optional, array): List of TO recipient email addresses (default: required attendees)
 - `cc` (optional, array): List of CC recipient email addresses (default: optional attendees)
@@ -631,7 +621,7 @@ Manage your own calendar events with multiple actions: create, update, cancel, f
 
 #### Create Event:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="create",
     subject="Team Meeting",
     start="2026-01-06T14:30",
@@ -641,7 +631,7 @@ result = await manage_my_event(
 
 #### Create Event with Specific Timezone:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="create",
     subject="Global Team Meeting",
     start="2026-01-06T14:30",
@@ -652,7 +642,7 @@ result = await manage_my_event(
 
 #### Create Recurring Event:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="create",
     subject="Weekly Team Meeting",
     start="2026-01-06T14:30",
@@ -673,7 +663,7 @@ result = await manage_my_event(
 
 #### Create Recurring Event with Specific Timezone:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="create",
     subject="Weekly Global Meeting",
     start="2026-01-06T14:30",
@@ -695,7 +685,7 @@ result = await manage_my_event(
 
 #### Create Online Meeting:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="create",
     subject="Online Team Meeting",
     start="2026-01-06T14:30",
@@ -707,7 +697,7 @@ result = await manage_my_event(
 
 #### Update Event:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="update",
     cache_number="1",
     subject="Updated Team Meeting",
@@ -718,7 +708,7 @@ result = await manage_my_event(
 
 #### Update Event with Specific Timezone:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="update",
     cache_number="1",
     subject="Updated Team Meeting",
@@ -730,7 +720,7 @@ result = await manage_my_event(
 
 #### Cancel Event:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="cancel",
     cache_number="2",
     comment="Meeting is no longer needed"
@@ -739,7 +729,7 @@ result = await manage_my_event(
 
 #### Forward Event:
 ```python
-result = await manage_my_event(
+result = await manage_event_as_organizer(
     action="forward",
     cache_number="4",
     attendees=["new-attendee@example.com", "another@example.com"],
@@ -747,12 +737,12 @@ result = await manage_my_event(
 )
 ```
 
-#### Reply to Event:
+#### Email Event Attendees:
 ```python
-result = await manage_my_event(
-    action="reply",
+result = await manage_event_as_organizer(
+    action="email_attendees",
     cache_number="5",
-    subject="Re: Team Meeting",
+    email_subject="Re: Team Meeting",
     body="I'll be attending the meeting",
     to=["organizer@example.com"],
     cc=["optional-attendee@example.com"]
@@ -787,7 +777,7 @@ result = await manage_my_event(
 - Sends invitation to new attendees
 - Comment is included in the invitation
 
-#### Reply Action
+#### Email Attendees Action
 - Sends email to event attendees
 - Uses event body as default email content if not provided
 - TO recipients default to required attendees
@@ -796,7 +786,7 @@ result = await manage_my_event(
 
 #### General Notes
 - Cache number is from browse_events or search_events
-- For events organized by others, use the respond_to_event tool instead
+- For events organized by others, use the manage_event_as_attendee tool instead
 - All date/time parameters are in your local timezone, unless you provide a optional `timezone` parameter to specify a different timezone
 
 ---
@@ -1028,7 +1018,7 @@ Consider an all-day event "Great Cold" that spans Jan 20-21:
 ## Timezone Handling
 
 ### Timezone Detection
-The system automatically detects the user's timezone from Microsoft Graph mailbox settings. For create and update actions in manage_my_event, you can optionally provide a `timezone` parameter to override the automatic timezone detection and specify a custom timezone for the event.
+The system automatically detects the user's timezone from Microsoft Graph mailbox settings. For create and update actions in manage_event_as_organizer, you can optionally provide a `timezone` parameter to override the automatic timezone detection and specify a custom timezone for the event.
 
 ### Timezone Conversion
 - All date ranges are calculated in the user's local timezone
