@@ -480,6 +480,26 @@ class GraphClient:
             query, search_type, start_date, end_date, top
         )
 
+    async def check_calendar_conflict(
+        self,
+        start_date: str,
+        end_date: str,
+        exclude_event_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Check for calendar conflicts in a time range.
+
+        Args:
+            start_date: Start datetime in UTC ISO format
+            end_date: End datetime in UTC ISO format
+            exclude_event_id: Optional event ID to exclude (for updates)
+
+        Returns:
+            Dictionary with has_conflict, conflicting_events, message
+        """
+        return await self.calendar_client.check_calendar_conflict(
+            start_date, end_date, exclude_event_id
+        )
+
     async def create_event(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a calendar event."""
         return await self.calendar_client.create_event(event_data)

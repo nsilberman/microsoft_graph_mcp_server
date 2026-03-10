@@ -108,6 +108,129 @@ class CalendarClient(BaseGraphClient):
             "timezone": user_timezone_str,
         }
 
+    async def check_calendar_conflict(
+        self,
+        start_date: str,
+        end_date: str,
+        exclude_event_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Check for calendar conflicts within a specified time range.
+
+        Args:
+            start_date: Start datetime in UTC ISO format
+            end_date: End datetime in UTC ISO format
+            exclude_event_id: Optional event ID to exclude from conflict check (for updates)
+
+        Returns:
+            Dictionary with conflict information:
+            - has_conflict: bool
+            - conflicting_events: list of conflicting event summaries
+            - message: human-readable message
+        """
+        user_timezone_str = await self.get_user_timezone()
+
+        # Use calendarView to get events in the time range
+        params = {
+            "$top": 50,
+            "$select": "id,subject,start,end,location,organizer,showAs,isAllDay",
+            "startDateTime": start_date,
+            "endDateTime": end_date,
+        }
+
+        result = await self.get("/me/calendar/calendarView", params=params)
+        events = result.get("value", [])
+
+        conflicting_events = []
+        for event in events:
+            event_id = event.get("id")
+            
+            # Exclude the specified event (useful for updates)
+            if exclude_event_id and event_id == exclude_event_id:
+                continue
+            
+            # Skip events that don't actually block time (free status)
+            show_as = event.get("showAs", "busy")
+            if show_as in ["free", "workingElsewhere"]:
+                continue
+            
+            # Skip cancelled events
+            if event.get("cancelled", False):
+                continue
+
+            event_start = event.get("start", {}).get("dateTime", "")
+            event_end = event.get("end", {}).get("dateTime", "")
+            
+            # Check for actual time overlap
+            # Event overlaps if: event starts before our end AND event ends after our start
+            if event_start and event_end:
+                # Parse dates for comparison
+                from datetime import datetime
+                try:
+                    # Ensure UTC format
+                    event_start_dt = datetime.fromisoformat(
+                        event_start.replace("Z", "+00:00") if "Z" in event_start else event_start + "+00:00"
+                    )
+                    event_end_dt = datetime.fromisoformat(
+                        event_end.replace("Z", "+00:00") if "Z" in event_end else event_end + "+00:00"
+                    )
+                    check_start_dt = datetime.fromisoformat(
+                        start_date.replace("Z", "+00:00") if "Z" in start_date else start_date + "+00:00"
+                    )
+                    check_end_dt = datetime.fromisoformat(
+                        end_date.replace("Z", "+00:00") if "Z" in end_date else end_date + "+00:00"
+                    )
+
+                    # Check for overlap: event starts before check ends AND event ends after check starts
+                    if event_start_dt < check_end_dt and event_end_dt > check_start_dt:
+                        conflict_info = {
+                            "id": event_id,
+                            "subject": event.get("subject", "(No subject)"),
+                            "start": date_handler.convert_utc_to_user_timezone(
+                                event_start, user_timezone_str
+                            ),
+                            "end": date_handler.convert_utc_to_user_timezone(
+                                event_end, user_timezone_str
+                            ),
+                            "location": event.get("location", {}).get("displayName", ""),
+                            "organizer": event.get("organizer", {})
+                            .get("emailAddress", {})
+                            .get("name", ""),
+                            "showAs": show_as,
+                        }
+                        conflicting_events.append(conflict_info)
+                except (ValueError, TypeError):
+                    # If we can't parse dates, include it as potential conflict to be safe
+                    conflict_info = {
+                        "id": event_id,
+                        "subject": event.get("subject", "(No subject)"),
+                        "start": event_start,
+                        "end": event_end,
+                        "location": event.get("location", {}).get("displayName", ""),
+                        "showAs": show_as,
+                    }
+                    conflicting_events.append(conflict_info)
+
+        has_conflict = len(conflicting_events) > 0
+
+        if has_conflict:
+            conflict_list = "\n".join([
+                f"  - {e['subject']} ({e['start']} - {e['end']})"
+                for e in conflicting_events[:5]  # Limit to 5 for readability
+            ])
+            if len(conflicting_events) > 5:
+                conflict_list += f"\n  ... and {len(conflicting_events) - 5} more"
+            message = f"Found {len(conflicting_events)} conflicting event(s):\n{conflict_list}"
+        else:
+            message = "No calendar conflicts found for the specified time."
+
+        return {
+            "has_conflict": has_conflict,
+            "conflicting_events": conflicting_events,
+            "count": len(conflicting_events),
+            "message": message,
+            "timezone": user_timezone_str,
+        }
+
     async def get_event(self, event_id: str) -> Dict[str, Any]:
         """Get full calendar event by ID."""
         user_timezone_str = await self.get_user_timezone()

@@ -25,6 +25,22 @@ If this project saves you time:
 
 ## 🚀 Quick Start
 
+### 0. Configure AI Assistant (Recommended)
+
+Copy the system prompt to your AI assistant configuration:
+
+```
+c:\Project\microsoft_graph_mcp_server\doc\SYSTEM_PROMPT.md
+```
+
+**For Claude Desktop**, add to your project or custom instructions. This provides:
+- Optimal email/calendar workflows (Quick Mode vs Full Mode)
+- HTML formatting rules for emails
+- Calendar conflict detection awareness
+- Best practices for using MCP tools
+
+**For other AI assistants**, use the SYSTEM_PROMPT.md content as system instructions.
+
 ### 1. Install
 
 ```

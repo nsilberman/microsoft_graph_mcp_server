@@ -489,6 +489,10 @@ class ToolRegistry:
                         "type": "integer",
                         "description": "Number of top time slots to display in the summary. Optional, default: 5",
                     },
+                    "meeting_duration": {
+                        "type": "integer",
+                        "description": "Required meeting duration in minutes. Optional, default: 30. Used to find continuous free time slots that can accommodate the meeting. Valid values: 15, 30, 45, 60, 90, 120, etc.",
+                    },
                 },
                 "required": ["attendees", "date"],
             },

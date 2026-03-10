@@ -495,13 +495,30 @@ class CalendarHandler(BaseHandler):
     async def _handle_create_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle create event action."""
+        """Handle create event action with calendar conflict detection."""
         user_timezone = arguments.get("timezone")
         if not user_timezone:
             user_timezone = await graph_client.get_user_timezone()
 
         start_local = arguments["start"]
         end_local = arguments["end"]
+
+        # Convert local times to UTC for conflict checking
+        start_utc = DateHandler.parse_local_date_to_utc(start_local, user_timezone)
+        end_utc = DateHandler.parse_local_date_to_utc(end_local, user_timezone)
+
+        # Check for calendar conflicts before creating the event
+        conflict_result = await graph_client.check_calendar_conflict(
+            start_date=start_utc,
+            end_date=end_utc,
+        )
+        conflict_warning = None
+        if conflict_result.get("has_conflict"):
+            conflicting = conflict_result.get("conflicting_events", [])
+            conflict_list = ", ".join([e.get("subject", "Unknown") for e in conflicting[:3]])
+            if len(conflicting) > 3:
+                conflict_list += f" (+{len(conflicting) - 3} more)"
+            conflict_warning = f"⚠️ Calendar Conflict Warning: {conflict_result.get('count')} conflicting event(s) found: {conflict_list}"
 
         event_data = {
             "subject": arguments["subject"],
@@ -617,6 +634,8 @@ class CalendarHandler(BaseHandler):
             key_info["cache_number"] = cache_number
 
         response_message = f"Event created successfully and stored in cache as number {cache_number}.\n\n{json.dumps(key_info, indent=2, ensure_ascii=False)}"
+        if conflict_warning:
+            response_message = f"{conflict_warning}\n\n{response_message}"
         if teams_integration_warning:
             response_message = f"{teams_integration_warning}\n\n{response_message}"
         if custom_link_note:
@@ -655,6 +674,40 @@ class CalendarHandler(BaseHandler):
             user_timezone = await graph_client.get_user_timezone()
 
         event_data = {}
+        conflict_warning = None
+        
+        # Check for conflicts if time is being changed
+        if "start" in arguments or "end" in arguments:
+            # Get current event to have complete time info
+            current_event = await graph_client.get_event(event_info["event_id"])
+            current_start = current_event.get("start", {}).get("dateTime", "")
+            current_end = current_event.get("end", {}).get("dateTime", "")
+            
+            # Use new times if provided, otherwise use current times
+            check_start = arguments.get("start")
+            check_end = arguments.get("end")
+            
+            if check_start or check_end:
+                start_utc = DateHandler.parse_local_date_to_utc(
+                    check_start, user_timezone
+                ) if check_start else current_start
+                end_utc = DateHandler.parse_local_date_to_utc(
+                    check_end, user_timezone
+                ) if check_end else current_end
+                
+                # Check for conflicts, excluding the current event
+                conflict_result = await graph_client.check_calendar_conflict(
+                    start_date=start_utc,
+                    end_date=end_utc,
+                    exclude_event_id=event_info["event_id"],
+                )
+                if conflict_result.get("has_conflict"):
+                    conflicting = conflict_result.get("conflicting_events", [])
+                    conflict_list = ", ".join([e.get("subject", "Unknown") for e in conflicting[:3]])
+                    if len(conflicting) > 3:
+                        conflict_list += f" (+{len(conflicting) - 3} more)"
+                    conflict_warning = f"⚠️ Calendar Conflict Warning: {conflict_result.get('count')} conflicting event(s) found: {conflict_list}"
+        
         if "subject" in arguments:
             event_data["subject"] = arguments["subject"]
         if "start" in arguments:
@@ -760,6 +813,8 @@ class CalendarHandler(BaseHandler):
             key_info["recurrence"] = result.get("recurrence", {})
 
         response_message = f"Event updated successfully: {json.dumps(key_info, indent=2, ensure_ascii=False)}"
+        if conflict_warning:
+            response_message = f"{conflict_warning}\n\n{response_message}"
         if teams_integration_warning:
             response_message = f"{teams_integration_warning}\n\n{response_message}"
         if custom_link_note:
@@ -1267,6 +1322,7 @@ class CalendarHandler(BaseHandler):
         availability_view_interval = arguments.get("availability_view_interval", 30)
         time_zone = arguments.get("time_zone")
         top_slots = arguments.get("top_slots", 5)
+        meeting_duration = arguments.get("meeting_duration", 30)
 
         if time_zone:
             timezone_str = time_zone
@@ -1757,7 +1813,7 @@ class CalendarHandler(BaseHandler):
             try:
                 from datetime import datetime, timedelta
                 from zoneinfo import ZoneInfo
-                from collections import Counter
+                from collections import defaultdict
 
                 user_tz = ZoneInfo(timezone_str)
                 utc_midnight = datetime.combine(
@@ -1766,13 +1822,25 @@ class CalendarHandler(BaseHandler):
                     tzinfo=ZoneInfo("UTC"),
                 )
 
-                slot_scores = []
+                # Track free status for each slot by attendee type
+                # Key: (slot_start, slot_end), Value: {"mandatory": set(), "optional": set(), "organizer": set()}
+                slot_free_status = defaultdict(
+                    lambda: {"mandatory": set(), "optional": set(), "organizer": set()}
+                )
                 slot_unavailable = {}
 
                 for attendee_data in all_attendee_availability:
                     schedule_id = attendee_data["schedule_id"]
                     availability_view = attendee_data["availability_view"]
                     working_hours = attendee_data["working_hours"]
+
+                    # Determine attendee type
+                    if schedule_id == user_email:
+                        attendee_type = "organizer"
+                    elif schedule_id in mandatory_attendees:
+                        attendee_type = "mandatory"
+                    else:
+                        attendee_type = "optional"
 
                     attendee_timezone = None
                     attendee_timezone_found = False
@@ -1845,7 +1913,7 @@ class CalendarHandler(BaseHandler):
                                 status_code = "4"
 
                         if is_free:
-                            slot_scores.append(slot_key)
+                            slot_free_status[slot_key][attendee_type].add(schedule_id)
                         else:
                             status_map = {
                                 "1": "Tentative",
@@ -1856,66 +1924,259 @@ class CalendarHandler(BaseHandler):
                             }
                             status_text = status_map.get(status_code, "Unknown")
 
-                            attendee_type = (
-                                "Mandatory"
-                                if schedule_id in mandatory_attendees
-                                else (
-                                    "Optional"
-                                    if schedule_id in optional_attendees
-                                    else "Organizer"
-                                )
-                            )
-
                             if slot_key not in slot_unavailable:
                                 slot_unavailable[slot_key] = []
                             slot_unavailable[slot_key].append(
                                 {
                                     "schedule_id": schedule_id,
                                     "status": status_text,
-                                    "type": attendee_type,
+                                    "type": attendee_type.capitalize(),
                                 }
                             )
 
-                if slot_scores:
-                    slot_counter = Counter(slot_scores)
-                    top_slots = slot_counter.most_common(5)
+                # Merge continuous free slots and calculate scores
+                def merge_continuous_slots(
+                    slot_status, meeting_duration_min, interval_min
+                ):
+                    """Merge continuous free slots and find slots that fit meeting duration."""
+                    if not slot_status:
+                        return []
 
-                    total_attendees = len(all_attendee_availability)
-                    rank = 0
+                    # Sort slots by start time
+                    sorted_slots = sorted(slot_status.keys(), key=lambda x: x[0])
 
-                    for slot, count in top_slots:
-                        slot_start, slot_end = slot
-                        free_count = count
-                        percentage = (free_count / total_attendees) * 100
+                    merged_slots = []
+                    current_slot_start = None
+                    current_slot_end = None
+                    current_mandatory_free = set()
+                    current_optional_free = set()
+                    current_organizer_free = set()
 
-                        if free_count == 1:
-                            continue
+                    for slot_key in sorted_slots:
+                        slot_start, slot_end = slot_key
+                        status = slot_status[slot_key]
 
-                        rank += 1
+                        # Check if this slot is continuous with current slot
+                        if current_slot_end is None:
+                            # Start new continuous block
+                            current_slot_start = slot_start
+                            current_slot_end = slot_end
+                            current_mandatory_free = set(status["mandatory"])
+                            current_optional_free = set(status["optional"])
+                            current_organizer_free = set(status["organizer"])
+                        elif slot_start == current_slot_end:
+                            # Continuous - merge and intersect free attendees
+                            current_slot_end = slot_end
+                            current_mandatory_free &= status["mandatory"]
+                            current_optional_free &= status["optional"]
+                            current_organizer_free &= status["organizer"]
+                        else:
+                            # Gap found - save previous block and start new
+                            merged_slots.append(
+                                {
+                                    "start": current_slot_start,
+                                    "end": current_slot_end,
+                                    "mandatory_free": current_mandatory_free,
+                                    "optional_free": current_optional_free,
+                                    "organizer_free": current_organizer_free,
+                                }
+                            )
+                            current_slot_start = slot_start
+                            current_slot_end = slot_end
+                            current_mandatory_free = set(status["mandatory"])
+                            current_optional_free = set(status["optional"])
+                            current_organizer_free = set(status["organizer"])
 
-                        time_slot = {
-                            "rank": rank,
-                            "start_time": slot_start.strftime("%Y-%m-%d %H:%M"),
-                            "end_time": slot_end.strftime("%Y-%m-%d %H:%M"),
-                            "timezone": timezone_str,
-                            "free_attendees": free_count,
-                            "total_attendees": total_attendees,
-                            "percentage_free": round(percentage, 1),
-                            "unavailable_attendees": [],
-                        }
+                    # Don't forget the last block
+                    if current_slot_start is not None:
+                        merged_slots.append(
+                            {
+                                "start": current_slot_start,
+                                "end": current_slot_end,
+                                "mandatory_free": current_mandatory_free,
+                                "optional_free": current_optional_free,
+                                "organizer_free": current_organizer_free,
+                            }
+                        )
 
-                        if slot in slot_unavailable:
-                            unavailable_list = slot_unavailable[slot]
-                            for unavailable_info in unavailable_list:
-                                time_slot["unavailable_attendees"].append(
+                    # Generate all possible meeting slots that fit the duration
+                    meeting_slots = []
+
+                    for block in merged_slots:
+                        block_start = block["start"]
+                        block_end = block["end"]
+                        duration_minutes = int(
+                            (block_end - block_start).total_seconds() / 60
+                        )
+
+                        # If block is long enough, slide through it
+                        if duration_minutes >= meeting_duration_min:
+                            num_possible_slots = (
+                                duration_minutes - meeting_duration_min
+                            ) // interval_min + 1
+
+                            for i in range(num_possible_slots):
+                                slot_start = block_start + timedelta(
+                                    minutes=i * interval_min
+                                )
+                                slot_end = slot_start + timedelta(
+                                    minutes=meeting_duration_min
+                                )
+
+                                meeting_slots.append(
                                     {
-                                        "email": unavailable_info["schedule_id"],
-                                        "status": unavailable_info["status"],
-                                        "type": unavailable_info["type"],
+                                        "start": slot_start,
+                                        "end": slot_end,
+                                        "mandatory_free": block["mandatory_free"],
+                                        "optional_free": block["optional_free"],
+                                        "organizer_free": block["organizer_free"],
                                     }
                                 )
 
-                        json_response["summary"]["top_time_slots"].append(time_slot)
+                    return meeting_slots
+
+                # Calculate meeting slots with scoring
+                meeting_slots = merge_continuous_slots(
+                    slot_free_status, meeting_duration, availability_view_interval
+                )
+
+                def score_slot(slot_info, mandatory_list, optional_list):
+                    """Score a slot based on attendee availability."""
+                    mandatory_count = len(mandatory_list)
+                    optional_count = len(optional_list)
+
+                    mandatory_free_count = len(slot_info["mandatory_free"])
+                    optional_free_count = len(slot_info["optional_free"])
+                    organizer_free = len(slot_info["organizer_free"]) > 0
+
+                    # Primary: All mandatory attendees must be free
+                    all_mandatory_free = mandatory_free_count == mandatory_count
+
+                    # Secondary: Organizer should be free
+                    # Tertiary: More optional attendees free is better
+
+                    # Score components:
+                    # - mandatory_complete: 100 if all mandatory are free, 0 otherwise
+                    # - organizer_free: 50 if organizer is free, 0 otherwise
+                    # - optional_ratio: 0-30 based on percentage of optional free
+
+                    mandatory_score = 100 if all_mandatory_free else 0
+                    organizer_score = 50 if organizer_free else 0
+                    optional_score = (
+                        (optional_free_count / optional_count * 30)
+                        if optional_count > 0
+                        else 30
+                    )
+
+                    total_score = mandatory_score + organizer_score + optional_score
+
+                    return {
+                        "total_score": total_score,
+                        "mandatory_score": mandatory_score,
+                        "organizer_score": organizer_score,
+                        "optional_score": optional_score,
+                        "all_mandatory_free": all_mandatory_free,
+                        "organizer_free": organizer_free,
+                        "mandatory_free_count": mandatory_free_count,
+                        "optional_free_count": optional_free_count,
+                        "mandatory_total": mandatory_count,
+                        "optional_total": optional_count,
+                    }
+
+                # Score and rank all slots
+                scored_slots = []
+
+                for slot_info in meeting_slots:
+                    score_info = score_slot(
+                        slot_info, mandatory_attendees, optional_attendees
+                    )
+
+                    scored_slots.append(
+                        {
+                            "slot_info": slot_info,
+                            "score_info": score_info,
+                        }
+                    )
+
+                # Sort by score (descending), then by start time (ascending for same score)
+                scored_slots.sort(
+                    key=lambda x: (-x["score_info"]["total_score"], x["slot_info"]["start"])
+                )
+
+                # Build final top slots list
+                rank = 0
+                seen_slots = set()
+
+                for item in scored_slots:
+                    if rank >= top_slots:
+                        break
+
+                    slot_info = item["slot_info"]
+                    score_info = item["score_info"]
+
+                    slot_start = slot_info["start"]
+                    slot_end = slot_info["end"]
+
+                    # Deduplicate same time slots
+                    slot_key = (slot_start, slot_end)
+                    if slot_key in seen_slots:
+                        continue
+                    seen_slots.add(slot_key)
+
+                    rank += 1
+
+                    # Calculate total free attendees
+                    total_free = (
+                        len(slot_info["mandatory_free"])
+                        + len(slot_info["optional_free"])
+                        + len(slot_info["organizer_free"])
+                    )
+                    total_attendees = len(all_attendee_availability)
+                    percentage = (total_free / total_attendees) * 100 if total_attendees > 0 else 0
+
+                    time_slot = {
+                        "rank": rank,
+                        "start_time": slot_start.strftime("%Y-%m-%d %H:%M"),
+                        "end_time": slot_end.strftime("%Y-%m-%d %H:%M"),
+                        "duration_minutes": meeting_duration,
+                        "timezone": timezone_str,
+                        "score": score_info["total_score"],
+                        "all_mandatory_free": score_info["all_mandatory_free"],
+                        "organizer_free": score_info["organizer_free"],
+                        "free_attendees": total_free,
+                        "mandatory_free_count": score_info["mandatory_free_count"],
+                        "optional_free_count": score_info["optional_free_count"],
+                        "total_attendees": total_attendees,
+                        "percentage_free": round(percentage, 1),
+                        "unavailable_attendees": [],
+                    }
+
+                    # Add unavailable attendees info
+                    # For each slot in this meeting duration, collect unavailable info
+                    current_time = slot_start
+                    while current_time < slot_end:
+                        single_slot_key = (current_time, current_time + timedelta(minutes=availability_view_interval))
+                        if single_slot_key in slot_unavailable:
+                            for unavailable_info in slot_unavailable[single_slot_key]:
+                                # Avoid duplicates
+                                email = unavailable_info["schedule_id"]
+                                if not any(
+                                    u["email"] == email
+                                    for u in time_slot["unavailable_attendees"]
+                                ):
+                                    time_slot["unavailable_attendees"].append(
+                                        {
+                                            "email": email,
+                                            "status": unavailable_info["status"],
+                                            "type": unavailable_info["type"],
+                                        }
+                                    )
+                        current_time += timedelta(minutes=availability_view_interval)
+
+                    json_response["summary"]["top_time_slots"].append(time_slot)
+
+                # Add meeting duration to response
+                json_response["summary"]["meeting_duration_minutes"] = meeting_duration
 
             except Exception as e:
                 json_response["summary"]["error"] = f"Error generating summary: {e}"
