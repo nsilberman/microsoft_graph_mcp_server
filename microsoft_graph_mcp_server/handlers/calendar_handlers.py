@@ -40,6 +40,10 @@ class CalendarHandler(BaseHandler):
             "GMT Standard Time": "Europe/London",
             "W. Europe Standard Time": "Europe/Paris",
             "Romance Standard Time": "Europe/Paris",
+            "FLE Standard Time": "Europe/Kiev",  # Finland, Russia (Kaliningrad), Estonia, Latvia, Lithuania
+            "E. Europe Standard Time": "Europe/Chisinau",
+            "Central Europe Standard Time": "Europe/Budapest",
+            "Central European Standard Time": "Europe/Warsaw",
             "AUS Eastern Standard Time": "Australia/Sydney",
             "UTC": "UTC",
         }
@@ -1329,16 +1333,14 @@ class CalendarHandler(BaseHandler):
         else:
             timezone_str = await graph_client.get_user_timezone()
 
-        user_email = None
-        try:
-            user_info = await graph_client.get_me()
-            user_email = user_info.get("mail") or user_info.get("userPrincipalName")
-        except Exception as e:
-            pass
+        # Get user email with caching to avoid 429 rate limit errors
+        user_email = await graph_client.get_user_email()
+        logger.debug(f"[DEBUG] Organizer email retrieved: {user_email}")
 
         schedules = mandatory_attendees + optional_attendees
         if user_email and user_email not in schedules:
             schedules = [user_email] + schedules
+        logger.debug(f"[DEBUG] Final schedules list: {schedules}")
 
         from datetime import datetime, timedelta
         from zoneinfo import ZoneInfo
@@ -1350,6 +1352,7 @@ class CalendarHandler(BaseHandler):
         )
 
         availability_data = result.get("value", [])
+        logger.debug(f"[DEBUG] availability_data count: {len(availability_data)}, scheduleIds: {[a.get('scheduleId') for a in availability_data]}")
 
         # Initialize JSON response structure
         json_response = {
@@ -1368,6 +1371,11 @@ class CalendarHandler(BaseHandler):
             availability_view = attendee_info.get("availabilityView", "")
             schedule_items = attendee_info.get("scheduleItems", [])
             working_hours = attendee_info.get("workingHours", {})
+
+            # Debug: Log raw working_hours from getSchedule API
+            logger.debug(
+                f"[DEBUG] {schedule_id} - getSchedule working_hours: {working_hours}"
+            )
 
             all_attendee_availability.append(
                 {
@@ -1407,12 +1415,39 @@ class CalendarHandler(BaseHandler):
                 except Exception as e:
                     pass
 
+            # Get working hours from mailbox settings
+            # This may override the working_hours from getSchedule API
+            # Try multiple methods to get mailbox settings
+            mailbox_settings = None
+            
+            # Method 1: Direct mailboxSettings endpoint
             try:
-                mailbox_settings = await graph_client.get_mailbox_settings(schedule_id)
+                mailbox_settings = await graph_client.calendar_client.get_mailbox_settings(schedule_id)
                 if "workingHours" in mailbox_settings:
                     working_hours = mailbox_settings["workingHours"]
+                    logger.debug(
+                        f"[DEBUG] {schedule_id} - mailboxSettings (direct) working_hours: {working_hours}"
+                    )
             except Exception as e:
-                pass
+                logger.debug(
+                    f"[DEBUG] {schedule_id} - Direct mailboxSettings failed: {e}"
+                )
+            
+            # Method 2: Try via user search (alternative permission path)
+            if not mailbox_settings or "workingHours" not in mailbox_settings:
+                try:
+                    user_info = await graph_client.user_client.get_user_by_email(schedule_id)
+                    if user_info and "mailboxSettings" in user_info:
+                        mailbox_settings = user_info["mailboxSettings"]
+                        if "workingHours" in mailbox_settings:
+                            working_hours = mailbox_settings["workingHours"]
+                            logger.debug(
+                                f"[DEBUG] {schedule_id} - mailboxSettings (via user search) working_hours: {working_hours}"
+                            )
+                except Exception as e:
+                    logger.debug(
+                        f"[DEBUG] {schedule_id} - User search mailboxSettings failed: {e}"
+                    )
 
             attendee_type = (
                 "Organizer"
@@ -1448,10 +1483,36 @@ class CalendarHandler(BaseHandler):
 
                         today = date_obj
 
+                        # Check if today is a working day
+                        days_of_week = working_hours.get("daysOfWeek", [])
+                        weekday_map = {
+                            "monday": 0,
+                            "tuesday": 1,
+                            "wednesday": 2,
+                            "thursday": 3,
+                            "friday": 4,
+                            "saturday": 5,
+                            "sunday": 6,
+                        }
+                        today_weekday = today.weekday()
+                        is_working_day = True  # Default to True if daysOfWeek not specified
+                        if days_of_week:
+                            is_working_day = any(
+                                weekday_map.get(day.lower()) == today_weekday
+                                for day in days_of_week
+                            )
+
                         working_start = working_hours.get("startTime")
                         working_end = working_hours.get("endTime")
 
-                        if working_start and working_end:
+                        # Debug: Log raw working hours data
+                        logger.info(
+                            f"[DEBUG] {schedule_id} - working_hours raw: startTime={working_start}, "
+                            f"endTime={working_end}, daysOfWeek={days_of_week}, "
+                            f"timeZone={attendee_timezone}, is_working_day={is_working_day}"
+                        )
+
+                        if working_start and working_end and is_working_day:
                             try:
                                 working_start_clean = working_start.split(".")[0]
                                 working_end_clean = working_end.split(".")[0]
@@ -1480,18 +1541,30 @@ class CalendarHandler(BaseHandler):
                                         "start": working_start_dt.strftime("%H:%M"),
                                         "end": working_end_dt.strftime("%H:%M"),
                                         "timezone": timezone_str,
+                                        "days_of_week": days_of_week if days_of_week else None,
+                                        "raw": {
+                                            "startTime": working_start,
+                                            "endTime": working_end,
+                                            "timeZone": attendee_timezone,
+                                        },
                                     }
                                 else:
                                     attendee_data["working_hours"] = {
                                         "start": working_start_dt.strftime("%H:%M"),
                                         "end": working_end_dt.strftime("%H:%M"),
                                         "timezone": attendee_timezone,
+                                        "days_of_week": days_of_week if days_of_week else None,
                                         "organizer_timezone": {
                                             "start": working_start_user.strftime(
                                                 "%H:%M"
                                             ),
                                             "end": working_end_user.strftime("%H:%M"),
                                             "timezone": timezone_str,
+                                        },
+                                        "raw": {
+                                            "startTime": working_start,
+                                            "endTime": working_end,
+                                            "timeZone": attendee_timezone,
                                         },
                                     }
                             except Exception as e:
@@ -1519,10 +1592,29 @@ class CalendarHandler(BaseHandler):
                             == timezone_str
                         )
 
+                        # Check if today is a working day
+                        days_of_week = working_hours.get("daysOfWeek", [])
+                        weekday_map = {
+                            "monday": 0,
+                            "tuesday": 1,
+                            "wednesday": 2,
+                            "thursday": 3,
+                            "friday": 4,
+                            "saturday": 5,
+                            "sunday": 6,
+                        }
+                        today_weekday = today.weekday()
+                        is_working_day = True
+                        if days_of_week:
+                            is_working_day = any(
+                                weekday_map.get(day.lower()) == today_weekday
+                                for day in days_of_week
+                            )
+
                         working_start = working_hours.get("startTime")
                         working_end = working_hours.get("endTime")
 
-                        if working_start and working_end:
+                        if working_start and working_end and is_working_day:
                             working_start_clean = working_start.split(".")[0]
                             working_end_clean = working_end.split(".")[0]
 
@@ -1544,13 +1636,13 @@ class CalendarHandler(BaseHandler):
                                 datetime.strptime("00:00:00", "%H:%M:%S").time(),
                                 tzinfo=ZoneInfo("UTC"),
                             )
-                            utc_midnight_attendee = utc_midnight.astimezone(attendee_tz)
 
+                            # Convert working start time to UTC to get correct slot index
+                            working_start_utc = working_start_dt.astimezone(ZoneInfo("UTC"))
+
+                            # Calculate slot index based on UTC time
                             minutes_from_utc_midnight = int(
-                                (
-                                    working_start_dt - utc_midnight_attendee
-                                ).total_seconds()
-                                / 60
+                                (working_start_utc - utc_midnight).total_seconds() / 60
                             )
                             start_slot_index = (
                                 minutes_from_utc_midnight // availability_view_interval
@@ -1578,10 +1670,14 @@ class CalendarHandler(BaseHandler):
                                 slot_start_attendee = slot_start_utc.astimezone(
                                     attendee_tz
                                 )
-                                slot_end_attendee = slot_end_utc.astimezone(attendee_tz)
 
+                                # Check if slot is past working hours (in attendee's timezone)
                                 if slot_start_attendee >= working_end_dt:
                                     break
+
+                                # Check if slot is within working hours
+                                if slot_start_attendee < working_start_dt:
+                                    continue
 
                                 if status_code == "0":
                                     if not in_free_slot:
@@ -1827,6 +1923,15 @@ class CalendarHandler(BaseHandler):
                 slot_free_status = defaultdict(
                     lambda: {"mandatory": set(), "optional": set(), "organizer": set()}
                 )
+                # Track attendees outside working hours for each slot
+                slot_outside_hours = defaultdict(
+                    lambda: {"mandatory": set(), "optional": set(), "organizer": set()}
+                )
+                # Track tentative (not yet accepted) events for each slot
+                # These are events that might conflict if the attendee accepts
+                slot_tentative = defaultdict(
+                    lambda: {"mandatory": set(), "optional": set(), "organizer": set()}
+                )
                 slot_unavailable = {}
 
                 for attendee_data in all_attendee_availability:
@@ -1862,12 +1967,31 @@ class CalendarHandler(BaseHandler):
 
                     working_start_dt = None
                     working_end_dt = None
+                    is_working_day = True  # Default to True
 
                     if working_hours:
                         working_start = working_hours.get("startTime")
                         working_end = working_hours.get("endTime")
+                        days_of_week = working_hours.get("daysOfWeek", [])
 
-                        if working_start and working_end:
+                        # Check if today is a working day
+                        weekday_map = {
+                            "monday": 0,
+                            "tuesday": 1,
+                            "wednesday": 2,
+                            "thursday": 3,
+                            "friday": 4,
+                            "saturday": 5,
+                            "sunday": 6,
+                        }
+                        today_weekday = date_obj.weekday()
+                        if days_of_week:
+                            is_working_day = any(
+                                weekday_map.get(day.lower()) == today_weekday
+                                for day in days_of_week
+                            )
+
+                        if working_start and working_end and is_working_day:
                             try:
                                 working_start_clean = working_start.split(".")[0]
                                 working_end_clean = working_end.split(".")[0]
@@ -1902,21 +2026,54 @@ class CalendarHandler(BaseHandler):
                         slot_key = (slot_start_user, slot_end_user)
 
                         is_free = status_code == "0"
+                        is_tentative = status_code == "1"  # Tentative = not yet accepted
+                        is_outside_working_hours = False
 
-                        if working_start_dt and working_end_dt:
+                        # If not a working day, all slots are outside working hours
+                        if not is_working_day:
+                            is_free = False
+                            is_tentative = False
+                            is_outside_working_hours = True
+                        elif working_start_dt and working_end_dt:
                             slot_start_attendee = slot_start_utc.astimezone(attendee_tz)
                             if (
                                 slot_start_attendee < working_start_dt
                                 or slot_start_attendee >= working_end_dt
                             ):
                                 is_free = False
+                                is_tentative = False
+                                is_outside_working_hours = True
                                 status_code = "4"
 
                         if is_free:
                             slot_free_status[slot_key][attendee_type].add(schedule_id)
+                        elif is_tentative:
+                            # Track tentative (not yet accepted) events
+                            # These are "potentially busy" slots
+                            slot_tentative[slot_key][attendee_type].add(schedule_id)
+                            if slot_key not in slot_unavailable:
+                                slot_unavailable[slot_key] = []
+                            slot_unavailable[slot_key].append(
+                                {
+                                    "schedule_id": schedule_id,
+                                    "status": "Tentative (not responded)",
+                                    "type": attendee_type.capitalize(),
+                                }
+                            )
+                        elif is_outside_working_hours:
+                            # Track attendees outside working hours
+                            slot_outside_hours[slot_key][attendee_type].add(schedule_id)
+                            if slot_key not in slot_unavailable:
+                                slot_unavailable[slot_key] = []
+                            slot_unavailable[slot_key].append(
+                                {
+                                    "schedule_id": schedule_id,
+                                    "status": "Outside working hours",
+                                    "type": attendee_type.capitalize(),
+                                }
+                            )
                         else:
                             status_map = {
-                                "1": "Tentative",
                                 "2": "Busy",
                                 "3": "Out of office",
                                 "4": "Working elsewhere / Outside hours",
@@ -1934,114 +2091,158 @@ class CalendarHandler(BaseHandler):
                                 }
                             )
 
-                # Merge continuous free slots and calculate scores
-                def merge_continuous_slots(
-                    slot_status, meeting_duration_min, interval_min
+                # Find meeting slots that fit the duration and are within all attendees' working hours
+                def find_meeting_slots(
+                    slot_status,
+                    slot_outside,
+                    slot_tentative_info,
+                    mandatory_attendee_list,
+                    meeting_duration_min,
+                    interval_min,
                 ):
-                    """Merge continuous free slots and find slots that fit meeting duration."""
-                    if not slot_status:
+                    """Find all possible meeting slots that fit the duration.
+
+                    Only returns slots where ALL mandatory attendees are within their working hours.
+                    For optional attendees, being outside working hours just means they're unavailable.
+                    Also tracks tentative (not yet accepted) events for scoring.
+                    """
+                    if not slot_status and not slot_outside:
                         return []
 
-                    # Sort slots by start time
-                    sorted_slots = sorted(slot_status.keys(), key=lambda x: x[0])
+                    # Collect all unique slot keys from free, outside_hours, and tentative
+                    all_slot_keys = set(slot_status.keys()) | set(slot_outside.keys()) | set(slot_tentative_info.keys())
+                    sorted_slots = sorted(all_slot_keys, key=lambda x: x[0])
 
-                    merged_slots = []
-                    current_slot_start = None
-                    current_slot_end = None
-                    current_mandatory_free = set()
-                    current_optional_free = set()
-                    current_organizer_free = set()
+                    if not sorted_slots:
+                        return []
 
+                    # Build a unified status dict for all slots
+                    # Each slot has free attendees, outside_hours attendees, and tentative attendees
+                    all_slots_data = []
                     for slot_key in sorted_slots:
-                        slot_start, slot_end = slot_key
-                        status = slot_status[slot_key]
+                        free_data = slot_status.get(slot_key, {
+                            "mandatory": set(),
+                            "optional": set(),
+                            "organizer": set(),
+                        })
+                        outside_data = slot_outside.get(slot_key, {
+                            "mandatory": set(),
+                            "optional": set(),
+                            "organizer": set(),
+                        })
+                        tentative_data = slot_tentative_info.get(slot_key, {
+                            "mandatory": set(),
+                            "optional": set(),
+                            "organizer": set(),
+                        })
+                        all_slots_data.append({
+                            "slot_key": slot_key,
+                            "free": free_data,
+                            "outside_hours": outside_data,
+                            "tentative": tentative_data,
+                        })
 
-                        # Check if this slot is continuous with current slot
-                        if current_slot_end is None:
-                            # Start new continuous block
-                            current_slot_start = slot_start
-                            current_slot_end = slot_end
-                            current_mandatory_free = set(status["mandatory"])
-                            current_optional_free = set(status["optional"])
-                            current_organizer_free = set(status["organizer"])
-                        elif slot_start == current_slot_end:
-                            # Continuous - merge and intersect free attendees
-                            current_slot_end = slot_end
-                            current_mandatory_free &= status["mandatory"]
-                            current_optional_free &= status["optional"]
-                            current_organizer_free &= status["organizer"]
-                        else:
-                            # Gap found - save previous block and start new
-                            merged_slots.append(
-                                {
-                                    "start": current_slot_start,
-                                    "end": current_slot_end,
-                                    "mandatory_free": current_mandatory_free,
-                                    "optional_free": current_optional_free,
-                                    "organizer_free": current_organizer_free,
-                                }
-                            )
-                            current_slot_start = slot_start
-                            current_slot_end = slot_end
-                            current_mandatory_free = set(status["mandatory"])
-                            current_optional_free = set(status["optional"])
-                            current_organizer_free = set(status["organizer"])
-
-                    # Don't forget the last block
-                    if current_slot_start is not None:
-                        merged_slots.append(
-                            {
-                                "start": current_slot_start,
-                                "end": current_slot_end,
-                                "mandatory_free": current_mandatory_free,
-                                "optional_free": current_optional_free,
-                                "organizer_free": current_organizer_free,
-                            }
-                        )
-
-                    # Generate all possible meeting slots that fit the duration
+                    required_slots = max(1, meeting_duration_min // interval_min)
                     meeting_slots = []
 
-                    for block in merged_slots:
-                        block_start = block["start"]
-                        block_end = block["end"]
-                        duration_minutes = int(
-                            (block_end - block_start).total_seconds() / 60
-                        )
+                    # Slide through slots to find continuous windows that fit the duration
+                    for i in range(len(all_slots_data)):
+                        # Check if we have enough slots starting from position i
+                        if i + required_slots > len(all_slots_data):
+                            break
 
-                        # If block is long enough, slide through it
-                        if duration_minutes >= meeting_duration_min:
-                            num_possible_slots = (
-                                duration_minutes - meeting_duration_min
-                            ) // interval_min + 1
+                        # Get the starting slot info
+                        start_data = all_slots_data[i]
+                        start_slot_key = start_data["slot_key"]
 
-                            for i in range(num_possible_slots):
-                                slot_start = block_start + timedelta(
-                                    minutes=i * interval_min
-                                )
-                                slot_end = slot_start + timedelta(
-                                    minutes=meeting_duration_min
-                                )
+                        # Check continuity: all slots must be consecutive
+                        is_continuous = True
+                        current_end = start_slot_key[1]
 
-                                meeting_slots.append(
-                                    {
-                                        "start": slot_start,
-                                        "end": slot_end,
-                                        "mandatory_free": block["mandatory_free"],
-                                        "optional_free": block["optional_free"],
-                                        "organizer_free": block["organizer_free"],
-                                    }
-                                )
+                        for j in range(1, required_slots):
+                            next_slot_key = all_slots_data[i + j]["slot_key"]
+                            next_start = next_slot_key[0]
+
+                            if next_start != current_end:
+                                is_continuous = False
+                                break
+                            current_end = next_slot_key[1]
+
+                        if not is_continuous:
+                            continue
+
+                        # Check if any mandatory attendee or organizer is outside working hours in ANY slot
+                        has_mandatory_outside = False
+                        for j in range(required_slots):
+                            outside_mandatory = all_slots_data[i + j]["outside_hours"]["mandatory"]
+                            outside_organizer = all_slots_data[i + j]["outside_hours"]["organizer"]
+                            # Check if any mandatory attendee is outside working hours
+                            if outside_mandatory & set(mandatory_attendee_list):
+                                has_mandatory_outside = True
+                                break
+                            # Check if organizer is outside working hours
+                            if outside_organizer:
+                                has_mandatory_outside = True
+                                break
+
+                        if has_mandatory_outside:
+                            continue
+
+                        # Calculate the meeting slot boundaries
+                        meeting_start = start_slot_key[0]
+                        meeting_end = all_slots_data[i + required_slots - 1]["slot_key"][1]
+
+                        # Calculate intersection of free attendees across all slots in the window
+                        mandatory_intersection = set(start_data["free"]["mandatory"])
+                        optional_intersection = set(start_data["free"]["optional"])
+                        organizer_intersection = set(start_data["free"]["organizer"])
+
+                        # Collect all tentative attendees (union across slots)
+                        mandatory_tentative = set(start_data["tentative"]["mandatory"])
+                        optional_tentative = set(start_data["tentative"]["optional"])
+                        organizer_tentative = set(start_data["tentative"]["organizer"])
+
+                        for j in range(1, required_slots):
+                            next_free = all_slots_data[i + j]["free"]
+                            mandatory_intersection &= next_free["mandatory"]
+                            optional_intersection &= next_free["optional"]
+                            organizer_intersection &= next_free["organizer"]
+
+                            # Union for tentative (any tentative event in the window)
+                            mandatory_tentative |= all_slots_data[i + j]["tentative"]["mandatory"]
+                            optional_tentative |= all_slots_data[i + j]["tentative"]["optional"]
+                            organizer_tentative |= all_slots_data[i + j]["tentative"]["organizer"]
+
+                        meeting_slots.append({
+                            "start": meeting_start,
+                            "end": meeting_end,
+                            "mandatory_free": mandatory_intersection,
+                            "optional_free": optional_intersection,
+                            "organizer_free": organizer_intersection,
+                            "mandatory_tentative": mandatory_tentative,
+                            "optional_tentative": optional_tentative,
+                            "organizer_tentative": organizer_tentative,
+                        })
 
                     return meeting_slots
 
                 # Calculate meeting slots with scoring
-                meeting_slots = merge_continuous_slots(
-                    slot_free_status, meeting_duration, availability_view_interval
+                meeting_slots = find_meeting_slots(
+                    slot_free_status,
+                    slot_outside_hours,
+                    slot_tentative,
+                    mandatory_attendees,
+                    meeting_duration,
+                    availability_view_interval,
                 )
 
                 def score_slot(slot_info, mandatory_list, optional_list):
-                    """Score a slot based on attendee availability."""
+                    """Score a slot based on attendee availability.
+
+                    Also considers tentative (not yet accepted) events:
+                    - Tentative events create uncertainty - the attendee might accept them
+                    - Slots with tentative events are ranked lower to reduce scheduling conflicts
+                    """
                     mandatory_count = len(mandatory_list)
                     optional_count = len(optional_list)
 
@@ -2049,36 +2250,76 @@ class CalendarHandler(BaseHandler):
                     optional_free_count = len(slot_info["optional_free"])
                     organizer_free = len(slot_info["organizer_free"]) > 0
 
-                    # Primary: All mandatory attendees must be free
+                    # Get tentative counts
+                    mandatory_tentative_count = len(slot_info.get("mandatory_tentative", set()))
+                    optional_tentative_count = len(slot_info.get("optional_tentative", set()))
+                    organizer_tentative = len(slot_info.get("organizer_tentative", set())) > 0
+
+                    # Check if all mandatory attendees are free
                     all_mandatory_free = mandatory_free_count == mandatory_count
 
-                    # Secondary: Organizer should be free
-                    # Tertiary: More optional attendees free is better
+                    # Score components (total max: 200):
+                    # 1. Mandatory attendees score (0-100):
+                    #    - 100 if all mandatory are free
+                    #    - Otherwise: proportional score based on how many are free
+                    #    - This gives partial credit when some mandatory are busy
+                    if mandatory_count > 0:
+                        if all_mandatory_free:
+                            mandatory_score = 100
+                        else:
+                            # Partial score: e.g., 2/3 mandatory free = 60 points
+                            mandatory_score = (mandatory_free_count / mandatory_count) * 80
+                    else:
+                        mandatory_score = 80  # No mandatory attendees, give good score
 
-                    # Score components:
-                    # - mandatory_complete: 100 if all mandatory are free, 0 otherwise
-                    # - organizer_free: 50 if organizer is free, 0 otherwise
-                    # - optional_ratio: 0-30 based on percentage of optional free
+                    # 2. Organizer free bonus (0-40)
+                    organizer_score = 40 if organizer_free else 0
 
-                    mandatory_score = 100 if all_mandatory_free else 0
-                    organizer_score = 50 if organizer_free else 0
-                    optional_score = (
-                        (optional_free_count / optional_count * 30)
-                        if optional_count > 0
-                        else 30
-                    )
+                    # 3. Optional attendees score (0-30)
+                    if optional_count > 0:
+                        optional_score = (optional_free_count / optional_count) * 30
+                    else:
+                        optional_score = 30  # No optional attendees, give max score
 
-                    total_score = mandatory_score + organizer_score + optional_score
+                    # 4. All mandatory free bonus (0-30)
+                    #    Extra bonus when ALL mandatory attendees are available
+                    all_mandatory_bonus = 30 if all_mandatory_free else 0
+
+                    # 5. Tentative events penalty (0 to -50)
+                    #    Tentative events are "pending" meetings that might be accepted
+                    #    This creates uncertainty for scheduling
+                    tentative_penalty = 0
+
+                    # Penalty for mandatory attendees with tentative events
+                    if mandatory_count > 0:
+                        tentative_penalty -= (mandatory_tentative_count / mandatory_count) * 20
+
+                    # Penalty for optional attendees with tentative events (less severe)
+                    if optional_count > 0:
+                        tentative_penalty -= (optional_tentative_count / optional_count) * 10
+
+                    # Penalty for organizer with tentative events
+                    if organizer_tentative:
+                        tentative_penalty -= 20
+
+                    # Ensure penalty doesn't go below -50
+                    tentative_penalty = max(tentative_penalty, -50)
+
+                    total_score = mandatory_score + organizer_score + optional_score + all_mandatory_bonus + tentative_penalty
 
                     return {
                         "total_score": total_score,
                         "mandatory_score": mandatory_score,
                         "organizer_score": organizer_score,
                         "optional_score": optional_score,
+                        "tentative_penalty": tentative_penalty,
                         "all_mandatory_free": all_mandatory_free,
                         "organizer_free": organizer_free,
                         "mandatory_free_count": mandatory_free_count,
                         "optional_free_count": optional_free_count,
+                        "mandatory_tentative_count": mandatory_tentative_count,
+                        "optional_tentative_count": optional_tentative_count,
+                        "organizer_tentative": organizer_tentative,
                         "mandatory_total": mandatory_count,
                         "optional_total": optional_count,
                     }
@@ -2146,6 +2387,12 @@ class CalendarHandler(BaseHandler):
                         "free_attendees": total_free,
                         "mandatory_free_count": score_info["mandatory_free_count"],
                         "optional_free_count": score_info["optional_free_count"],
+                        "tentative_attendees": {
+                            "mandatory_count": score_info["mandatory_tentative_count"],
+                            "optional_count": score_info["optional_tentative_count"],
+                            "organizer_has_tentative": score_info["organizer_tentative"],
+                        },
+                        "tentative_penalty": score_info["tentative_penalty"],
                         "total_attendees": total_attendees,
                         "percentage_free": round(percentage, 1),
                         "unavailable_attendees": [],

@@ -104,6 +104,18 @@ The system includes automatic conversion from Windows timezone names to IANA for
 - Windows: "China Standard Time" → IANA: "Asia/Shanghai"
 - Windows: "Eastern Standard Time" → IANA: "America/New_York"
 - Windows: "GMT Standard Time" → IANA: "Europe/London"
+- Windows: "India Standard Time" → IANA: "Asia/Kolkata"
+- Windows: "FLE Standard Time" → IANA: "Europe/Kiev" (Finland, Russia, Estonia, Latvia, Lithuania)
+- Windows: "W. Europe Standard Time" → IANA: "Europe/Paris"
+- Windows: "Romance Standard Time" → IANA: "Europe/Paris"
+- Windows: "E. Europe Standard Time" → IANA: "Europe/Chisinau"
+- Windows: "Central Europe Standard Time" → IANA: "Europe/Budapest"
+- Windows: "Central European Standard Time" → IANA: "Europe/Warsaw"
+- Windows: "Tokyo Standard Time" → IANA: "Asia/Tokyo"
+- Windows: "Singapore Standard Time" → IANA: "Asia/Singapore"
+- Windows: "Pacific Standard Time" → IANA: "America/Los_Angeles"
+- Windows: "Central Standard Time" → IANA: "America/Chicago"
+- Windows: "AUS Eastern Standard Time" → IANA: "Australia/Sydney"
 
 This conversion is applied when the `USER_TIMEZONE` environment variable contains a Windows timezone name.
 

@@ -305,6 +305,18 @@ python verify_setup.py
 - Check network connection
 - Confirm your Microsoft account has permission to access required resources
 
+### Missing Permissions for Calendar Availability
+
+**Symptom**: Working hours for attendees show incorrect start time or "Access Denied" errors in logs.
+
+**Solution**: Add `MailboxSettings.Read` permission in Azure AD:
+1. Azure Portal → App Registrations → Your App
+2. API Permissions → Add Permission → Microsoft Graph
+3. Select **Delegated permissions** → MailboxSettings → `MailboxSettings.Read`
+4. Grant admin consent (if required)
+
+This permission allows the app to read other users' working hours for accurate availability checking.
+
 ### Permission Issues on Windows
 
 **Solution**: Add UVX path to PATH or use full path:

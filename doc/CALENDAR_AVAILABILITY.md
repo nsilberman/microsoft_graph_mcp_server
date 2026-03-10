@@ -22,6 +22,7 @@ Check availability of attendees for a given date.
 | `availability_view_interval` | int | No | Time interval in minutes (5, 6, 10, 15, 30, 60). Default: 30 |
 | `time_zone` | str | No | User timezone for display. Default: auto-detected |
 | `top_slots` | int | No | Number of top time slots to display. Default: 5 |
+| `meeting_duration` | int | No | Required meeting duration in minutes (15, 30, 45, 60, 90, 120, etc.). Default: 30 |
 
 **Returns:**
 
@@ -114,6 +115,39 @@ All IANA timezone names are supported:
 
 Windows timezone names (e.g., `"India Standard Time"`) are automatically converted to IANA format (e.g., `"Asia/Kolkata"`).
 
+Supported Windows timezone mappings:
+- `India Standard Time` → `Asia/Kolkata`
+- `China Standard Time` → `Asia/Shanghai`
+- `FLE Standard Time` → `Europe/Kiev` (Finland, Russia, Estonia, Latvia, Lithuania)
+- `W. Europe Standard Time` → `Europe/Paris`
+- `Romance Standard Time` → `Europe/Paris`
+- `E. Europe Standard Time` → `Europe/Chisinau`
+- `Central Europe Standard Time` → `Europe/Budapest`
+- `Central European Standard Time` → `Europe/Warsaw`
+- And more...
+
+---
+
+## Permissions
+
+### Required Permissions
+
+For accurate working hours retrieval from other users, the following Microsoft Graph permission is recommended:
+
+| Permission | Type | Description |
+|------------|------|-------------|
+| `MailboxSettings.Read` | Delegated | Read user mailbox settings including working hours |
+
+**Without this permission:**
+- Working hours may be retrieved from the `getSchedule` API, which can sometimes return inaccurate `startTime` values
+- The organizer's working hours will still be available via `/me/mailboxSettings`
+
+**How to add permission:**
+1. Go to Azure Portal → App Registrations → Your App
+2. API Permissions → Add a permission → Microsoft Graph
+3. Select **Delegated permissions** → MailboxSettings → `MailboxSettings.Read`
+4. Grant admin consent (if required)
+
 ---
 
 ## Examples
@@ -159,6 +193,8 @@ result = await check_attendee_availability(
 | All time slots showing as Free | Verify attendee has calendar events; check permissions; verify date format |
 | Incorrect timezone conversion | Verify system timezone; check `USER_TIMEZONE` env var; test with known timezone |
 | Working hours not displaying | Check mailbox settings permissions; verify attendee's timezone configuration |
+| Organizer missing from attendees | May be due to API rate limiting (429 error); wait a moment and retry; user email is cached after first successful retrieval |
+| "No time zone found" error | Check if timezone is in supported mappings; add missing timezone to `_convert_microsoft_timezone_to_iana()` |
 
 ---
 

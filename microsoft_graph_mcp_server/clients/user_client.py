@@ -14,6 +14,11 @@ logger = logging.getLogger(__name__)
 class UserClient(BaseGraphClient):
     """Client for user-related operations."""
 
+    def __init__(self):
+        """Initialize the user client."""
+        super().__init__()
+        self._user_email_cache: Optional[str] = None
+
     def _get_system_timezone(self) -> str:
         """Get the system's local timezone as a fallback.
 
@@ -46,11 +51,18 @@ class UserClient(BaseGraphClient):
         return "UTC"
 
     async def get_user_email(self) -> Optional[str]:
-        """Get the current user's email address."""
+        """Get the current user's email address with caching."""
+        # Return cached email if available
+        if self._user_email_cache is not None:
+            return self._user_email_cache
+
         try:
-            params = {"$select": "mail"}
+            params = {"$select": "mail,userPrincipalName"}
             result = await self.get("/me", params=params)
-            return result.get("mail")
+            user_email = result.get("mail") or result.get("userPrincipalName")
+            if user_email:
+                self._user_email_cache = user_email
+            return user_email
         except Exception as e:
             logger.warning(f"Failed to get user email: {e}")
             return None
