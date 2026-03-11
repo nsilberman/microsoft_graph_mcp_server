@@ -152,6 +152,7 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 - **HTML Conversion Rules** (apply when converting plain text to HTML):
   - Wrap paragraphs in `<p>` tags
   - Use `</p><p>` for paragraph breaks (NOT `<br>` between paragraphs)
+  - **Keep HTML compact** - do NOT add newlines or whitespace between block elements (`<p>`, `<div>`, `<ul>`, `<li>`, etc.)
   - Use `<strong>` for emphasis, `<em>` for italics
   - Use `<ul><li>` for bullet lists, `<ol><li>` for numbered lists
   - Only use `<br>` for line breaks WITHIN a paragraph

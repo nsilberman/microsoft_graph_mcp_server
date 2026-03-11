@@ -1216,6 +1216,12 @@ class EmailClient(BaseGraphClient):
         The LLM must generate HTML directly when calling this tool.
         Inline images from the original email are re-attached to preserve display.
 
+        IMPORTANT HTML FORMATTING:
+        - The body parameter MUST be valid HTML content (for body_content_type="HTML")
+        - Do NOT convert newlines to <br> - the body is treated as raw HTML
+        - Use <p> tags for paragraphs, not <br> between paragraphs
+        - The normalize_email_html function will clean up any whitespace issues
+
         Args:
             message_id: The ID of the message to forward
             body: Forward body content (must be HTML)
@@ -1352,9 +1358,15 @@ class EmailClient(BaseGraphClient):
         The LLM must generate HTML directly when calling this tool.
         Inline images from the original email are re-attached to preserve display.
 
+        IMPORTANT HTML FORMATTING:
+        - The body parameter MUST be valid HTML content (for body_content_type="HTML")
+        - Do NOT convert newlines to <br> - the body is treated as raw HTML
+        - Use <p> tags for paragraphs, not <br> between paragraphs
+        - The normalize_email_html function will clean up any whitespace issues
+
         Args:
             message_id: The ID of the message to reply to
-            body: Reply body content (must be HTML)
+            body: Reply body content (must be HTML for body_content_type="HTML")
             body_content_type: Content type for body (always 'HTML')
             to_recipients: Optional list of recipient email addresses (defaults to original sender)
             cc_recipients: Optional list of CC recipient email addresses (defaults to original CC)
@@ -1439,7 +1451,9 @@ Subject: {original_subject}
 <br>
 {original_body_content}
 """
-            reply_body = body.replace("\n", "<br>") + quoted_reply
+            # body is already HTML - do not convert newlines to <br>
+            # as it would create excessive spacing when HTML already has proper formatting
+            reply_body = body + quoted_reply
 
         message_data = {
             "subject": reply_subject,
