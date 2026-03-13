@@ -30,7 +30,7 @@ If this project saves you time:
 Copy the system prompt to your AI assistant configuration:
 
 ```
-c:\Project\microsoft_graph_mcp_server\doc\SYSTEM_PROMPT.md
+doc/SYSTEM_PROMPT.md
 ```
 
 **For Claude Desktop**, add to your project or custom instructions. This provides:
@@ -69,11 +69,13 @@ Insert:
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["C:/Project/microsoft_graph_mcp_server"]
+      "args": ["<path-to-your-local-repo>"]
     }
   }
 }
 ```
+
+> **Note**: Replace `<path-to-your-local-repo>` with the actual path where you cloned this repository (e.g., `C:/Users/yourname/microsoft_graph_mcp_server` on Windows or `/home/yourname/microsoft_graph_mcp_server` on Linux/Mac).
 
 ### 3. Sign In
 
