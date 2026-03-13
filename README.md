@@ -103,7 +103,7 @@ Copy the system prompt to your AI assistant configuration:
 [SYSTEM_PROMPT.md](https://github.com/marlonluo2018/microsoft_graph_mcp_server/blob/main/doc/SYSTEM_PROMPT.md)
 
 **For Claude Desktop**, add to your project or custom instructions. This provides:
-- Optimal email/calendar workflows (Quick Mode vs Full Mode)
+- Smart workflow selection (AI auto-chooses Quick Mode for simple emails, Full Mode for complex ones)
 - HTML formatting rules for emails
 - Calendar conflict detection awareness
 - Best practices for using MCP tools
