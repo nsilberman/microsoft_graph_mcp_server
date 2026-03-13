@@ -195,10 +195,11 @@ class GraphClient:
         end_date: Optional[str] = None,
         folder: str = "Inbox",
         top: int = 10,
+        inference_classification: str = "focused",
     ) -> Dict[str, Any]:
         """Search or list emails by keywords, sender, recipient, subject, or body."""
         return await self.email_client.search_emails(
-            query, search_type, start_date, end_date, folder, top
+            query, search_type, start_date, end_date, folder, top, inference_classification
         )
 
     async def search_emails_by_sender(

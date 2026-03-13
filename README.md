@@ -117,6 +117,7 @@ Copy the system prompt to your AI assistant configuration:
 Your AI can:
 
 - Search emails by sender, subject, body, or natural filters  
+- **Focused Inbox support** - by default searches "focused" emails, with option to search "other" or all  
 - Open full email content including attachments  
 - Reply, forward, and compose new messages with HTML  
 - Move, delete, archive, or bulk‑manage messages  
@@ -132,6 +133,16 @@ Your AI can:
   "tool": "search_emails",
   "query": "invoices",
   "search_type": "subject"
+}
+```
+
+**Focused Inbox Example**
+
+```json
+{
+  "tool": "search_emails",
+  "query": "newsletter",
+  "inference_classification": "other"
 }
 ```
 
@@ -645,7 +656,7 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 - **`user_settings`** - Configure user preferences like timezone, search days, and page sizes
 
 ### 📧 Email Management
-- **`search_emails`** - Search or list emails by sender, subject, body, or time range
+- **`search_emails`** - Search or list emails by sender, subject, body, or time range. Supports Focused Inbox filtering (`focused`, `other`, `all`)
 - **`browse_email_cache`** - Browse cached emails with pagination (user mode for humans, llm mode for AI analysis)
 - **`get_email_content`** - Get full email content including attachments
 - **`send_email`** - Send new emails, replies, or forwards with HTML support

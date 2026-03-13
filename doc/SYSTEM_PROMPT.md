@@ -55,7 +55,7 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 ### Browse Email (Prerequisite)
 
 ```
-1. search_emails(query, folder) → browse_email_cache
+1. search_emails(query, folder, inference_classification) → browse_email_cache
 2. User selects email by cache number
 3. get_email_content(cache_number=N) → read full email
 ```
@@ -64,6 +64,8 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 > - Check for related correspondence before composing new emails
 > - Review email context before replying or forwarding
 > - Identify if user is in To, CC, or BCC
+>
+> **Focused Inbox**: By default, `search_emails` returns "focused" emails (Outlook's Focused Inbox). Use `inference_classification="other"` to search "other" emails, or `"all"` for both.
 
 ### Compose & Send Email
 

@@ -258,7 +258,7 @@ class ToolRegistry:
         """Search emails tool definition."""
         return types.Tool(
             name="search_emails",
-            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). **IMPORTANT FOR OLD EMAILS**: The 'days' parameter has a maximum limit (default 90 days). To search emails older than this limit, use start_date/end_date parameters instead - they have NO date range restriction and can search any historical emails. Example: start_date='2023-01-01', end_date='2023-12-31'. Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
+            description="SEARCH EMAIL MESSAGES ONLY. Search or list email messages by keywords, sender, subject, or body. Returns matching email messages with summary information. DO NOT use this to find people/contacts - use search_contacts for that. If no search_type and query are provided, lists emails within the specified time range. All time parameters use your local timezone. PARAMETER PRECEDENCE (highest to lowest): 1) time_range (overrides all other time parameters), 2) start_date/end_date (overrides days), 3) days (used only if no other time parameters provided). **IMPORTANT FOR OLD EMAILS**: The 'days' parameter has a maximum limit (default 90 days). To search emails older than this limit, use start_date/end_date parameters instead - they have NO date range restriction and can search any historical emails. Example: start_date='2023-01-01', end_date='2023-12-31'. **FOCUSED INBOX**: By default, searches only 'focused' emails (Outlook's Focused Inbox). Use inference_classification='other' to search 'other' emails, or inference_classification='all' to search both. Returns: {success: boolean, emails: array, count: integer, date_range: string, filter_date_range: string, timezone: string}. Note: Rate limit errors (HTTP 429) return retry_after field with seconds to wait. Invalid folder paths return appropriate error messages.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -275,6 +275,12 @@ class ToolRegistry:
                         "type": "string",
                         "description": "Optional folder path to search (e.g., 'Inbox', 'Inbox/Projects', 'Archive/2024'). Default: Inbox",
                         "default": "Inbox",
+                    },
+                    "inference_classification": {
+                        "type": "string",
+                        "enum": ["focused", "other", "all"],
+                        "description": "Filter by Outlook Focused Inbox classification. 'focused' (default): important emails shown in Focused tab. 'other': less important emails shown in Other tab. 'all': search both focused and other emails. Default: focused",
+                        "default": "focused",
                     },
                     "start_date": {
                         "type": "string",

@@ -284,7 +284,7 @@ class EmailClient(BaseGraphClient):
             params["$top"] = 100
 
         params["$select"] = (
-            "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview"
+            "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,inferenceClassification"
         )
 
         result = await self.get(f"/me/mailFolders/{folder_id}/messages", params=params)
@@ -359,6 +359,7 @@ class EmailClient(BaseGraphClient):
             "isRead": email.get("isRead", False),
             "hasAttachments": email.get("hasAttachments", False),
             "importance": email.get("importance", "normal"),
+            "inferenceClassification": email.get("inferenceClassification", "focused"),
             "bodyPreview": email.get("bodyPreview", ""),
             "conversationId": email.get("conversationId", ""),
             "parentFolderId": email.get("parentFolderId", ""),
@@ -954,6 +955,13 @@ class EmailClient(BaseGraphClient):
 
         emails = result.get("value", [])
 
+        # Client-side filtering for inferenceClassification when $search was used
+        if needs_client_classification_filter:
+            emails = [
+                email for email in emails
+                if email.get("inferenceClassification", "focused") == inference_classification
+            ]
+
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)
             for idx, email in enumerate(emails)
@@ -1020,6 +1028,13 @@ class EmailClient(BaseGraphClient):
 
         emails = result.get("value", [])
 
+        # Client-side filtering for inferenceClassification when $search was used
+        if needs_client_classification_filter:
+            emails = [
+                email for email in emails
+                if email.get("inferenceClassification", "focused") == inference_classification
+            ]
+
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)
             for idx, email in enumerate(emails)
@@ -1060,6 +1075,7 @@ class EmailClient(BaseGraphClient):
         end_date: Optional[str] = None,
         folder: str = "Inbox",
         top: int = 20,
+        inference_classification: str = "focused",
     ) -> Dict[str, Any]:
         """Search or list emails by keywords, sender, recipient, subject, or body.
         Follows the same pattern as search_events for consistency.
@@ -1071,6 +1087,7 @@ class EmailClient(BaseGraphClient):
             end_date: End date in UTC ISO format (converted from user local time by handler)
             folder: Folder to search in (default: "Inbox")
             top: Number of results to return
+            inference_classification: Filter by Focused Inbox classification ('focused', 'other', or 'all'). Default: 'focused'
 
         Returns:
             Dictionary with email summaries, count, and timezone
@@ -1085,7 +1102,7 @@ class EmailClient(BaseGraphClient):
 
         params = {
             "$top": top,
-            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview",
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,inferenceClassification",
         }
 
         endpoint = "/me/messages"
@@ -1100,6 +1117,15 @@ class EmailClient(BaseGraphClient):
                 endpoint = f"/me/mailFolders/{folder_id}/messages"
 
         filter_parts = []
+
+        # Track if we need client-side filtering for inferenceClassification
+        # (needed when using $search since it doesn't support $filter)
+        needs_client_classification_filter = False
+
+        # Add inferenceClassification filter for Focused Inbox
+        # Will be applied via $filter or client-side filtering depending on search usage
+        if inference_classification in ("focused", "other"):
+            filter_parts.append(f"inferenceClassification eq '{inference_classification}'")
 
         # Helper function to convert ISO date to KQL date format (YYYY-MM-DD)
         def iso_to_kql_date(iso_date: str) -> str:
@@ -1164,6 +1190,9 @@ class EmailClient(BaseGraphClient):
 
         if filter_parts and not params.get("$search"):
             params["$filter"] = " and ".join(filter_parts)
+        elif params.get("$search") and inference_classification in ("focused", "other"):
+            # When using $search, we can't use $filter, so mark for client-side filtering
+            needs_client_classification_filter = True
 
         # Add $orderby only when NOT using $search or $filter (Graph API limitations)
         # $search doesn't support $orderby
@@ -1174,6 +1203,13 @@ class EmailClient(BaseGraphClient):
         result = await self.get(endpoint, params=params)
 
         emails = result.get("value", [])
+
+        # Client-side filtering for inferenceClassification when $search was used
+        if needs_client_classification_filter:
+            emails = [
+                email for email in emails
+                if email.get("inferenceClassification", "focused") == inference_classification
+            ]
 
         summaries = [
             self._create_email_summary(email, idx + 1, user_tz)

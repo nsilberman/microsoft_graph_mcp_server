@@ -66,6 +66,7 @@ class EmailHandler(BaseHandler):
         query = arguments.get("query")
         search_type = arguments.get("search_type")
         folder = arguments.get("folder", "Inbox")
+        inference_classification = arguments.get("inference_classification", "focused")
         days = arguments.get("days")
         start_date = arguments.get("start_date")
         end_date = arguments.get("end_date")
@@ -141,7 +142,7 @@ class EmailHandler(BaseHandler):
 
         success, result, error = await self._handle_auth_error(
             lambda: graph_client.search_emails(
-                query, search_type, start_date, end_date, folder, page_size
+                query, search_type, start_date, end_date, folder, page_size, inference_classification
             ),
             "searching emails",
         )
@@ -163,6 +164,7 @@ class EmailHandler(BaseHandler):
             "search_type": search_type,
             "query": query,
             "folder": folder,
+            "inference_classification": inference_classification,
             "count": result["count"],
             "timezone": user_timezone,
             "today": today_date,

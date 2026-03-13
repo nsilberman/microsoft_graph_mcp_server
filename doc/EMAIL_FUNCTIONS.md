@@ -52,6 +52,12 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
   - For body: body text content (supports multiple keywords with AND logic)
   - Required when search_type is provided
 - `folder` (optional, string): Folder to search (default: "Inbox" for recent emails, null for searches)
+- `inference_classification` (optional, string): Filter by Outlook Focused Inbox classification
+  - Values: "focused" (default), "other", "all"
+  - "focused": Important emails shown in Focused tab (default behavior)
+  - "other": Less important emails shown in Other tab
+  - "all": Search both focused and other emails (no filtering)
+  - Note: Only applies to Inbox folder; other folders always return all emails
 - `days` (optional, integer): Number of days to search back
   - Default: 90 (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
   - Maximum: 90 (configurable via `MAX_SEARCH_DAYS` environment variable)
@@ -81,6 +87,7 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
   "search_type": "sender",
   "query": "search query",
   "folder": "Inbox",
+  "inference_classification": "focused",
   "count": X,
   "timezone": "Asia/Shanghai",
   "date_range": {
@@ -97,6 +104,7 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
 - `search_type`: Type of search performed (for searches)
 - `query`: Search query used (for searches)
 - `folder`: Folder loaded or searched
+- `inference_classification`: Focused Inbox classification filter applied (for searches in Inbox)
 - `count`: Number of emails found
 - `timezone`: User's timezone for reference
 - `date_range`: Actual date range of emails returned (from most recent to oldest)
@@ -119,7 +127,7 @@ result = await search_emails(days=7)
 
 #### Search Emails:
 ```python
-# Search by sender in Inbox (default 90 days)
+# Search by sender in Inbox (default 90 days, focused emails only)
 result = await search_emails(search_type="sender", query="john@example.com", folder="Inbox")
 
 # Search by subject with custom date range
@@ -130,6 +138,12 @@ result = await search_emails(search_type="body", query="project update", folder=
 
 # Search all emails (not recommended for large mailboxes)
 result = await search_emails(search_type="sender", query="john@example.com", days=None)
+
+# Search "other" emails (less important, shown in Other tab in Outlook)
+result = await search_emails(search_type="subject", query="newsletter", inference_classification="other")
+
+# Search both focused and other emails
+result = await search_emails(search_type="subject", query="meeting", inference_classification="all")
 ```
 
 ### Configuration
@@ -149,6 +163,7 @@ MAX_SEARCH_DAYS=90       # Maximum allowed search range
 - Setting `days` to `null` will search all emails (may be slow for large mailboxes)
 - When no search_type and query are provided, lists recent emails from Inbox with a maximum of 7 days
 - Subject and body searches use exact substring matching (contains) for precise results, while sender searches use fuzzy matching
+- **Focused Inbox**: By default, searches only "focused" emails (Outlook's Focused Inbox). Use `inference_classification="other"` to search "other" emails, or `inference_classification="all"` to search both. This filter only applies to the Inbox folder.
 
 ---
 
@@ -205,7 +220,8 @@ Each email in the cache contains:
   "hasAttachments": false,
   "hasEmbeddedImages": false,
   "embeddedImageCount": 0,
-  "importance": "normal"
+  "importance": "normal",
+  "inferenceClassification": "focused"
 }
 ```
 
