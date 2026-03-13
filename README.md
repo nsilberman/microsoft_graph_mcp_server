@@ -10,7 +10,8 @@ No Azure setup. No Graph API knowledge. Just install → sign in → your AI bec
 
 ## ⭐ Why Developers Love This Project
 
-- Your AI can read, search, reply to, and organize email naturally  
+- Your AI can read, search, reply to, and organize email naturally
+- **Batch email operations** — delete or archive multiple emails in ONE call (no more one-by-one!)  
 - It understands and manages your calendar with real availability checks  
 - It handles contacts, Teams, and OneDrive with simple MCP tools  
 - It works securely using Microsoft's device login — no secrets, no risk  
@@ -393,7 +394,63 @@ Claude will call:
 
 ---
 
+## Use Case: Clean Up Your Inbox
 
+Your AI can help you batch delete or archive multiple emails in one operation.
+
+**Workflow**
+
+1. **Ask Claude to search emails**: "Find emails from newsletter@example.com"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "query": "newsletter@example.com",
+  "search_type": "sender"
+}
+```
+
+2. **Ask Claude to browse the results**: "Show me these emails"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+3. **Ask Claude to delete multiple emails**: "Delete emails 1, 2, 3, 4, and 5"
+
+Claude will call:
+
+```json
+{
+  "tool": "manage_emails",
+  "action": "delete_multiple",
+  "cache_numbers": [1, 2, 3, 4, 5]
+}
+```
+
+**Or archive them instead**: "Archive emails 1 through 5"
+
+Claude will call:
+
+```json
+{
+  "tool": "manage_emails",
+  "action": "archive_multiple",
+  "cache_numbers": [1, 2, 3, 4, 5]
+}
+```
+
+> **Note**: All emails are processed in ONE batch call - efficient and fast!
+
+---
 
 ### User Mode Email Browsing
 
