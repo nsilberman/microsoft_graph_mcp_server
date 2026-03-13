@@ -194,7 +194,7 @@ class ToolRegistry:
                             "categorize_single",
                             "categorize_multiple",
                         ],
-                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails, 'delete_all' to delete all emails from a folder, 'archive_single' to archive a single email, 'archive_multiple' to archive multiple emails, 'flag_single' to flag a single email, 'flag_multiple' to flag multiple emails, 'categorize_single' to categorize a single email, 'categorize_multiple' to categorize multiple emails",
+                        "description": "Action to perform: 'move_single' to move a single email, 'move_all' to move all emails from a folder, 'delete_single' to delete a single email, 'delete_multiple' to delete multiple emails in ONE batch call (provide cache_numbers array with all items), 'delete_all' to delete all emails from a folder, 'archive_single' to archive a single email, 'archive_multiple' to archive multiple emails in ONE batch call, 'flag_single' to flag a single email, 'flag_multiple' to flag multiple emails in ONE batch call, 'categorize_single' to categorize a single email, 'categorize_multiple' to categorize multiple emails in ONE batch call",
                     },
                     "cache_number": {
                         "type": "integer",
@@ -203,7 +203,7 @@ class ToolRegistry:
                     "cache_numbers": {
                         "type": "array",
                         "items": {"type": "integer"},
-                        "description": "List of cache numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple', 'archive_multiple', 'flag_multiple', and 'categorize_multiple' actions",
+                        "description": "List of cache numbers from browse_email_cache (e.g., [1, 2, 3]). Required for 'delete_multiple', 'archive_multiple', 'flag_multiple', and 'categorize_multiple' actions. IMPORTANT: Pass ALL cache numbers in a SINGLE call - do NOT call multiple times for individual items",
                     },
                     "source_folder": {
                         "type": "string",

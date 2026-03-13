@@ -360,6 +360,10 @@ class GraphClient:
         """Delete an email by moving it to Deleted Items."""
         return await self.email_client.delete_email(email_id)
 
+    async def batch_delete_emails(self, email_ids: List[str]) -> Dict[str, Any]:
+        """Delete multiple emails using batch operations."""
+        return await self.email_client.batch_delete_emails(email_ids)
+
     async def move_folder(
         self, folder_path: str, destination_parent: str
     ) -> Dict[str, Any]:

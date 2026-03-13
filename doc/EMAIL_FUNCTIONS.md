@@ -722,6 +722,7 @@ Manage emails with multiple actions. Supports moving, deleting, archiving, flagg
   - Required for: "move_single", "delete_single", "archive_single", "flag_single", and "categorize_single" actions
 - `cache_numbers` (optional, array of integers): List of cache numbers from browse_email_cache (e.g., [1, 2, 3])
   - Required for: "delete_multiple", "archive_multiple", "flag_multiple", and "categorize_multiple" actions
+  - **IMPORTANT**: Pass ALL cache numbers in a SINGLE call - do NOT call multiple times for individual items
 - `source_folder` (optional, string): Source folder path (e.g., 'Inbox', 'Archive/2024')
   - Required for: "move_all" and "delete_all" actions
 - `destination_folder` (optional, string): Destination folder path (e.g., 'Archive/2024', 'Inbox/Projects')
@@ -811,11 +812,11 @@ result = await manage_emails(
 ```
 
 #### Delete Multiple Emails (action="delete_multiple")
-Deletes multiple emails by moving them to Deleted Items (recoverable).
+Deletes multiple emails by moving them to Deleted Items (recoverable) in ONE batch call.
 
 **Parameters:**
 - `action`: "delete_multiple"
-- `cache_numbers`: List of cache numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache (pass ALL items in one call)
 
 **Returns:**
 ```json
@@ -886,11 +887,11 @@ result = await manage_emails(
 ```
 
 #### Archive Multiple Emails (action="archive_multiple")
-Archives multiple emails by moving them to the Archive folder.
+Archives multiple emails by moving them to the Archive folder in ONE batch call.
 
 **Parameters:**
 - `action`: "archive_multiple"
-- `cache_numbers`: List of cache numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache (pass ALL items in one call)
 
 **Returns:**
 ```json
@@ -945,11 +946,11 @@ result = await manage_emails(
 ```
 
 #### Flag Multiple Emails (action="flag_multiple")
-Flags or unflags multiple emails.
+Flags or unflags multiple emails in ONE batch call.
 
 **Parameters:**
 - `action`: "flag_multiple"
-- `cache_numbers`: List of cache numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache (pass ALL items in one call)
 - `flag_status`: Flag status ("flagged" or "complete")
 
 **Returns:**
@@ -998,11 +999,11 @@ result = await manage_emails(
 ```
 
 #### Categorize Multiple Emails (action="categorize_multiple")
-Adds categories to multiple emails.
+Adds categories to multiple emails in ONE batch call.
 
 **Parameters:**
 - `action`: "categorize_multiple"
-- `cache_numbers`: List of cache numbers from browse_email_cache
+- `cache_numbers`: List of cache numbers from browse_email_cache (pass ALL items in one call)
 - `categories`: List of category names to apply (e.g., ['Important', 'Work'])
 
 **Returns:**
@@ -1034,7 +1035,8 @@ result = await manage_emails(
 - Archived emails are moved to the Archive folder
 - Flag status can be "flagged" (mark for follow-up) or "complete" (mark as done)
 - Categories are user-defined labels that help organize emails
-- Batch operations use batch processing for efficiency (20 emails per batch)
+- **BATCH OPERATIONS**: For *_multiple actions, always pass ALL cache numbers in a SINGLE call. Do NOT call multiple times for individual items
+- Internal batch processing handles 20 emails per batch automatically for efficiency
 - All operations return status, count, and error information for tracking
 
 ---

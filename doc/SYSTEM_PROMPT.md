@@ -118,11 +118,19 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 
 ### Manage Inbox
 
+**Single Item:**
 ```
 1. search_emails → browse_email_cache
-2. User selects emails by cache number
-3. manage_emails(action="move_single/delete_single/archive_single", ...)
+2. manage_emails(action="delete_single", cache_number=N)
 ```
+
+**Multiple Items (Batch - ONE call for all):**
+```
+1. search_emails → browse_email_cache
+2. manage_emails(action="delete_multiple", cache_numbers=[1,2,3,...])  # All in ONE batch call
+```
+
+> **IMPORTANT**: For batch operations (delete_multiple, archive_multiple, flag_multiple, categorize_multiple), always pass ALL cache numbers in a single `cache_numbers` array. Do NOT call multiple times for individual items.
 
 ### Schedule Meeting
 
