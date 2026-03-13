@@ -509,7 +509,7 @@ class ToolRegistry:
         """Manage event as attendee tool definition for responding to events organized by others."""
         return types.Tool(
             name="manage_event_as_attendee",
-            description="Manage calendar events where you are an attendee (events organized by others). Actions: accept, decline, tentatively_accept, propose_new_time, delete_cancelled. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message. IMPORTANT: accept/decline/tentatively_accept/propose_new_time actions will automatically handle events where the organizer didn't request responses. For accept: updates the event to showAs='busy' and enables reminders. For tentatively_accept: updates the event to showAs='tentative' and enables reminders. For decline: deletes the event from your calendar. For propose_new_time: deletes the event from your calendar and instructs you to contact organizer directly (since proposals require responses). This matches Outlook's behavior. The delete_cancelled action is specifically for removing a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations).",
+            description="Manage calendar events where you are an attendee (events organized by others). Actions: accept, decline, tentatively_accept, propose_new_time, delete_cancelled, email_attendees. WORKFLOW: Use cache_number from browse_events or search_events results. Returns: Response confirmation message with action status and updated event information. Note: If event is already responded to, returns appropriate error message. IMPORTANT: accept/decline/tentatively_accept/propose_new_time actions will automatically handle events where the organizer didn't request responses. For accept: updates the event to showAs='busy' and enables reminders. For tentatively_accept: updates the event to showAs='tentative' and enables reminders. For decline: deletes the event from your calendar. For propose_new_time: deletes the event from your calendar and instructs you to contact organizer directly (since proposals require responses). This matches Outlook's behavior. The delete_cancelled action is specifically for removing a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations). The email_attendees action sends email to event attendees (to=required attendees, cc=optional attendees, organizer excluded from recipients).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -521,8 +521,9 @@ class ToolRegistry:
                             "tentatively_accept",
                             "propose_new_time",
                             "delete_cancelled",
+                            "email_attendees",
                         ],
-                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer (if responses aren't requested, deletes the event and instructs to contact organizer directly), 'delete_cancelled' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations)",
+                        "description": "Action to perform: 'accept' to accept event invitation, 'decline' to decline event invitation, 'tentatively_accept' to tentatively accept event invitation, 'propose_new_time' to decline and propose new time to organizer (if responses aren't requested, deletes the event and instructs to contact organizer directly), 'delete_cancelled' to remove a CANCELLED event from your calendar (ONLY use when organizer has cancelled the event - do NOT use to decline invitations), 'email_attendees' to send email to event attendees (to=required attendees, cc=optional attendees, organizer excluded from recipients)",
                     },
                     "cache_number": {
                         "type": "integer",
@@ -554,6 +555,24 @@ class ToolRegistry:
                             },
                         },
                         "required": ["dateTime"],
+                    },
+                    "email_subject": {
+                        "type": "string",
+                        "description": "Email subject for email_attendees action (optional, default: 'Re: Event')",
+                    },
+                    "to": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of 'to' recipient email addresses for email_attendees action (optional, defaults to required event attendees)",
+                    },
+                    "cc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of 'cc' recipient email addresses for email_attendees action (optional, defaults to optional event attendees)",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Email body content for email_attendees action (optional, defaults to event body content)",
                     },
                 },
                 "required": ["action", "cache_number"],

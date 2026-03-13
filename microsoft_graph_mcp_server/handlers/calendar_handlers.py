@@ -459,7 +459,7 @@ class CalendarHandler(BaseHandler):
         return self._format_response(response_data)
 
     async def handle_respond_to_event(self, arguments: dict) -> list[types.TextContent]:
-        """Handle manage_event_as_attendee tool for managing events as attendee: accept, decline, tentatively_accept, propose_new_time, delete_cancelled."""
+        """Handle manage_event_as_attendee tool for managing events as attendee: accept, decline, tentatively_accept, propose_new_time, delete_cancelled, email_attendees."""
         action = arguments["action"]
 
         if action == "accept":
@@ -472,9 +472,11 @@ class CalendarHandler(BaseHandler):
             return await self._handle_propose_new_time_action(arguments)
         elif action == "delete_cancelled":
             return await self._handle_delete_cancelled_event_action(arguments)
+        elif action == "email_attendees":
+            return await self._handle_email_attendees_as_attendee_action(arguments)
         else:
             return self._format_error(
-                f"Invalid action: {action}. Must be 'accept', 'decline', 'tentatively_accept', 'propose_new_time', or 'delete_cancelled'."
+                f"Invalid action: {action}. Must be 'accept', 'decline', 'tentatively_accept', 'propose_new_time', 'delete_cancelled', or 'email_attendees'."
             )
 
     async def handle_manage_my_event(self, arguments: dict) -> list[types.TextContent]:
@@ -951,7 +953,36 @@ class CalendarHandler(BaseHandler):
     async def _handle_reply_event_action(
         self, arguments: dict
     ) -> list[types.TextContent]:
-        """Handle email attendees action (send email to attendees using event body as email content) using cache number."""
+        """Handle email attendees action for organizer (send email to attendees using event body as email content)."""
+        return await self._send_email_to_event_attendees(
+            arguments=arguments,
+            include_organizer=False,
+            success_message="Email sent successfully to event attendees"
+        )
+
+    async def _handle_email_attendees_as_attendee_action(
+        self, arguments: dict
+    ) -> list[types.TextContent]:
+        """Handle email attendees action for attendee (send email to other attendees and organizer)."""
+        return await self._send_email_to_event_attendees(
+            arguments=arguments,
+            include_organizer=True,
+            success_message="Email sent successfully to event attendees and organizer"
+        )
+
+    async def _send_email_to_event_attendees(
+        self,
+        arguments: dict,
+        include_organizer: bool,
+        success_message: str
+    ) -> list[types.TextContent]:
+        """Shared method to send email to event attendees.
+
+        Args:
+            arguments: Tool arguments containing cache_number, email_subject, body, to, cc
+            include_organizer: Whether to include the event organizer in recipients
+            success_message: Message to return on success
+        """
         cache_number_param = arguments["cache_number"]
         subject = arguments.get("email_subject", "Re: Event")
         body = normalize_email_html(arguments.get("body"))
@@ -962,7 +993,7 @@ class CalendarHandler(BaseHandler):
         if cache_number_param is None:
             return self._format_error(
                 f"Invalid cache number format: '{cache_number_param}'. "
-                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or search_events. "
                 f"Use search_events and browse_events to find the cache number."
             )
 
@@ -971,7 +1002,7 @@ class CalendarHandler(BaseHandler):
         if not cache_number_str.isdigit():
             return self._format_error(
                 f"Invalid cache number format: '{cache_number_param}'. "
-                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or returned when creating an event. "
+                f"Please use the cache number (e.g., '1', '2', '3') from browse_events or search_events. "
                 f"Use search_events and browse_events to find the cache number."
             )
 
@@ -991,17 +1022,29 @@ class CalendarHandler(BaseHandler):
             attendees = full_event.get("attendees", [])
             to_recipients = []
             cc_recipients = []
+            # Get user's email to filter out from recipients
+            user_email = await graph_client.email_client.get_user_email()
             for attendee in attendees:
                 email = attendee.get("emailAddress", {}).get("address", "")
+                # Skip user's own email
+                if email == user_email:
+                    continue
                 attendee_type = attendee.get("type", "required")
                 if attendee_type == "required":
                     to_recipients.append(email)
                 else:
                     cc_recipients.append(email)
 
+            # For attendees: include the organizer in TO (they are not in attendees list)
+            if include_organizer:
+                organizer = full_event.get("organizer", {})
+                organizer_email = organizer.get("emailAddress", {}).get("address", "")
+                if organizer_email and organizer_email != user_email and organizer_email not in to_recipients:
+                    to_recipients.insert(0, organizer_email)
+
         if not to_recipients:
             return self._format_error(
-                "No recipients found. Please provide 'to' recipients or ensure the event has attendees."
+                "No recipients found. Please provide 'to' recipients or ensure the event has other attendees."
             )
 
         result = await graph_client.send_email(
@@ -1011,9 +1054,7 @@ class CalendarHandler(BaseHandler):
             cc_recipients=cc_recipients,
             body_content_type="Text",
         )
-        return self._format_response(
-            f"Email sent successfully to event attendees: {result}"
-        )
+        return self._format_response(f"{success_message}: {result}")
 
     async def _handle_accept_event_action(
         self, arguments: dict

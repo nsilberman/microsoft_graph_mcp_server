@@ -323,7 +323,7 @@ result = await get_event_detail(cache_number="5")
 ## Respond to Event
 
 ### Description
-Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, and delete cancelled events. This tool is for responding to events that you are invited to, not events you organized yourself.
+Respond to calendar events organized by others with multiple actions: accept, decline, tentatively accept, propose new time, delete cancelled events, and email attendees. This tool is for responding to events that you are invited to, not events you organized yourself.
 
 ### Smart Handling of Events Without Response Requests
 
@@ -473,6 +473,18 @@ result = await manage_event_as_attendee(
     comment="Removing cancelled event"
 )
 ```
+
+#### Email Attendees (as Attendee):
+```python
+result = await manage_event_as_attendee(
+    action="email_attendees",
+    cache_number="7",
+    email_subject="Question about the meeting",
+    body="Hi everyone, I have a question about the agenda..."
+)
+```
+
+> **Note**: As an attendee, `email_attendees` sends to the organizer + all other attendees (excluding yourself). Required attendees are in TO, optional attendees are in CC.
 
 ### Notes
 

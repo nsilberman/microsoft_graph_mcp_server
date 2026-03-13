@@ -726,7 +726,7 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 - **`browse_events`** - Browse cached calendar events with pagination
 - **`get_event_detail`** - Get detailed information for specific events
 - **`manage_event_as_organizer`** - Create, update, cancel, forward, or email attendees for your own events
-- **`manage_event_as_attendee`** - Accept, decline, tentatively accept, propose new times, or delete cancelled event invitations
+- **`manage_event_as_attendee`** - Accept, decline, tentatively accept, propose new times, email attendees, or delete cancelled event invitations
 - **`check_attendee_availability`** - Check availability for meeting scheduling
 
 ### 👥 People & Contacts
