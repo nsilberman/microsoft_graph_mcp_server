@@ -25,20 +25,6 @@ If this project saves you time:
 
 ## 🚀 Quick Start
 
-### 0. Configure AI Assistant (Recommended)
-
-Copy the system prompt to your AI assistant configuration:
-
-[SYSTEM_PROMPT.md](https://github.com/marlonluo2018/microsoft_graph_mcp_server/blob/main/doc/SYSTEM_PROMPT.md)
-
-**For Claude Desktop**, add to your project or custom instructions. This provides:
-- Optimal email/calendar workflows (Quick Mode vs Full Mode)
-- HTML formatting rules for emails
-- Calendar conflict detection awareness
-- Best practices for using MCP tools
-
-**For other AI assistants**, use the SYSTEM_PROMPT.md content as system instructions.
-
 ### 1. Install
 
 ```
@@ -106,7 +92,23 @@ You're connected. Your AI assistant now has Microsoft 365 access.
 
 ## 🌟 What Your AI Can Do
 
-Below is the **friendly but complete** feature overview — designed to impress potential users and help people understand the project’s power at a glance.
+Below is the **friendly but complete** feature overview — designed to impress potential users and help people understand the project's power at a glance.
+
+---
+
+### 🔧 Configure AI Assistant (Recommended)
+
+Copy the system prompt to your AI assistant configuration:
+
+[SYSTEM_PROMPT.md](https://github.com/marlonluo2018/microsoft_graph_mcp_server/blob/main/doc/SYSTEM_PROMPT.md)
+
+**For Claude Desktop**, add to your project or custom instructions. This provides:
+- Optimal email/calendar workflows (Quick Mode vs Full Mode)
+- HTML formatting rules for emails
+- Calendar conflict detection awareness
+- Best practices for using MCP tools
+
+**For other AI assistants**, use the SYSTEM_PROMPT.md content as system instructions.
 
 ---
 
@@ -120,7 +122,7 @@ Your AI can:
 - Move, delete, archive, or bulk‑manage messages  
 - Create & update reusable email templates  
 - Browse emails with fast local caching  
-- Filter by time ranges (“today”, “this week”, “last 30 days”)  
+- Filter by time ranges ("today", "this week", "last 30 days")  
 - Handle folders: create, rename, delete, move  
 
 **Example**
@@ -216,11 +218,11 @@ These practical examples show potential users exactly **why this project matters
 
 
 
-## Use Case: “Automated Reporting Agent”
+## Use Case: "Automated Reporting Agent"
 
 Your AI can scan your inbox and calendar, then build a weekly summary report.
 
-- Pull last week’s emails  
+- Pull last week's emails  
 - Extract key events  
 - Identify action items  
 - Draft a clean weekly summary email  
