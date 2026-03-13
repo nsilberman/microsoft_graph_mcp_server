@@ -30,7 +30,7 @@ If this project saves you time:
 Copy the system prompt to your AI assistant configuration:
 
 ```
-doc/SYSTEM_PROMPT.md
+https://github.com/marlonluo2018/microsoft_graph_mcp_server/blob/main/doc/SYSTEM_PROMPT.md
 ```
 
 **For Claude Desktop**, add to your project or custom instructions. This provides:
