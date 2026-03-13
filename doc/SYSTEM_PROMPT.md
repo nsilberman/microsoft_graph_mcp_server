@@ -64,8 +64,6 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 > - Check for related correspondence before composing new emails
 > - Review email context before replying or forwarding
 > - Identify if user is in To, CC, or BCC
->
-> **Focused Inbox**: By default, `search_emails` returns "focused" emails (Outlook's Focused Inbox). Use `inference_classification="other"` to search "other" emails, or `"all"` for both.
 
 ### Compose & Send Email
 
