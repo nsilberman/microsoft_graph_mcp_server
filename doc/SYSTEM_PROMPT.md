@@ -55,7 +55,7 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 ### Browse Email (Prerequisite)
 
 ```
-1. search_emails(query, folder, inference_classification) → browse_email_cache
+1. search_emails(query, folder) → browse_email_cache
 2. User selects email by cache number
 3. get_email_content(cache_number=N) → read full email
 ```
