@@ -49,36 +49,65 @@ Open:
 
 Choose one of the following configuration methods:
 
-#### Method 1: Using `py -m` (Recommended for Windows)
+#### Method 1: Using `uv run` (Recommended)
 
 ```json
 {
   "mcpServers": {
     "microsoft-graph": {
-      "command": "py",
-      "args": ["-m", "microsoft_graph_mcp_server"],
-      "cwd": "<path-to-your-local-repo>"
+      "command": "uv",
+      "args": ["run", "--directory", "<path-to-your-local-repo>", "microsoft-graph-mcp-server"]
     }
   }
 }
 ```
 
-> **Note for Windows**: Use `py` (Python Launcher) which automatically finds your Python installation. On Linux/Mac, replace `py` with `python3` or `python`.
+> **Recommended**: This method uses your local code directly, so changes take effect immediately without reinstalling.
 
-#### Method 2: Using `uvx`
+#### Method 2: Using `uvx` (Local Path)
 
 ```json
 {
   "mcpServers": {
     "microsoft-graph": {
       "command": "uvx",
-      "args": ["<path-to-your-local-repo>"]
+      "args": ["--from", "<path-to-your-local-repo>", "microsoft-graph-mcp-server"]
     }
   }
 }
 ```
 
-> **Note**: Replace `<path-to-your-local-repo>` with the actual path where you cloned this repository (e.g., `C:/Users/yourname/microsoft_graph_mcp_server` on Windows or `/home/yourname/microsoft_graph_mcp_server` on Linux/Mac).
+> **Note**: When using `uvx`, you need to reinstall after code changes. Use `uv tool install <path> --force` to update.
+
+#### Method 3: Using `py -m` (Windows)
+
+```json
+{
+  "mcpServers": {
+    "microsoft-graph": {
+      "command": "py",
+      "args": ["-m", "microsoft_graph_mcp_server"]
+    }
+  }
+}
+```
+
+> **Note**: Use `py` (Python Launcher) which automatically finds your Python installation. Run from the project directory or ensure the package is installed.
+
+#### Method 4: Using `python` (Linux/Mac)
+
+```json
+{
+  "mcpServers": {
+    "microsoft-graph": {
+      "command": "python",
+      "args": ["-m", "microsoft_graph_mcp_server"]
+    }
+  }
+}
+```
+
+> **Note**: Run from the project directory or ensure the package is installed via `pip install -e .`.
 
 ### 3. Sign In
 
