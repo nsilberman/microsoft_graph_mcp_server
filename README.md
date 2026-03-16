@@ -79,7 +79,7 @@ Choose one of the following configuration methods:
 
 > **Note**: When using `uvx`, you need to reinstall after code changes. Use `uv tool install <path> --force` to update.
 
-#### Method 3: Using `py -m` (Windows)
+#### Method 3: Using `python -m`
 
 ```json
 {
@@ -92,22 +92,10 @@ Choose one of the following configuration methods:
 }
 ```
 
-> **Note**: Use `py` (Python Launcher) which automatically finds your Python installation. Run from the project directory or ensure the package is installed.
-
-#### Method 4: Using `python` (Linux/Mac)
-
-```json
-{
-  "mcpServers": {
-    "microsoft-graph": {
-      "command": "python",
-      "args": ["-m", "microsoft_graph_mcp_server"]
-    }
-  }
-}
-```
-
-> **Note**: Run from the project directory or ensure the package is installed via `pip install -e .`.
+> **Note**: 
+> - **Windows**: Use `py` (Python Launcher) which automatically finds your Python installation
+> - **Linux/Mac**: Replace `py` with `python` or `python3`
+> - Run from the project directory or install via `pip install -e .`
 
 ### 3. Sign In
 
