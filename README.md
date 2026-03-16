@@ -47,7 +47,25 @@ Open:
 %APPDATA%/Claude/claude_desktop_config.json
 ```
 
-Insert:
+Choose one of the following configuration methods:
+
+#### Method 1: Using `py -m` (Recommended for Windows)
+
+```json
+{
+  "mcpServers": {
+    "microsoft-graph": {
+      "command": "py",
+      "args": ["-m", "microsoft_graph_mcp_server"],
+      "cwd": "<path-to-your-local-repo>"
+    }
+  }
+}
+```
+
+> **Note for Windows**: Use `py` (Python Launcher) which automatically finds your Python installation. On Linux/Mac, replace `py` with `python3` or `python`.
+
+#### Method 2: Using `uvx`
 
 ```json
 {
