@@ -199,6 +199,14 @@ PAGE_SIZE=5
 LLM_PAGE_SIZE=20
 CONTACT_SEARCH_LIMIT=10
 MAX_BCC_BATCH_SIZE=500
+
+# Multimodal support (set to true if your LLM supports image processing)
+MULTIMODAL_SUPPORTED=true
+
+# Image compression settings (for multimodal support)
+IMAGE_MAX_SIZE_KB=50
+IMAGE_MAX_DIMENSION=1024
+IMAGE_QUALITY=75
 ```
 
 **Configuration Options:**
@@ -214,6 +222,10 @@ MAX_BCC_BATCH_SIZE=500
 | `LLM_PAGE_SIZE` | Emails per page (LLM mode) | 20 |
 | `CONTACT_SEARCH_LIMIT` | Max contacts in search | 10 |
 | `MAX_BCC_BATCH_SIZE` | Max BCC recipients per batch | 500 |
+| `MULTIMODAL_SUPPORTED` | Enable image support for LLM | false |
+| `IMAGE_MAX_SIZE_KB` | Max image size (KB) | 150 |
+| `IMAGE_MAX_DIMENSION` | Max image width/height (px) | 1024 |
+| `IMAGE_QUALITY` | JPEG quality (1-100) | 75 |
 
 ---
 

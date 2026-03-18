@@ -1,6 +1,7 @@
 """Configuration module for Microsoft Graph MCP Server."""
 
 import os
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -64,8 +65,30 @@ class Settings(BaseSettings):
         os.getenv("CALENDAR_SEARCH_FUTURE_DAYS", "90")
     )  # Default future days to search for calendar events
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # LLM capability settings
+    multimodal_supported: bool = False  # Whether LLM supports multimodal (image processing), read from .env by pydantic-settings
+
+    # Image compression settings (for multimodal support)
+    # Note: IMAGE_MAX_SIZE_KB in .env is in KB, converted to bytes internally
+    image_max_size_kb: int = 150  # Max image size in KB
+    image_max_dimension: int = 1024  # Max width/height in pixels
+    image_quality: int = 75  # JPEG quality (1-100)
+
+    @property
+    def image_max_size(self) -> int:
+        """Get max image size in bytes."""
+        return self.image_max_size_kb * 1024
+
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).parent.parent / ".env"),
+        env_file_encoding="utf-8"
+    )
 
 
 # Global settings instance
 settings = Settings()
+
+# Debug log for multimodal setting
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"[CONFIG DEBUG] Settings loaded from .env: multimodal_supported={settings.multimodal_supported}")

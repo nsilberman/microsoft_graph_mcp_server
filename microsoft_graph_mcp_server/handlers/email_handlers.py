@@ -184,8 +184,11 @@ class EmailHandler(BaseHandler):
 
     async def handle_get_email_content(
         self, arguments: dict
-    ) -> list[types.TextContent]:
-        """Handle get_email_content tool."""
+    ) -> list[types.TextContent | types.ImageContent]:
+        """Handle get_email_content tool.
+        
+        Returns text content and optionally image content for multimodal LLMs.
+        """
         cache_number = arguments["cache_number"]
         text_only = arguments.get("text_only", True)
         download_attachments = arguments.get("download_attachments", False)
@@ -209,16 +212,47 @@ class EmailHandler(BaseHandler):
                 }
             )
 
+        # Get multimodal_supported from settings
+        from ..config import settings
+        multimodal_supported = settings.multimodal_supported
+        import logging
+        logging.info(f"[MULTIMODAL DEBUG] Handler: multimodal_supported={multimodal_supported} (from settings.multimodal_supported)")
+
         success, email_content, error = await self._handle_auth_error(
             lambda: graph_client.get_email(
-                email_id, cache_number, text_only, download_attachments, download_path, attachment_names
+                email_id, cache_number, text_only, download_attachments, download_path, attachment_names, multimodal_supported
             ),
             "getting email content",
         )
         if not success:
             return self._format_error(error)
 
-        return self._format_response(email_content["content"])
+        # Build response content list
+        content_list: list[types.TextContent | types.ImageContent] = []
+        
+        # Add text content (email content as JSON)
+        import json
+        content_list.append(types.TextContent(
+            type="text",
+            text=json.dumps(email_content["content"], indent=2, ensure_ascii=False, default=str)
+        ))
+        
+        # Add image content for multimodal LLMs
+        if multimodal_supported:
+            attachments = email_content["content"].get("attachments", [])
+            for attachment in attachments:
+                # Only include downloaded image attachments with base64 content
+                if (attachment.get("downloaded") and 
+                    attachment.get("base64_content") and 
+                    attachment.get("contentType", "").startswith("image/")):
+                    
+                    content_list.append(types.ImageContent(
+                        type="image",
+                        data=attachment["base64_content"],
+                        mimeType=attachment["contentType"]
+                    ))
+        
+        return content_list
 
     async def handle_send_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle send_email tool with send_new, reply, and forward actions."""

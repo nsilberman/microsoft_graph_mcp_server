@@ -39,14 +39,18 @@ class ToolRegistry:
         """User settings tool definition."""
         return types.Tool(
             name="user_settings",
-            description="Manage user settings with two actions: 'init' to sync USER_TIMEZONE and set default values (DEFAULT_SEARCH_DAYS=7, MAX_SEARCH_DAYS=90, PAGE_SIZE=5, LLM_PAGE_SIZE=20), or 'update' to allow user to update USER_TIMEZONE, DEFAULT_SEARCH_DAYS, MAX_SEARCH_DAYS, PAGE_SIZE, and LLM_PAGE_SIZE. Note: Both actions require login - user_info and LLM settings will only be returned when authenticated.",
+            description="Manage user settings with two actions: 'init' to initialize settings when configuration is missing or corrupted (requires multimodal_supported parameter to indicate if LLM supports image processing), 'update' to update one or more settings (supports partial updates). Note: Both actions require login - user_info and settings will only be returned when authenticated. MULTIMODAL DETECTION: If you are a multimodal LLM that can process images, please set multimodal_supported=true when calling init or update.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
                         "enum": ["init", "update"],
-                        "description": "Action to perform: 'init' to sync USER_TIMEZONE from Microsoft Graph and set default values, 'update' to update specific settings",
+                        "description": "Action to perform: 'init' to initialize settings when configuration is missing (requires multimodal_supported), 'update' to update one or more settings (partial update supported)",
+                    },
+                    "multimodal_supported": {
+                        "type": "boolean",
+                        "description": "Set to true if the LLM supports multimodal capabilities (can process images). Used with both 'init' and 'update' actions. When true, email image attachments will include base64 content for the LLM to analyze.",
                     },
                     "page_size": {
                         "type": "integer",
@@ -62,7 +66,7 @@ class ToolRegistry:
                     },
                     "default_search_days": {
                         "type": "integer",
-                        "description": "Default number of days to search for emails when not specified (default: 90). Only used with 'update' action.",
+                        "description": "Default number of days to search for emails when not specified (default: 7). Only used with 'update' action.",
                         "minimum": 1,
                         "maximum": 365,
                     },
@@ -233,7 +237,7 @@ class ToolRegistry:
         """Browse email cache tool definition."""
         return types.Tool(
             name="browse_email_cache",
-            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. **ATTACHMENT INFO**: Each email now includes attachment details (id, name, size, contentType) so you can see what attachments are available before downloading. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array (with attachments array), date_range: string, filter_date_range: string, timezone: string}.",
+            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. **ATTACHMENT INFO**: Each email now includes attachment details (id, name, size, contentType) so you can see what attachments are available before downloading. **IMAGE ATTACHMENTS**: When you see image attachments (contentType starts with 'image/'), use get_email_content with text_only=false to retrieve them. You MUST then analyze the images - they often contain critical information not mentioned in text. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array (with attachments array), date_range: string, filter_date_range: string, timezone: string}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -310,7 +314,7 @@ class ToolRegistry:
         """Get email content tool definition."""
         return types.Tool(
             name="get_email_content",
-            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message. **ATTACHMENT DOWNLOAD**: Set download_attachments=true to download attachments to the workspace/attachments folder. Attachments are saved with their original names. Use attachment_names to download only specific attachments.",
+            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message. **ATTACHMENT DOWNLOAD**: Set download_attachments=true to download attachments to the workspace/attachments folder. Attachments are saved with their original names. Use attachment_names to download only specific attachments. **IMAGE ATTACHMENTS**: When an email has image attachments (contentType starts with 'image/'), use text_only=false to retrieve image content. **IMPORTANT**: If images appear in the response, you MUST analyze them immediately - they often contain critical information (screenshots, photos, diagrams, charts, instructions) not mentioned in the text body. Do NOT skip image analysis.",
             inputSchema={
                 "type": "object",
                 "properties": {

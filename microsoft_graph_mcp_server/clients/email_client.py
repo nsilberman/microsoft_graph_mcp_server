@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from .base_client import BaseGraphClient
 from ..utils import DateHandler as date_handler
+from ..utils.image_utils import compress_base64_image
 from ..config import settings
 
 logger = logging.getLogger(__name__)
@@ -441,6 +442,7 @@ class EmailClient(BaseGraphClient):
         download_attachments: bool = False,
         download_path: Optional[str] = None,
         attachment_names: Optional[List[str]] = None,
+        multimodal_supported: bool = False,
     ) -> Dict[str, Any]:
         """Get full email by ID with optimized field selection.
         
@@ -451,6 +453,7 @@ class EmailClient(BaseGraphClient):
             download_attachments: If True, download attachments to disk
             download_path: Custom path for downloads (default: workspace/attachments)
             attachment_names: Specific attachment names to download (default: all)
+            multimodal_supported: If True, include base64 content for image attachments
         
         Returns:
             Dictionary with email content and metadata
@@ -487,15 +490,14 @@ class EmailClient(BaseGraphClient):
         attachments = []
         for attachment in email.get("attachments", []):
             if attachment.get("@odata.type") == "#microsoft.graph.fileAttachment":
-                attachments.append(
-                    {
-                        "id": attachment.get("id", ""),
-                        "name": attachment.get("name", ""),
-                        "size": attachment.get("size", 0),
-                        "contentType": attachment.get("contentType", ""),
-                        "isInline": attachment.get("isInline", False),
-                    }
-                )
+                att_info = {
+                    "id": attachment.get("id", ""),
+                    "name": attachment.get("name", ""),
+                    "size": attachment.get("size", 0),
+                    "contentType": attachment.get("contentType", ""),
+                    "isInline": attachment.get("isInline", False),
+                }
+                attachments.append(att_info)
 
         # Download attachments if requested
         downloaded_attachments = []
@@ -505,6 +507,7 @@ class EmailClient(BaseGraphClient):
                 attachments=attachments,
                 download_path=download_path,
                 attachment_names=attachment_names,
+                multimodal_supported=multimodal_supported,
             )
             # Update attachment info with download status
             for att in attachments:
@@ -512,6 +515,39 @@ class EmailClient(BaseGraphClient):
                     if att["id"] == dl["id"]:
                         att["downloaded"] = True
                         att["file_path"] = dl["file_path"]
+                        # Add base64 content for image attachments if multimodal is supported
+                        if multimodal_supported and dl.get("base64_content"):
+                            att["base64_content"] = dl["base64_content"]
+
+        # Handle inline images for multimodal support (independent of download_attachments)
+        logger.info(f"[MULTIMODAL DEBUG] multimodal_supported={multimodal_supported}, attachments count={len(attachments)}")
+        if multimodal_supported:
+            inline_images = [a for a in attachments if a.get("isInline") and a.get("contentType", "").startswith("image/")]
+            logger.info(f"[MULTIMODAL DEBUG] Found {len(inline_images)} inline images")
+            for inline_image in inline_images:
+                logger.info(f"[MULTIMODAL DEBUG] Processing inline image: {inline_image.get('name')}, isInline={inline_image.get('isInline')}, contentType={inline_image.get('contentType')}")
+                # Skip if already processed in download_attachments
+                if inline_image.get("downloaded"):
+                    logger.info(f"[MULTIMODAL DEBUG] Skipping already processed inline image: {inline_image['name']}")
+                    continue
+                # Fetch the inline image content
+                try:
+                    attachment_data = await self.get(f"/me/messages/{email_id}/attachments/{inline_image['id']}")
+                    content_bytes = attachment_data.get("contentBytes", "")
+                    logger.info(f"[MULTIMODAL DEBUG] Fetched inline image content, length={len(content_bytes) if content_bytes else 0}")
+                    if content_bytes:
+                        # Compress image if needed
+                        compressed_content = compress_base64_image(
+                            base64_content=content_bytes,
+                            max_size_bytes=settings.image_max_size,
+                            max_dimension=settings.image_max_dimension,
+                            quality=settings.image_quality,
+                        )
+                        inline_image["base64_content"] = compressed_content
+                        inline_image["downloaded"] = True
+                        logger.info(f"Got and compressed base64 content for inline image (multimodal): {inline_image['name']}")
+                except Exception as e:
+                    logger.warning(f"Failed to get inline image {inline_image['name']}: {e}")
 
         return {
             "content": {
@@ -561,6 +597,7 @@ class EmailClient(BaseGraphClient):
         attachments: List[Dict[str, Any]],
         download_path: Optional[str] = None,
         attachment_names: Optional[List[str]] = None,
+        multimodal_supported: bool = False,
     ) -> List[Dict[str, Any]]:
         """Download attachments to local disk.
         
@@ -569,6 +606,7 @@ class EmailClient(BaseGraphClient):
             attachments: List of attachment metadata
             download_path: Custom download path (default: workspace/attachments)
             attachment_names: Specific attachment names to download (default: all)
+            multimodal_supported: If True, include base64 content for image attachments
         
         Returns:
             List of downloaded attachment info with file paths
@@ -593,12 +631,17 @@ class EmailClient(BaseGraphClient):
                 if a["name"] in attachment_names
             ]
         
-        # Skip inline attachments (embedded images)
-        to_download = [a for a in to_download if not a.get("isInline", False)]
+        # Skip inline attachments unless multimodal is supported and it's an image
+        to_download = [
+            a for a in to_download 
+            if not a.get("isInline", False) or (multimodal_supported and a.get("contentType", "").startswith("image/"))
+        ]
         
         for attachment in to_download:
             attachment_id = attachment.get("id", "")
             attachment_name = attachment.get("name", "")
+            is_inline = attachment.get("isInline", False)
+            content_type = attachment.get("contentType", "")
             
             if not attachment_id or not attachment_name:
                 continue
@@ -614,31 +657,63 @@ class EmailClient(BaseGraphClient):
                     logger.warning(f"No content bytes for attachment: {attachment_name}")
                     continue
                 
-                # Decode base64 content
-                file_content = base64.b64decode(content_bytes)
-                
-                # Generate unique filename if file already exists
-                file_path = download_dir / attachment_name
-                if file_path.exists():
-                    base_name = file_path.stem
-                    suffix = file_path.suffix
-                    counter = 1
-                    while file_path.exists():
-                        file_path = download_dir / f"{base_name}_{counter}{suffix}"
-                        counter += 1
-                
-                # Write file
-                await asyncio.to_thread(file_path.write_bytes, file_content)
-                
-                downloaded.append({
+                # Build attachment info
+                att_info = {
                     "id": attachment_id,
                     "name": attachment_name,
-                    "file_path": str(file_path),
-                    "size": len(file_content),
-                    "contentType": attachment.get("contentType", ""),
-                })
+                    "contentType": content_type,
+                    "isInline": is_inline,
+                }
                 
-                logger.info(f"Downloaded attachment: {attachment_name} to {file_path}")
+                # For inline images with multimodal support, only get base64 (no file download)
+                if is_inline and multimodal_supported and content_type.startswith("image/"):
+                    # Compress image for multimodal support
+                    compressed_content = compress_base64_image(
+                        base64_content=content_bytes,
+                        max_size_bytes=settings.image_max_size,
+                        max_dimension=settings.image_max_dimension,
+                        quality=settings.image_quality,
+                    )
+                    att_info["base64_content"] = compressed_content
+                    att_info["size"] = len(base64.b64decode(content_bytes))
+                    att_info["downloaded"] = True
+                    logger.info(f"Got and compressed base64 content for inline image (multimodal): {attachment_name}")
+                else:
+                    # For non-inline attachments, download to file
+                    file_content = base64.b64decode(content_bytes)
+                    
+                    # Generate unique filename if file already exists
+                    file_path = download_dir / attachment_name
+                    if file_path.exists():
+                        base_name = file_path.stem
+                        suffix = file_path.suffix
+                        counter = 1
+                        while file_path.exists():
+                            file_path = download_dir / f"{base_name}_{counter}{suffix}"
+                            counter += 1
+                    
+                    # Write file
+                    await asyncio.to_thread(file_path.write_bytes, file_content)
+                    
+                    att_info["file_path"] = str(file_path)
+                    att_info["size"] = len(file_content)
+                    att_info["downloaded"] = True
+                    
+                    # Add base64 content for image attachments if multimodal is supported
+                    if multimodal_supported and content_type.startswith("image/"):
+                        # Compress image for multimodal support
+                        compressed_content = compress_base64_image(
+                            base64_content=content_bytes,
+                            max_size_bytes=settings.image_max_size,
+                            max_dimension=settings.image_max_dimension,
+                            quality=settings.image_quality,
+                        )
+                        att_info["base64_content"] = compressed_content
+                        logger.info(f"Added and compressed base64 content for image attachment: {attachment_name}")
+                    
+                    logger.info(f"Downloaded attachment: {attachment_name} to {file_path}")
+                
+                downloaded.append(att_info)
                 
             except Exception as e:
                 logger.error(f"Failed to download attachment {attachment_name}: {e}")

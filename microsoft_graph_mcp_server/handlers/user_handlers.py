@@ -20,7 +20,12 @@ class UserHandler(BaseHandler):
         return self._format_response(result)
 
     async def handle_user_settings(self, arguments: dict) -> list[types.TextContent]:
-        """Handle user_settings tool with init and update actions."""
+        """Handle user_settings tool with init and update actions.
+        
+        init: Initialize settings when configuration is missing or corrupted.
+              Requires multimodal_supported parameter to indicate LLM capability.
+        update: Update one or more settings (partial update supported).
+        """
         action = arguments.get("action")
 
         if action not in ["init", "update"]:
@@ -55,80 +60,102 @@ class UserHandler(BaseHandler):
             lines = env_content.split("\n")
             updated_lines = []
 
+            # Track which settings have been updated
             timezone_updated = False
             page_size_updated = False
             llm_page_size_updated = False
             default_search_days_updated = False
             max_search_days_updated = False
+            multimodal_supported_updated = False
 
             for line in lines:
                 if line.startswith("USER_TIMEZONE="):
-                    updated_lines.append(f"USER_TIMEZONE={user_timezone}")
+                    if action == "init":
+                        updated_lines.append(f"USER_TIMEZONE={user_timezone}")
+                    else:
+                        # Keep existing or update if provided
+                        tz = arguments.get("timezone", line.split("=", 1)[1] if "=" in line else user_timezone)
+                        updated_lines.append(f"USER_TIMEZONE={tz}")
                     timezone_updated = True
                 elif line.startswith("PAGE_SIZE="):
-                    updated_lines.append(f"PAGE_SIZE={arguments.get('page_size', 5)}")
+                    if action == "update" and "page_size" in arguments:
+                        updated_lines.append(f"PAGE_SIZE={arguments['page_size']}")
+                    else:
+                        updated_lines.append(line)
                     page_size_updated = True
                 elif line.startswith("LLM_PAGE_SIZE="):
-                    updated_lines.append(
-                        f"LLM_PAGE_SIZE={arguments.get('llm_page_size', 20)}"
-                    )
+                    if action == "update" and "llm_page_size" in arguments:
+                        updated_lines.append(f"LLM_PAGE_SIZE={arguments['llm_page_size']}")
+                    else:
+                        updated_lines.append(line)
                     llm_page_size_updated = True
                 elif line.startswith("DEFAULT_SEARCH_DAYS="):
-                    updated_lines.append(
-                        f"DEFAULT_SEARCH_DAYS={arguments.get('default_search_days', 90)}"
-                    )
+                    if action == "update" and "default_search_days" in arguments:
+                        updated_lines.append(f"DEFAULT_SEARCH_DAYS={arguments['default_search_days']}")
+                    else:
+                        updated_lines.append(line)
                     default_search_days_updated = True
                 elif line.startswith("MAX_SEARCH_DAYS="):
-                    updated_lines.append(
-                        f"MAX_SEARCH_DAYS={arguments.get('max_search_days', 90)}"
-                    )
+                    if action == "update" and "max_search_days" in arguments:
+                        updated_lines.append(f"MAX_SEARCH_DAYS={arguments['max_search_days']}")
+                    else:
+                        updated_lines.append(line)
                     max_search_days_updated = True
+                elif line.startswith("MULTIMODAL_SUPPORTED="):
+                    if "multimodal_supported" in arguments:
+                        updated_lines.append(f"MULTIMODAL_SUPPORTED={str(arguments['multimodal_supported']).lower()}")
+                    else:
+                        updated_lines.append(line)
+                    multimodal_supported_updated = True
                 else:
                     updated_lines.append(line)
 
-            if action == "init":
-                if not timezone_updated:
-                    updated_lines.append(f"USER_TIMEZONE={user_timezone}")
-                if not page_size_updated:
-                    updated_lines.append("PAGE_SIZE=5")
-                if not llm_page_size_updated:
-                    updated_lines.append("LLM_PAGE_SIZE=20")
-                if not default_search_days_updated:
-                    updated_lines.append("DEFAULT_SEARCH_DAYS=7")
-                if not max_search_days_updated:
-                    updated_lines.append("MAX_SEARCH_DAYS=90")
-
-                page_size = 5
-                llm_page_size = 20
-                default_search_days = 7
-                max_search_days = 90
-                message = "User settings initialized successfully with default values"
-            else:
-                if not timezone_updated:
-                    updated_lines.append(f"USER_TIMEZONE={user_timezone}")
-                if not page_size_updated:
-                    updated_lines.append(f"PAGE_SIZE={arguments.get('page_size', 5)}")
-                if not llm_page_size_updated:
-                    updated_lines.append(
-                        f"LLM_PAGE_SIZE={arguments.get('llm_page_size', 20)}"
-                    )
-                if not default_search_days_updated:
-                    updated_lines.append(
-                        f"DEFAULT_SEARCH_DAYS={arguments.get('default_search_days', 7)}"
-                    )
-                if not max_search_days_updated:
-                    updated_lines.append(
-                        f"MAX_SEARCH_DAYS={arguments.get('max_search_days', 90)}"
-                    )
-
-                page_size = arguments.get("page_size", 5)
-                llm_page_size = arguments.get("llm_page_size", 20)
-                default_search_days = arguments.get("default_search_days", 7)
-                max_search_days = arguments.get("max_search_days", 90)
-                message = "User settings updated successfully"
+            # Add missing settings
+            if not timezone_updated:
+                updated_lines.append(f"USER_TIMEZONE={user_timezone}")
+            if not page_size_updated:
+                default_page_size = arguments.get("page_size", 5) if action == "update" else 5
+                updated_lines.append(f"PAGE_SIZE={default_page_size}")
+            if not llm_page_size_updated:
+                default_llm_page_size = arguments.get("llm_page_size", 20) if action == "update" else 20
+                updated_lines.append(f"LLM_PAGE_SIZE={default_llm_page_size}")
+            if not default_search_days_updated:
+                default_search_days = arguments.get("default_search_days", 7) if action == "update" else 7
+                updated_lines.append(f"DEFAULT_SEARCH_DAYS={default_search_days}")
+            if not max_search_days_updated:
+                max_search_days = arguments.get("max_search_days", 90) if action == "update" else 90
+                updated_lines.append(f"MAX_SEARCH_DAYS={max_search_days}")
+            if not multimodal_supported_updated:
+                if "multimodal_supported" in arguments:
+                    updated_lines.append(f"MULTIMODAL_SUPPORTED={str(arguments['multimodal_supported']).lower()}")
+                else:
+                    updated_lines.append("MULTIMODAL_SUPPORTED=false")
 
             with open(env_path, "w") as f:
                 f.write("\n".join(updated_lines))
+
+            # Reload settings
+            from ..config import Settings
+            settings_obj = Settings()
+
+            # Get the multimodal_supported value
+            multimodal_supported = settings_obj.multimodal_supported
+            if "multimodal_supported" in arguments:
+                multimodal_supported = arguments["multimodal_supported"]
+
+            # Build result
+            result_settings = {
+                "page_size": settings_obj.page_size,
+                "llm_page_size": settings_obj.llm_page_size,
+                "default_search_days": settings_obj.default_search_days,
+                "max_search_days": settings_obj.max_search_days,
+                "multimodal_supported": multimodal_supported,
+            }
+
+            if action == "init":
+                message = "User settings initialized successfully"
+            else:
+                message = "User settings updated successfully"
 
             result = {
                 "status": "success",
@@ -140,12 +167,7 @@ class UserHandler(BaseHandler):
                     or user_info.get("userPrincipalName"),
                     "timezone": user_timezone,
                 },
-                "settings": {
-                    "page_size": page_size,
-                    "llm_page_size": llm_page_size,
-                    "default_search_days": default_search_days,
-                    "max_search_days": max_search_days,
-                },
+                "settings": result_settings,
             }
 
             return self._format_response(result)

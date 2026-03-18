@@ -390,6 +390,94 @@ The content ID normalization is critical for proper inline attachment rendering:
 See test files for examples:
 - [tests/test_email_handlers.py](../tests/test_email_handlers.py) - Unit tests for email handling including inline attachments
 
+---
+
+## Multimodal Support for Image Analysis
+
+### Overview
+
+The MCP Server supports multimodal LLMs by providing image content for analysis. When enabled, inline and regular image attachments are returned as `ImageContent` objects that multimodal LLMs can analyze directly.
+
+### Configuration
+
+Enable multimodal support in `.env`:
+
+```env
+# Multimodal support (set to true if your LLM supports image processing)
+MULTIMODAL_SUPPORTED=true
+
+# Image compression settings (to fit within LLM API character limits)
+IMAGE_MAX_SIZE_KB=50
+IMAGE_MAX_DIMENSION=1024
+IMAGE_QUALITY=75
+```
+
+### How It Works
+
+1. **Image Detection**: When `text_only=false` and the email has image attachments (contentType starts with `image/`)
+2. **Image Compression**: Images are automatically compressed to fit within LLM API limits
+3. **Image Delivery**: Compressed images are returned as `ImageContent` objects in the MCP response
+
+### Image Compression
+
+To ensure images fit within LLM API character limits (typically ~258,000 characters), images are compressed:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `IMAGE_MAX_SIZE_KB` | Maximum image size in KB | 50 |
+| `IMAGE_MAX_DIMENSION` | Maximum width/height in pixels | 1024 |
+| `IMAGE_QUALITY` | JPEG quality (1-100) | 75 |
+
+**Compression Process:**
+1. Resize image if larger than `IMAGE_MAX_DIMENSION`
+2. Convert to JPEG format
+3. Reduce quality until size is within `IMAGE_MAX_SIZE_KB`
+4. Further resize if still too large
+
+### Usage
+
+```python
+# Get email with image content
+result = get_email_content(
+    cache_number=1,
+    text_only=false  # Include images
+)
+```
+
+**Response includes:**
+- `TextContent`: Email body and metadata as JSON
+- `ImageContent`: Each image attachment for LLM analysis
+
+### LLM Behavior
+
+When images are returned:
+- The LLM should **immediately analyze** the images
+- Images often contain critical information not in the text body
+- The LLM should describe what it sees in the images
+
+### Best Practices
+
+1. **Use `text_only=true`** when images are not needed (better performance)
+2. **Set appropriate compression limits** based on your LLM API constraints
+3. **Handle large images** by adjusting `IMAGE_MAX_SIZE_KB` if needed
+
+### Troubleshooting
+
+**Images not appearing in response:**
+- Check `MULTIMODAL_SUPPORTED=true` in `.env`
+- Ensure `text_only=false` parameter is used
+- Check logs for compression errors
+
+**Image quality too low:**
+- Increase `IMAGE_MAX_SIZE_KB` (e.g., 100)
+- Increase `IMAGE_QUALITY` (e.g., 85)
+
+**LLM API character limit exceeded:**
+- Decrease `IMAGE_MAX_SIZE_KB` (e.g., 30)
+- Decrease `IMAGE_MAX_DIMENSION` (e.g., 800)
+
+---
+
 ## References
 
 - [Microsoft Graph API - Attachments](https://docs.microsoft.com/graph/api/resources/attachment)

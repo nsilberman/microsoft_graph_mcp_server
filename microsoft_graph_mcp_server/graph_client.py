@@ -189,10 +189,11 @@ class GraphClient:
         download_attachments: bool = False,
         download_path: Optional[str] = None,
         attachment_names: Optional[List[str]] = None,
+        multimodal_supported: bool = False,
     ) -> Dict[str, Any]:
         """Get email by ID."""
         return await self.email_client.get_email(
-            email_id, emailNumber, text_only, download_attachments, download_path, attachment_names
+            email_id, emailNumber, text_only, download_attachments, download_path, attachment_names, multimodal_supported
         )
 
     async def search_emails(
