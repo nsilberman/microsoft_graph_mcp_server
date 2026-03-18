@@ -1,10 +1,13 @@
 """Email client for Microsoft Graph API."""
 
 import asyncio
+import base64
 import logging
+import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
 
@@ -346,6 +349,18 @@ class EmailClient(BaseGraphClient):
             sent_datetime, user_tz
         )
 
+        # Process attachments if available
+        attachments = []
+        for attachment in email.get("attachments", []):
+            if attachment.get("@odata.type") == "#microsoft.graph.fileAttachment":
+                attachments.append({
+                    "id": attachment.get("id", ""),
+                    "name": attachment.get("name", ""),
+                    "size": attachment.get("size", 0),
+                    "contentType": attachment.get("contentType", ""),
+                    "isInline": attachment.get("isInline", False),
+                })
+
         return {
             "number": index,
             "id": email.get("id", ""),
@@ -358,6 +373,7 @@ class EmailClient(BaseGraphClient):
             "sentDateTime": sent_datetime_display,
             "isRead": email.get("isRead", False),
             "hasAttachments": email.get("hasAttachments", False),
+            "attachments": attachments,
             "importance": email.get("importance", "normal"),
             "inferenceClassification": email.get("inferenceClassification", "focused"),
             "bodyPreview": email.get("bodyPreview", ""),
@@ -418,14 +434,32 @@ class EmailClient(BaseGraphClient):
         return int(result) if result else 0
 
     async def get_email(
-        self, email_id: str, emailNumber: int = 0, text_only: bool = True
+        self,
+        email_id: str,
+        emailNumber: int = 0,
+        text_only: bool = True,
+        download_attachments: bool = False,
+        download_path: Optional[str] = None,
+        attachment_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Get full email by ID with optimized field selection."""
+        """Get full email by ID with optimized field selection.
+        
+        Args:
+            email_id: The email message ID
+            emailNumber: Cache number for reference
+            text_only: If True, extract plain text from HTML body
+            download_attachments: If True, download attachments to disk
+            download_path: Custom path for downloads (default: workspace/attachments)
+            attachment_names: Specific attachment names to download (default: all)
+        
+        Returns:
+            Dictionary with email content and metadata
+        """
         user_timezone_str = await self.get_user_timezone()
 
         params = {
             "$select": "subject,from,toRecipients,ccRecipients,bccRecipients,body,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,isDraft,internetMessageId,conversationId,parentFolderId,flag",
-            "$expand": "attachments($select=name,size,contentType,isInline)",
+            "$expand": "attachments($select=id,name,size,contentType,isInline)",
         }
 
         email = await self.get(f"/me/messages/{email_id}", params=params)
@@ -455,12 +489,29 @@ class EmailClient(BaseGraphClient):
             if attachment.get("@odata.type") == "#microsoft.graph.fileAttachment":
                 attachments.append(
                     {
-                        "name": attachment.get("name"),
-                        "size": attachment.get("size"),
-                        "contentType": attachment.get("contentType"),
+                        "id": attachment.get("id", ""),
+                        "name": attachment.get("name", ""),
+                        "size": attachment.get("size", 0),
+                        "contentType": attachment.get("contentType", ""),
                         "isInline": attachment.get("isInline", False),
                     }
                 )
+
+        # Download attachments if requested
+        downloaded_attachments = []
+        if download_attachments and attachments:
+            downloaded_attachments = await self._download_attachments(
+                email_id=email_id,
+                attachments=attachments,
+                download_path=download_path,
+                attachment_names=attachment_names,
+            )
+            # Update attachment info with download status
+            for att in attachments:
+                for dl in downloaded_attachments:
+                    if att["id"] == dl["id"]:
+                        att["downloaded"] = True
+                        att["file_path"] = dl["file_path"]
 
         return {
             "content": {
@@ -503,6 +554,96 @@ class EmailClient(BaseGraphClient):
                 "flag": email.get("flag", {}),
             },
         }
+
+    async def _download_attachments(
+        self,
+        email_id: str,
+        attachments: List[Dict[str, Any]],
+        download_path: Optional[str] = None,
+        attachment_names: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Download attachments to local disk.
+        
+        Args:
+            email_id: The email message ID
+            attachments: List of attachment metadata
+            download_path: Custom download path (default: workspace/attachments)
+            attachment_names: Specific attachment names to download (default: all)
+        
+        Returns:
+            List of downloaded attachment info with file paths
+        """
+        # Determine download directory
+        if download_path:
+            download_dir = Path(download_path)
+        else:
+            # Default to workspace/attachments
+            download_dir = Path.cwd() / "attachments"
+        
+        # Create directory if not exists
+        download_dir.mkdir(parents=True, exist_ok=True)
+        
+        downloaded = []
+        
+        # Filter attachments to download
+        to_download = attachments
+        if attachment_names:
+            to_download = [
+                a for a in attachments 
+                if a["name"] in attachment_names
+            ]
+        
+        # Skip inline attachments (embedded images)
+        to_download = [a for a in to_download if not a.get("isInline", False)]
+        
+        for attachment in to_download:
+            attachment_id = attachment.get("id", "")
+            attachment_name = attachment.get("name", "")
+            
+            if not attachment_id or not attachment_name:
+                continue
+            
+            try:
+                # Fetch full attachment with contentBytes
+                attachment_data = await self.get(
+                    f"/me/messages/{email_id}/attachments/{attachment_id}"
+                )
+                
+                content_bytes = attachment_data.get("contentBytes", "")
+                if not content_bytes:
+                    logger.warning(f"No content bytes for attachment: {attachment_name}")
+                    continue
+                
+                # Decode base64 content
+                file_content = base64.b64decode(content_bytes)
+                
+                # Generate unique filename if file already exists
+                file_path = download_dir / attachment_name
+                if file_path.exists():
+                    base_name = file_path.stem
+                    suffix = file_path.suffix
+                    counter = 1
+                    while file_path.exists():
+                        file_path = download_dir / f"{base_name}_{counter}{suffix}"
+                        counter += 1
+                
+                # Write file
+                await asyncio.to_thread(file_path.write_bytes, file_content)
+                
+                downloaded.append({
+                    "id": attachment_id,
+                    "name": attachment_name,
+                    "file_path": str(file_path),
+                    "size": len(file_content),
+                    "contentType": attachment.get("contentType", ""),
+                })
+                
+                logger.info(f"Downloaded attachment: {attachment_name} to {file_path}")
+                
+            except Exception as e:
+                logger.error(f"Failed to download attachment {attachment_name}: {e}")
+        
+        return downloaded
 
     async def create_template_from_email(
         self,
@@ -1103,6 +1244,7 @@ class EmailClient(BaseGraphClient):
         params = {
             "$top": top,
             "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,bodyPreview,inferenceClassification",
+            "$expand": "attachments($select=id,name,size,contentType,isInline)",
         }
 
         endpoint = "/me/messages"

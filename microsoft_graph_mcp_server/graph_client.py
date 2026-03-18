@@ -182,10 +182,18 @@ class GraphClient:
         return await self.email_client.get_email_count(folder, filter_query)
 
     async def get_email(
-        self, email_id: str, emailNumber: int = 0, text_only: bool = True
+        self,
+        email_id: str,
+        emailNumber: int = 0,
+        text_only: bool = True,
+        download_attachments: bool = False,
+        download_path: Optional[str] = None,
+        attachment_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Get email by ID."""
-        return await self.email_client.get_email(email_id, emailNumber, text_only)
+        return await self.email_client.get_email(
+            email_id, emailNumber, text_only, download_attachments, download_path, attachment_names
+        )
 
     async def search_emails(
         self,

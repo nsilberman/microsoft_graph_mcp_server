@@ -155,6 +155,7 @@ Your AI can:
 - Search emails by sender, subject, body, or natural filters  
 - **Focused Inbox support** - by default searches "focused" emails, with option to search "other" or all  
 - Open full email content including attachments  
+- **Download attachments** to workspace for LLM analysis (Excel, PDF, images, etc.)  
 - Reply, forward, and compose new messages with HTML  
 - Move, delete, archive, or bulk‑manage messages  
 - Create & update reusable email templates  
@@ -171,6 +172,18 @@ Your AI can:
   "search_type": "subject"
 }
 ```
+
+**Attachment Download Example**
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 1,
+  "download_attachments": true
+}
+```
+
+Attachments are saved to `workspace/attachments` and can be processed by other tools (file readers, image viewers, etc.).
 
 **Focused Inbox Example**
 
@@ -484,6 +497,65 @@ Claude will call:
 ```
 
 > **Note**: All emails are processed in ONE batch call - efficient and fast!
+
+---
+
+## Use Case: Download and Analyze Attachments
+
+Your AI can download email attachments and analyze them with other tools.
+
+**Workflow**
+
+1. **Ask Claude to search emails with attachments**: "Find emails with Excel attachments"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "query": "xlsx",
+  "search_type": "body"
+}
+```
+
+2. **Ask Claude to browse the results**: "Show me these emails"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+**Returns**: Email summaries with attachment info (name, size, contentType) visible upfront.
+
+3. **Ask Claude to download attachments**: "Download the Excel attachment from email number 1"
+
+Claude will call:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 1,
+  "download_attachments": true,
+  "attachment_names": ["report.xlsx"]
+}
+```
+
+**Returns**: Email content with attachment saved to `workspace/attachments/report.xlsx`
+
+4. **Use other tools to analyze**: "Read the Excel file and summarize it"
+
+Claude can now use file reading tools to process the downloaded attachment.
+
+**Key Features:**
+- See attachment names/types before downloading (in browse_email_cache)
+- Download only specific attachments with `attachment_names` parameter
+- Custom download path with `download_path` parameter
+- Inline attachments (embedded images) are automatically skipped
 
 ---
 

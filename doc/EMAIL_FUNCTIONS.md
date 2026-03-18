@@ -217,13 +217,27 @@ Each email in the cache contains:
   "receivedDateTime": "Fri 12/27/2025 09:36 PM",
   "receivedDateTimeOriginal": "2025-12-27T13:36:27Z",
   "isRead": false,
-  "hasAttachments": false,
-  "hasEmbeddedImages": false,
-  "embeddedImageCount": 0,
+  "hasAttachments": true,
+  "attachments": [
+    {
+      "id": "AAMkAGUwNjQ4...",
+      "name": "report.xlsx",
+      "size": 52428,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "isInline": false
+    }
+  ],
   "importance": "normal",
   "inferenceClassification": "focused"
 }
 ```
+
+**Attachment Info in Cache:**
+- `id`: Attachment ID (used internally for download)
+- `name`: Attachment filename
+- `size`: File size in bytes
+- `contentType`: MIME type (e.g., `application/pdf`, `image/png`)
+- `isInline`: Whether it's an embedded image (inline attachments are not downloaded)
 
 ### Return Fields
 - `emails`: Array of email summaries
@@ -254,16 +268,25 @@ result = await browse_email_cache(page_number=2)
 ### Description
 Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details.
 
+**⭐ ATTACHMENT DOWNLOAD**: Set `download_attachments=true` to download email attachments to the `workspace/attachments` folder. Attachments are saved with their original names and can be processed by other tools (LLM file readers, image viewers, etc.).
+
 ### Parameters
 - `cache_number` (required, integer): Cache number from browse_email_cache (e.g., 1, 2, 3)
 - `text_only` (optional, boolean): If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.
   - Default: true
+- `download_attachments` (optional, boolean): If true, download email attachments to local disk.
+  - Default: false
+  - Attachments will include `downloaded` and `file_path` fields in the response
+- `download_path` (optional, string): Custom path for downloading attachments.
+  - Default: `workspace/attachments` folder
+- `attachment_names` (optional, array of strings): List of specific attachment names to download.
+  - If not specified, downloads all non-inline attachments
+  - Inline attachments (embedded images) are always skipped
 
 ### Returns
 User-facing email content:
 ```json
 {
-  "cache_number": 1,
   "subject": "Email Subject",
   "from": {
     "name": "Sender Name",
@@ -279,44 +302,79 @@ User-facing email content:
   "receivedDateTimeDisplay": "Fri 12/27/2025 09:36 PM",
   "importance": "normal",
   "isRead": false,
-  "hasAttachments": false,
-  "body": {
-    "contentType": "html",
-    "content": "<html>...</html>"
-  }
+  "hasAttachments": true,
+  "body": "Email body text...",
+  "bodyType": "Text",
+  "attachments": [
+    {
+      "id": "AAMkAGUwNjQ4...",
+      "name": "report.xlsx",
+      "size": 52428,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "isInline": false,
+      "downloaded": true,
+      "file_path": "/workspace/attachments/report.xlsx"
+    }
+  ]
 }
 ```
 
 ### Return Fields
-- `cache_number`: Cache number in cache
 - `subject`: Email subject
 - `from`: Sender information (name, email)
 - `to`: Array of to recipients (name, email)
 - `cc`: Array of CC recipients (name, email)
+- `bcc`: Array of BCC recipients (name, email)
 - `receivedDateTimeDisplay`: Formatted local time
+- `sentDateTimeDisplay`: Formatted local time
 - `importance`: Email importance level
 - `isRead`: Read status
 - `hasAttachments`: Has attachments flag
-- `body`: Email body content (contentType, content)
-- `attachments`: Array of attachments (only when text_only=false)
+- `body`: Email body content (text or HTML based on text_only parameter)
+- `bodyType`: Content type ("Text" or "HTML")
+- `attachments`: Array of attachments
+  - `id`: Attachment ID
   - `name`: Attachment filename
-  - `size`: Attachment size in bytes
-  - `contentType`: MIME type of the attachment
-  - `isInline`: Whether the attachment is inline (embedded in the email body)
+  - `size`: File size in bytes
+  - `contentType`: MIME type
+  - `isInline`: Whether embedded in email body
+  - `downloaded`: (only when download_attachments=true) Whether download succeeded
+  - `file_path`: (only when downloaded) Local file path
 
 ### Example Usage
 ```python
 # Get email content with text only (default)
 result = await get_email_content(cache_number=1)
 
-# Get email content with full attachments and images
+# Get email content with full HTML body
 result = await get_email_content(cache_number=1, text_only=false)
+
+# Get email content and download all attachments
+result = await get_email_content(cache_number=1, download_attachments=true)
+
+# Get email content and download specific attachments only
+result = await get_email_content(
+    cache_number=1,
+    download_attachments=true,
+    attachment_names=["report.xlsx", "data.pdf"]
+)
+
+# Get email content and download to custom path
+result = await get_email_content(
+    cache_number=1,
+    download_attachments=true,
+    download_path="/custom/download/folder"
+)
 ```
 
 ### Notes
 - Requires valid cache number from cache
 - Returns only user-facing content (system metadata is excluded)
-- Use `text_only=false` to include attachments and embedded images
+- Use `text_only=false` to get full HTML body
+- **Attachment Download**: Set `download_attachments=true` to save attachments to disk
+- Inline attachments (embedded images) are not downloaded - they're part of the email body
+- Downloaded file paths are returned in the `attachments` array
+- Use other tools (file readers, image viewers, etc.) to process downloaded files
 
 ---
 

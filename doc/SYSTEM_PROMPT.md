@@ -64,6 +64,18 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 > - Check for related correspondence before composing new emails
 > - Review email context before replying or forwarding
 > - Identify if user is in To, CC, or BCC
+> - **See attachments upfront** (attachment names/types shown in browse results)
+
+### Download Attachments
+
+```
+1. browse_email_cache → see attachment names/types
+2. get_email_content(cache_number=N, download_attachments=true) → downloads to workspace/attachments
+3. Use other tools (file readers) to analyze downloaded files
+```
+
+> **Note**: Inline attachments (embedded images) are not downloaded - they're part of the email body.
+> Use `attachment_names` parameter to download specific attachments only.
 
 ### Compose & Send Email
 

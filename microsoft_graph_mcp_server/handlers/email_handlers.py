@@ -188,6 +188,9 @@ class EmailHandler(BaseHandler):
         """Handle get_email_content tool."""
         cache_number = arguments["cache_number"]
         text_only = arguments.get("text_only", True)
+        download_attachments = arguments.get("download_attachments", False)
+        download_path = arguments.get("download_path")
+        attachment_names = arguments.get("attachment_names")
 
         cached_emails = email_cache.get_cached_emails()
 
@@ -207,7 +210,9 @@ class EmailHandler(BaseHandler):
             )
 
         success, email_content, error = await self._handle_auth_error(
-            lambda: graph_client.get_email(email_id, cache_number, text_only=text_only),
+            lambda: graph_client.get_email(
+                email_id, cache_number, text_only, download_attachments, download_path, attachment_names
+            ),
             "getting email content",
         )
         if not success:

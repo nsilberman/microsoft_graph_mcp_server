@@ -233,7 +233,7 @@ class ToolRegistry:
         """Browse email cache tool definition."""
         return types.Tool(
             name="browse_email_cache",
-            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array, date_range: string, filter_date_range: string, timezone: string}.",
+            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. **ATTACHMENT INFO**: Each email now includes attachment details (id, name, size, contentType) so you can see what attachments are available before downloading. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array (with attachments array), date_range: string, filter_date_range: string, timezone: string}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -310,7 +310,7 @@ class ToolRegistry:
         """Get email content tool definition."""
         return types.Tool(
             name="get_email_content",
-            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message.",
+            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message. **ATTACHMENT DOWNLOAD**: Set download_attachments=true to download attachments to the workspace/attachments folder. Attachments are saved with their original names. Use attachment_names to download only specific attachments.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -322,6 +322,20 @@ class ToolRegistry:
                         "type": ["boolean", "string"],
                         "description": "If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.",
                         "default": True,
+                    },
+                    "download_attachments": {
+                        "type": "boolean",
+                        "description": "If true, download email attachments to the workspace/attachments folder. Default: false. Attachments will include 'downloaded' and 'file_path' fields in the response.",
+                        "default": False,
+                    },
+                    "download_path": {
+                        "type": "string",
+                        "description": "Optional custom path for downloading attachments. If not specified, defaults to workspace/attachments folder.",
+                    },
+                    "attachment_names": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional list of specific attachment names to download. If not specified, downloads all non-inline attachments.",
                     },
                 },
                 "required": ["cache_number"],
