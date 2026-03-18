@@ -218,7 +218,7 @@ The forward implementation:
 
 ```python
 # Get original email with inline attachments
-email = await graph_client.get_email(email_id, text_only=False)
+email = await graph_client.get_email(email_id, return_html=True)
 
 # Reply to email (inline attachments are automatically handled)
 result = await graph_client.send_email(
@@ -234,7 +234,7 @@ result = await graph_client.send_email(
 
 ```python
 # Get original email with inline attachments
-email = await graph_client.get_email(email_id, text_only=False)
+email = await graph_client.get_email(email_id, return_html=True)
 
 # Forward email (inline attachments are automatically handled)
 result = await graph_client.send_email(
@@ -288,7 +288,7 @@ except Exception as e:
 
 ### Best Practices
 
-1. **Use Text-Only Mode When Possible**: If you don't need inline images, use `text_only=True` for faster performance
+1. **Use Plain Text Mode When Possible**: If you don't need inline images, use `return_html=False` (default) for faster performance
 2. **Handle Errors Gracefully**: Always include error handling for attachment fetch failures
 3. **Test with Real Emails**: Inline attachment behavior can vary depending on the email client that created the original email
 
@@ -332,7 +332,7 @@ if content_id.startswith('<') and content_id.endswith('>'):
 
 **Problem**: Slow reply/forward performance with many inline attachments.
 
-**Solution**: Consider using `text_only=True` if inline images are not needed, or limit number of emails processed at once.
+**Solution**: Consider using `return_html=False` (default) if inline images are not needed, or limit number of emails processed at once.
 
 ## Technical Details
 
@@ -414,7 +414,7 @@ IMAGE_QUALITY=75
 
 ### How It Works
 
-1. **Image Detection**: When `text_only=false` and the email has image attachments (contentType starts with `image/`)
+1. **Image Detection**: When email has image attachments (contentType starts with `image/`) and MULTIMODAL_SUPPORTED=true
 2. **Image Compression**: Images are automatically compressed to fit within LLM API limits
 3. **Image Delivery**: Compressed images are returned as `ImageContent` objects in the MCP response
 
@@ -439,8 +439,8 @@ To ensure images fit within LLM API character limits (typically ~258,000 charact
 ```python
 # Get email with image content
 result = get_email_content(
-    cache_number=1,
-    text_only=false  # Include images
+    cache_number=1
+    # Images are included automatically when MULTIMODAL_SUPPORTED=true
 )
 ```
 
@@ -457,7 +457,7 @@ When images are returned:
 
 ### Best Practices
 
-1. **Use `text_only=true`** when images are not needed (better performance)
+1. **Use `return_html=false`** (default) when images are not needed (better performance)
 2. **Set appropriate compression limits** based on your LLM API constraints
 3. **Handle large images** by adjusting `IMAGE_MAX_SIZE_KB` if needed
 
@@ -465,7 +465,6 @@ When images are returned:
 
 **Images not appearing in response:**
 - Check `MULTIMODAL_SUPPORTED=true` in `.env`
-- Ensure `text_only=false` parameter is used
 - Check logs for compression errors
 
 **Image quality too low:**

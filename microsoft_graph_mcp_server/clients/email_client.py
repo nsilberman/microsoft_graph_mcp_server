@@ -438,7 +438,7 @@ class EmailClient(BaseGraphClient):
         self,
         email_id: str,
         emailNumber: int = 0,
-        text_only: bool = True,
+        return_html: bool = False,
         download_attachments: bool = False,
         download_path: Optional[str] = None,
         attachment_names: Optional[List[str]] = None,
@@ -449,7 +449,7 @@ class EmailClient(BaseGraphClient):
         Args:
             email_id: The email message ID
             emailNumber: Cache number for reference
-            text_only: If True, extract plain text from HTML body
+            return_html: If True, return full HTML body. If False (default), extract plain text from HTML body.
             download_attachments: If True, download attachments to disk
             download_path: Custom path for downloads (default: workspace/attachments)
             attachment_names: Specific attachment names to download (default: all)
@@ -481,7 +481,7 @@ class EmailClient(BaseGraphClient):
         body_content = email.get("body", {}).get("content", "")
         body_type = email.get("body", {}).get("contentType", "Text")
 
-        if text_only and body_type.lower() == "html":
+        if not return_html and body_type.lower() == "html":
             body_content = self._extract_text_from_html(body_content)
 
         received_datetime = email.get("receivedDateTime", "")
@@ -841,13 +841,13 @@ class EmailClient(BaseGraphClient):
     async def get_template(
         self,
         template_id: str,
-        text_only: bool = True,
+        return_html: bool = False,
     ) -> Dict[str, Any]:
         """Get a template by ID.
 
         Args:
             template_id: ID of the template
-            text_only: If true, returns simple text body. If false, returns full HTML body.
+            return_html: If True, returns full HTML body. If False (default), returns simple text body.
 
         Returns:
             Template details
@@ -862,7 +862,7 @@ class EmailClient(BaseGraphClient):
         body_content = template.get("body", {}).get("content", "")
         body_type = template.get("body", {}).get("contentType", "Text")
 
-        if text_only and body_type.lower() == "html":
+        if not return_html and body_type.lower() == "html":
             body_content = self._extract_text_from_html(body_content)
 
         to_recipients = [
@@ -1488,7 +1488,7 @@ class EmailClient(BaseGraphClient):
         Returns:
             Response from the Graph API
         """
-        original_email = await self.get_email(message_id, text_only=False)
+        original_email = await self.get_email(message_id, return_html=True)
 
         email_content = original_email.get("content", {})
         email_metadata = original_email.get("metadata", {})
@@ -1630,7 +1630,7 @@ class EmailClient(BaseGraphClient):
         Returns:
             Response from the Graph API
         """
-        original_email = await self.get_email(message_id, text_only=False)
+        original_email = await self.get_email(message_id, return_html=True)
 
         email_content = original_email.get("content", {})
         email_metadata = original_email.get("metadata", {})

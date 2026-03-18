@@ -272,8 +272,9 @@ Get full email content by cache number. Use the cache number from browse_email_c
 
 ### Parameters
 - `cache_number` (required, integer): Cache number from browse_email_cache (e.g., 1, 2, 3)
-- `text_only` (optional, boolean): If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.
-  - Default: true
+- `return_html` (optional, boolean): If true, return full HTML body. If false (default), return plain text body.
+  - Default: false
+  - Note: This only affects email body format, not image attachments
 - `download_attachments` (optional, boolean): If true, download email attachments to local disk.
   - Default: false
   - Attachments will include `downloaded` and `file_path` fields in the response
@@ -330,7 +331,7 @@ User-facing email content:
 - `importance`: Email importance level
 - `isRead`: Read status
 - `hasAttachments`: Has attachments flag
-- `body`: Email body content (text or HTML based on text_only parameter)
+- `body`: Email body content (text or HTML based on return_html parameter)
 - `bodyType`: Content type ("Text" or "HTML")
 - `attachments`: Array of attachments
   - `id`: Attachment ID
@@ -343,11 +344,11 @@ User-facing email content:
 
 ### Example Usage
 ```python
-# Get email content with text only (default)
+# Get email content with plain text (default)
 result = await get_email_content(cache_number=1)
 
 # Get email content with full HTML body
-result = await get_email_content(cache_number=1, text_only=false)
+result = await get_email_content(cache_number=1, return_html=true)
 
 # Get email content and download all attachments
 result = await get_email_content(cache_number=1, download_attachments=true)
@@ -370,7 +371,7 @@ result = await get_email_content(
 ### Notes
 - Requires valid cache number from cache
 - Returns only user-facing content (system metadata is excluded)
-- Use `text_only=false` to get full HTML body
+- Use `return_html=true` to get full HTML body
 - **Attachment Download**: Set `download_attachments=true` to save attachments to disk
 - Inline attachments (embedded images) are not downloaded - they're part of the email body
 - Downloaded file paths are returned in the `attachments` array
@@ -1121,9 +1122,9 @@ Manage email templates stored as drafts in a Templates folder. Templates are dra
   - Optional for: "update" action
 - `htmlbody` (optional, string): Email body content in HTML format
   - Optional for: "update" action - if not provided, keeps existing body
-  - Note: When updating body, you should first call get with text_only=false to get the full HTML, then provide the complete updated HTML here
-- `text_only` (optional, boolean): For "get" action: if true, returns simple text body (default). If false, returns full HTML body.
-  - Default: true
+  - Note: When updating body, you should first call get with return_html=true to get the full HTML, then provide the complete updated HTML here
+- `return_html` (optional, boolean): For "get" action: if true, returns full HTML body. If false (default), returns simple text body.
+  - Default: false
 
 ### Actions
 
@@ -1184,14 +1185,14 @@ result = await manage_templates(action="list")
 ```
 
 #### Get Template (action="get")
-Retrieves template details. Returns simple text body by default, or full HTML when text_only=false.
+Retrieves template details. Returns simple text body by default, or full HTML when return_html=true.
 
 **Parameters:**
 - `action`: "get"
 - `template_number`: Template cache number
-- `text_only` (optional): If true, returns simple text body. If false, returns full HTML body.
+- `return_html` (optional): If true, returns full HTML body. If false (default), returns simple text body.
 
-**Returns (text_only=true):**
+**Returns (return_html=false - default):**
 ```json
 {
   "template_number": 1,
@@ -1205,7 +1206,7 @@ Retrieves template details. Returns simple text body by default, or full HTML wh
 }
 ```
 
-**Returns (text_only=false):**
+**Returns (return_html=true):**
 ```json
 {
   "template_number": 1,
@@ -1234,7 +1235,7 @@ result = await manage_templates(
 result = await manage_templates(
     action="get",
     template_number=1,
-    text_only=false
+    return_html=true
 )
 ```
 
@@ -1329,11 +1330,11 @@ result = await manage_templates(
 
 The recommended workflow for updating templates involves a 7-step process:
 
-1. **User calls get with text_only=true** - Gets simple text body for easy reading
+1. **User calls get with return_html=false** - Gets simple text body for easy reading
 2. **User provides update instructions to LLM** - Describes what changes they want
-3. **LLM calls get with text_only=false** - Retrieves the full HTML body
+3. **LLM calls get with return_html=true** - Retrieves the full HTML body
 4. **LLM calls update with htmlbody** - Applies user's changes and provides complete updated HTML
-5. **User calls get with text_only=true** - Verifies the changes in simple text format
+5. **User calls get with return_html=false** - Verifies the changes in simple text format
 6. **User gives command to send** - Approves the template for sending
 7. **LLM calls send** - Sends the template and saves a copy in the Templates folder
 
@@ -1344,7 +1345,7 @@ The recommended workflow for updating templates involves a 7-step process:
 {
   "action": "get",
   "template_number": 1,
-  "text_only": true
+  "return_html": false
 }
 ```
 
@@ -1353,7 +1354,7 @@ The recommended workflow for updating templates involves a 7-step process:
 {
   "action": "get",
   "template_number": 1,
-  "text_only": false
+  "return_html": true
 }
 ```
 
@@ -1369,8 +1370,8 @@ The recommended workflow for updating templates involves a 7-step process:
 ### Notes
 - Templates are stored as draft emails in the Templates folder
 - The Templates folder is automatically created if it doesn't exist
-- Use `text_only=true` for user-friendly simple text viewing
-- Use `text_only=false` when LLM needs to work with full HTML
+- Use `return_html=false` (default) for user-friendly simple text viewing
+- Use `return_html=true` when LLM needs to work with full HTML
 - When updating body, always provide the complete HTML (not partial updates)
 - Sending a template creates a copy and sends it, preserving the original template
 - The saved copy is also stored in the Templates folder for reference

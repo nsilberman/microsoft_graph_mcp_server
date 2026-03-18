@@ -190,7 +190,7 @@ class EmailHandler(BaseHandler):
         Returns text content and optionally image content for multimodal LLMs.
         """
         cache_number = arguments["cache_number"]
-        text_only = arguments.get("text_only", True)
+        return_html = arguments.get("return_html", False)
         download_attachments = arguments.get("download_attachments", False)
         download_path = arguments.get("download_path")
         attachment_names = arguments.get("attachment_names")
@@ -220,7 +220,7 @@ class EmailHandler(BaseHandler):
 
         success, email_content, error = await self._handle_auth_error(
             lambda: graph_client.get_email(
-                email_id, cache_number, text_only, download_attachments, download_path, attachment_names, multimodal_supported
+                email_id, cache_number, return_html, download_attachments, download_path, attachment_names, multimodal_supported
             ),
             "getting email content",
         )
@@ -1480,7 +1480,7 @@ class EmailHandler(BaseHandler):
     async def _handle_get_template(self, arguments: dict) -> list[types.TextContent]:
         """Handle get template action."""
         template_number = arguments["template_number"]
-        text_only = arguments.get("text_only", True)
+        return_html = arguments.get("return_html", False)
 
         template = template_cache.get_template_by_number(template_number)
 
@@ -1497,7 +1497,7 @@ class EmailHandler(BaseHandler):
             )
 
         try:
-            result = await graph_client.get_template(template_id, text_only)
+            result = await graph_client.get_template(template_id, return_html)
             return self._format_response(result)
         except Exception as e:
             error_msg = str(e)

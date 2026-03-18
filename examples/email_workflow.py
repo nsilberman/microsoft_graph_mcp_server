@@ -120,7 +120,7 @@ async def email_search_and_browse_workflow():
         "tool": "get_email_content",
         "arguments": {
             "cache_number": 1,  # ← Use number from browse results!
-            "text_only": False,  # Get full content with attachments
+            "return_html": True,  # Get full HTML content with attachments
         },
     }
 

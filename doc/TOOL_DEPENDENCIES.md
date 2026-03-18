@@ -201,16 +201,16 @@ manage_templates(action="create_from_email", cache_number=5)
 manage_templates(action="list", page_number=1)
 
 # Step 4: View as simple text (user view)
-manage_templates(action="get", template_number=1, text_only=true)
+manage_templates(action="get", template_number=1, return_html=false)
 
 # Step 5: LLM gets full HTML for editing
-manage_templates(action="get", template_number=1, text_only=false)
+manage_templates(action="get", template_number=1, return_html=true)
 
 # Step 6: LLM updates template
 manage_templates(action="update", template_number=1, htmlbody="<html>...</html>")
 
 # Step 7: User verifies changes
-manage_templates(action="get", template_number=1, text_only=true)
+manage_templates(action="get", template_number=1, return_html=false)
 
 # Step 8: Send template
 manage_templates(action="send", template_number=1, to=["recipient@example.com"])
@@ -380,12 +380,12 @@ manage_templates(action="create_from_email", cache_number=5)
 manage_templates(action="list", page_number=1)
 
 # 5. User views as simple text
-manage_templates(action="get", template_number=1, text_only=true)
+manage_templates(action="get", template_number=1, return_html=false)
 
 # 6. User provides update instructions to LLM
 
 # 7. LLM gets full HTML for editing
-manage_templates(action="get", template_number=1, text_only=false)
+manage_templates(action="get", template_number=1, return_html=true)
 
 # 8. LLM applies updates and saves
 manage_templates(
@@ -396,7 +396,7 @@ manage_templates(
 )
 
 # 9. User verifies changes
-manage_templates(action="get", template_number=1, text_only=true)
+manage_templates(action="get", template_number=1, return_html=false)
 
 # 10. Send template
 manage_templates(

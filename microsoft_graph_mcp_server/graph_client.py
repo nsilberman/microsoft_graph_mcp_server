@@ -185,7 +185,7 @@ class GraphClient:
         self,
         email_id: str,
         emailNumber: int = 0,
-        text_only: bool = True,
+        return_html: bool = False,
         download_attachments: bool = False,
         download_path: Optional[str] = None,
         attachment_names: Optional[List[str]] = None,
@@ -193,7 +193,7 @@ class GraphClient:
     ) -> Dict[str, Any]:
         """Get email by ID."""
         return await self.email_client.get_email(
-            email_id, emailNumber, text_only, download_attachments, download_path, attachment_names, multimodal_supported
+            email_id, emailNumber, return_html, download_attachments, download_path, attachment_names, multimodal_supported
         )
 
     async def search_emails(
@@ -430,10 +430,10 @@ class GraphClient:
     async def get_template(
         self,
         template_id: str,
-        text_only: bool = True,
+        return_html: bool = False,
     ) -> Dict[str, Any]:
         """Get a template by ID."""
-        return await self.email_client.get_template(template_id, text_only)
+        return await self.email_client.get_template(template_id, return_html)
 
     async def update_template(
         self,

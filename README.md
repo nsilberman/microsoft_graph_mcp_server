@@ -32,6 +32,8 @@ If this project saves you time:
 pip install -r requirements.txt
 ```
 
+> **Multimodal Support**: Image compression requires `Pillow>=10.0.0` (included in requirements.txt). If not installed, images will be returned without compression.
+
 Or:
 
 ```
@@ -152,16 +154,17 @@ Copy the system prompt to your AI assistant configuration:
 
 Your AI can:
 
-- Search emails by sender, subject, body, or natural filters  
-- **Focused Inbox support** - by default searches "focused" emails, with option to search "other" or all  
-- Open full email content including attachments  
-- **Download attachments** to workspace for LLM analysis (Excel, PDF, images, etc.)  
-- Reply, forward, and compose new messages with HTML  
-- Move, delete, archive, or bulk‑manage messages  
-- Create & update reusable email templates  
-- Browse emails with fast local caching  
-- Filter by time ranges ("today", "this week", "last 30 days")  
-- Handle folders: create, rename, delete, move  
+- Search emails by sender, subject, body, or natural filters
+- **Focused Inbox support** - by default searches "focused" emails, with option to search "other" or all
+- Open full email content including attachments
+- **Download attachments** to workspace for LLM analysis (Excel, PDF, images, etc.)
+- **Image analysis for multimodal LLMs** - View and analyze image attachments inline (screenshots, photos, diagrams)
+- Reply, forward, and compose new messages with HTML
+- Move, delete, archive, or bulk‑manage messages
+- Create & update reusable email templates
+- Browse emails with fast local caching
+- Filter by time ranges ("today", "this week", "last 30 days")
+- Handle folders: create, rename, delete, move
 
 **Example**
 
@@ -559,6 +562,67 @@ Claude can now use file reading tools to process the downloaded attachment.
 
 ---
 
+## Use Case: Analyze Image Attachments (Multimodal)
+
+Your AI can view and analyze image attachments directly when using a multimodal LLM.
+
+**Workflow**
+
+1. **Ask Claude to search emails with images**: "Find emails with image attachments"
+
+Claude will call:
+
+```json
+{
+  "tool": "search_emails",
+  "days": 7
+}
+```
+
+2. **Ask Claude to browse the results**: "Show me the emails"
+
+Claude will call:
+
+```json
+{
+  "tool": "browse_email_cache",
+  "page_number": 1,
+  "mode": "llm"
+}
+```
+
+**Returns**: Email summaries showing attachment types (e.g., `contentType: image/png`)
+
+3. **Ask Claude to view the email with images**: "Show me email number 1 with the images"
+
+Claude will call:
+
+```json
+{
+  "tool": "get_email_content",
+  "cache_number": 1,
+  "return_html": true
+}
+```
+
+**Returns**: Email content with images returned as `ImageContent` for multimodal LLMs to analyze directly.
+
+4. **Claude analyzes the images**: "What's in the screenshot?"
+
+Claude will describe what it sees in the images - screenshots, diagrams, photos, charts, etc.
+
+**Configuration** (in `.env`):
+```env
+MULTIMODAL_SUPPORTED=true
+IMAGE_MAX_SIZE_KB=50
+IMAGE_MAX_DIMENSION=1024
+IMAGE_QUALITY=75
+```
+
+**Note**: Images are automatically compressed to fit within LLM API limits.
+
+---
+
 ### User Mode Email Browsing
 
 **For human browsing** (when you want to see emails page by page):
@@ -746,7 +810,7 @@ Claude will call:
   "tool": "manage_templates",
   "action": "get",
   "template_number": 1,
-  "text_only": true
+  "return_html": false
 }
 ```
 
@@ -759,7 +823,7 @@ Claude will call:
   "tool": "manage_templates",
   "action": "get",
   "template_number": 1,
-  "text_only": false
+  "return_html": true
 }
 ```
 
@@ -822,7 +886,7 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 ### 📧 Email Management
 - **`search_emails`** - Search or list emails by sender, subject, body, or time range. Supports Focused Inbox filtering (`focused`, `other`, `all`)
 - **`browse_email_cache`** - Browse cached emails with pagination (user mode for humans, llm mode for AI analysis)
-- **`get_email_content`** - Get full email content including attachments
+- **`get_email_content`** - Get full email content including attachments. Use `return_html=true` to get full HTML body
 - **`send_email`** - Send new emails, replies, or forwards with HTML support
 - **`manage_emails`** - Move, delete, archive, flag, or categorize emails
 - **`manage_mail_folder`** - Create, rename, delete, or move email folders

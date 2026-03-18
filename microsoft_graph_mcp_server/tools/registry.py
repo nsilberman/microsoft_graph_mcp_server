@@ -237,7 +237,7 @@ class ToolRegistry:
         """Browse email cache tool definition."""
         return types.Tool(
             name="browse_email_cache",
-            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. **ATTACHMENT INFO**: Each email now includes attachment details (id, name, size, contentType) so you can see what attachments are available before downloading. **IMAGE ATTACHMENTS**: When you see image attachments (contentType starts with 'image/'), use get_email_content with text_only=false to retrieve them. You MUST then analyze the images - they often contain critical information not mentioned in text. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array (with attachments array), date_range: string, filter_date_range: string, timezone: string}.",
+            description="Browse emails in the cache with pagination. Returns summary information with number column indicating position in cache. Use page_number to navigate. Automatically manages browsing state with disk cache for persistence. WORKFLOW: Use search_emails to load emails into the cache first. **ATTACHMENT INFO**: Each email now includes attachment details (id, name, size, contentType) so you can see what attachments are available before downloading. **IMAGE ATTACHMENTS**: When you see image attachments (contentType starts with 'image/'), use get_email_content to retrieve them. Image content will be included automatically for multimodal analysis (requires MULTIMODAL_SUPPORTED=true). You MUST then analyze the images - they often contain critical information not mentioned in text. Returns: {current_page: integer, total_pages: integer, count: integer, total_count: integer, emails: array (with attachments array), date_range: string, filter_date_range: string, timezone: string}.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -314,7 +314,7 @@ class ToolRegistry:
         """Get email content tool definition."""
         return types.Tool(
             name="get_email_content",
-            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message. **ATTACHMENT DOWNLOAD**: Set download_attachments=true to download attachments to the workspace/attachments folder. Attachments are saved with their original names. Use attachment_names to download only specific attachments. **IMAGE ATTACHMENTS**: When an email has image attachments (contentType starts with 'image/'), use text_only=false to retrieve image content. **IMPORTANT**: If images appear in the response, you MUST analyze them immediately - they often contain critical information (screenshots, photos, diagrams, charts, instructions) not mentioned in the text body. Do NOT skip image analysis.",
+            description="Get full email content by cache number. Use the cache number from browse_email_cache (e.g., 1, 2, 3) to retrieve complete email with body, attachments, and all details. Returns: {success: boolean, subject: string, from: string, to: array, cc: array, bcc: array, body: string, attachments: array, sent_date: string, received_date: string}. Note: Invalid cache_number returns appropriate error message. **ATTACHMENT DOWNLOAD**: Set download_attachments=true to download attachments to the workspace/attachments folder. Attachments are saved with their original names. Use attachment_names to download only specific attachments. **IMAGE ATTACHMENTS**: When an email has image attachments (contentType starts with 'image/'), image content will be included automatically for multimodal analysis (requires MULTIMODAL_SUPPORTED=true in config). **IMPORTANT**: If images appear in the response, you MUST analyze them immediately - they often contain critical information (screenshots, photos, diagrams, charts, instructions) not mentioned in the text body. Do NOT skip image analysis.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -322,10 +322,10 @@ class ToolRegistry:
                         "type": "integer",
                         "description": "Cache number from browse_email_cache (e.g., 1, 2, 3)",
                     },
-                    "text_only": {
+                    "return_html": {
                         "type": ["boolean", "string"],
-                        "description": "If true, return only text content without embedded images and attachments. If false, return full content including embedded images and attachments.",
-                        "default": True,
+                        "description": "If true, return full HTML body. If false (default), return plain text body. Note: This only affects email body format, not image attachments.",
+                        "default": False,
                     },
                     "download_attachments": {
                         "type": "boolean",
@@ -836,7 +836,7 @@ class ToolRegistry:
         """Manage email templates tool definition."""
         return types.Tool(
             name="manage_templates",
-            description="Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. WORKFLOW: 1) User calls get with text_only=true to view simple text body, 2) User provides update instructions to LLM, 3) LLM calls get with text_only=false to retrieve full HTML, 4) LLM applies user's updates and calls update with complete updated HTML in htmlbody parameter, 5) User calls get with text_only=true to verify changes, 6) User gives command to send, 7) LLM calls send to send template (creates a copy and sends it, preserving original). Returns: {success: boolean, message: string, template_number: integer, subject: string, body: string}. Note: text_only parameter is for get action (simple text vs full HTML), htmlbody parameter is for update action (complete updated HTML).",
+            description="Manage email templates stored as drafts in a Templates folder. Templates are draft emails that can be edited and sent. WORKFLOW: 1) User calls get with return_html=false to view simple text body, 2) User provides update instructions to LLM, 3) LLM calls get with return_html=true to retrieve full HTML, 4) LLM applies user's updates and calls update with complete updated HTML in htmlbody parameter, 5) User calls get with return_html=false to verify changes, 6) User gives command to send, 7) LLM calls send to send template (creates a copy and sends it, preserving original). Returns: {success: boolean, message: string, template_number: integer, subject: string, body: string}. Note: return_html parameter is for get action (simple text vs full HTML), htmlbody parameter is for update action (complete updated HTML).",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -881,11 +881,11 @@ class ToolRegistry:
                     },
                     "htmlbody": {
                         "type": "string",
-                        "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. (2) Do NOT add newlines or whitespace between HTML block elements - keep HTML compact. (3) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (4) Only use <br> for line breaks WITHIN a paragraph. Note: When updating body, first call get with text_only=false to get the full HTML, then provide the complete updated HTML here.",
+                        "description": "Email body content in HTML format. Optional for 'update' action - if not provided, keeps existing body. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. (2) Do NOT add newlines or whitespace between HTML block elements - keep HTML compact. (3) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (4) Only use <br> for line breaks WITHIN a paragraph. Note: When updating body, first call get with return_html=true to get the full HTML, then provide the complete updated HTML here.",
                     },
-                    "text_only": {
+                    "return_html": {
                         "type": ["boolean", "string"],
-                        "description": "For 'get' action: if true, returns simple text body (default). If false, returns full HTML body. Default: true",
+                        "description": "For 'get' action: if true, returns full HTML body. If false (default), returns simple text body. Default: false",
                     },
                 },
                 "required": ["action"],

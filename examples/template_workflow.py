@@ -157,7 +157,7 @@ async def template_editing_workflow():
         "arguments": {
             "action": "get",
             "template_number": 1,
-            "text_only": True,  # ← Simple text only
+            "return_html": False,  # ← Simple text only
         },
     }
 
@@ -201,7 +201,7 @@ Marketing Team
         "arguments": {
             "action": "get",
             "template_number": 1,
-            "text_only": False,  # ← Full HTML!
+            "return_html": True,  # ← Full HTML!
         },
     }
 
@@ -303,7 +303,7 @@ Marketing Team
 
     verify_result = {
         "tool": "manage_templates",
-        "arguments": {"action": "get", "template_number": 1, "text_only": True},
+        "arguments": {"action": "get", "template_number": 1, "return_html": False},
     }
 
     print(f"Calling: {json.dumps(verify_result, indent=2)}")
@@ -393,24 +393,24 @@ async def common_mistakes_example():
     print()
 
     # ============================================
-    # MISTAKE 2: Confusing text_only with htmlbody
+    # MISTAKE 2: Confusing return_html with htmlbody
     # ============================================
-    print("❌ MISTAKE 2: Confusing text_only with htmlbody")
+    print("❌ MISTAKE 2: Confusing return_html with htmlbody")
     print("-" * 70)
 
     print("Incorrect:")
-    print("  # User view: get with text_only=true (simple text)")
-    print("  manage_templates(action='get', template_number=1, text_only=true)")
+    print("  # User view: get with return_html=false (simple text)")
+    print("  manage_templates(action='get', template_number=1, return_html=false)")
     print("  # Returns simple text body, not HTML")
     print()
 
     print("Correct:")
-    print("  # User view: get with text_only=true (simple text)")
-    print("  manage_templates(action='get', template_number=1, text_only=true)")
+    print("  # User view: get with return_html=false (simple text)")
+    print("  manage_templates(action='get', template_number=1, return_html=false)")
     print("  # Returns simple text body for user review")
     print()
-    print("  # LLM view: get with text_only=false (full HTML)")
-    print("  manage_templates(action='get', template_number=1, text_only=false)")
+    print("  # LLM view: get with return_html=true (full HTML)")
+    print("  manage_templates(action='get', template_number=1, return_html=true)")
     print("  # Returns full HTML body for LLM editing")
     print()
 
@@ -428,7 +428,7 @@ async def common_mistakes_example():
 
     print("Correct:")
     print("  1. LLM updates template")
-    print("  2. User verifies: get with text_only=true")
+    print("  2. User verifies: get with return_html=false")
     print("  3. User approves changes")
     print("  4. Send template")
     print()
