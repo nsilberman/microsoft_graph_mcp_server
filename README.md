@@ -163,7 +163,6 @@ Your AI can:
 - **Image analysis for multimodal LLMs** - View and analyze image attachments inline (screenshots, photos, diagrams)
 - Reply, forward, and compose new messages with HTML
 - Move, delete, archive, or bulk‑manage messages
-- Create & update reusable email templates
 - Browse emails with fast local caching
 - Filter by time ranges ("today", "this week", "last 30 days")
 - Handle folders: create, rename, delete, move
@@ -791,64 +790,6 @@ Claude will call:
 
 ---
 
-### Template Workflow (Super Useful for Repeated Messages)
-
-> ⚠️ **Experimental** — This feature is still being tested.
-
-1. **Ask Claude to get a template**: "Get template number 1 as text only"
-
-Claude will call:
-
-```json
-{
-  "tool": "manage_templates",
-  "action": "get",
-  "template_number": 1,
-  "return_html": false
-}
-```
-
-2. **Ask Claude to get a template with HTML**: "Get template number 1 with HTML"
-
-Claude will call:
-
-```json
-{
-  "tool": "manage_templates",
-  "action": "get",
-  "template_number": 1,
-  "return_html": true
-}
-```
-
-3. **Ask Claude to update a template**: "Update template number 1 with new content"
-
-Claude will call:
-
-```json
-{
-  "tool": "manage_templates",
-  "action": "update",
-  "template_number": 1,
-  "htmlbody": "<html>...</html>"
-}
-```
-
-4. **Ask Claude to send a template**: "Send template number 1 to john@example.com"
-
-Claude will call:
-
-```json
-{
-  "tool": "manage_templates",
-  "action": "send",
-  "template_number": 1,
-  "to": ["john@example.com"]
-}
-```
-
----
-
 ---
 
 ## 🙌 Want to Support the Project?
@@ -873,7 +814,6 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 - **`send_email`** - Send new emails, replies, or forwards with HTML support
 - **`manage_emails`** - Move, delete, archive, flag, or categorize emails
 - **`manage_mail_folder`** - Create, rename, delete, or move email folders
-- **`manage_templates`** - Manage reusable email templates (experimental)
 
 ### 📅 Calendar Management
 - **`search_events`** - Search or list calendar events by subject or organizer
