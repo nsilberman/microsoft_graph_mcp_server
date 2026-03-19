@@ -11,6 +11,80 @@ logger = logging.getLogger(__name__)
 class DateHandler:
     """Centralized date and timezone handling for the application."""
 
+    @staticmethod
+    def normalize_iso_datetime(datetime_str: str) -> str:
+        """Normalize ISO datetime string for Python compatibility.
+
+        Microsoft Graph API returns datetime strings with 7 decimal places (100-nanosecond precision),
+        but Python's datetime.fromisoformat() only supports up to 6 decimal places (microseconds).
+        This method truncates excess decimal places and ensures proper timezone suffix.
+
+        Args:
+            datetime_str: ISO datetime string (possibly with 7 decimal places)
+
+        Returns:
+            Normalized ISO datetime string compatible with datetime.fromisoformat()
+        """
+        if not datetime_str:
+            return datetime_str
+
+        # Check for fractional seconds (e.g., "2026-03-20T00:00:00.0000000")
+        if "." in datetime_str:
+            # Split into date-time and fractional parts
+            base_and_fraction, tz_part = datetime_str, ""
+
+            # Handle timezone suffix (Z, +HH:MM, -HH:MM, or nothing)
+            # Check for Z suffix
+            if "Z" in datetime_str:
+                parts = datetime_str.rsplit("Z", 1)
+                base_and_fraction = parts[0]
+                tz_part = "Z"
+            # Check for +/- timezone offset
+            elif "+" in datetime_str.split("T")[-1] if "T" in datetime_str else False:
+                parts = datetime_str.rsplit("+", 1)
+                base_and_fraction = parts[0]
+                tz_part = "+" + parts[1]
+            elif "-" in datetime_str.split("T")[-1] if "T" in datetime_str else False:
+                # Find timezone offset (not part of date)
+                t_part = datetime_str.split("T")[-1]
+                # Look for timezone offset (starts with - after the time)
+                if t_part.count("-") > 0:
+                    idx = datetime_str.rfind("-")
+                    # Check if this looks like a timezone offset (HH:MM pattern at end)
+                    suffix = datetime_str[idx:]
+                    if ":" in suffix and len(suffix) <= 7:  # e.g., "-08:00"
+                        base_and_fraction = datetime_str[:idx]
+                        tz_part = suffix
+                    else:
+                        # Might be part of date (invalid), keep as-is
+                        base_and_fraction = datetime_str
+                        tz_part = ""
+
+            # Split base and fraction
+            if "." in base_and_fraction:
+                base, fraction = base_and_fraction.split(".", 1)
+                # Truncate to 6 decimal places (microseconds)
+                fraction = fraction[:6]
+                # Reconstruct with proper timezone
+                if tz_part == "Z":
+                    return f"{base}.{fraction}+00:00"
+                elif tz_part.startswith("+") or tz_part.startswith("-"):
+                    return f"{base}.{fraction}{tz_part}"
+                else:
+                    # No timezone, add UTC
+                    return f"{base}.{fraction}+00:00"
+
+        # No fractional seconds - handle timezone
+        if "Z" in datetime_str:
+            return datetime_str.replace("Z", "+00:00")
+        elif "+" in datetime_str.split("T")[-1] if "T" in datetime_str else False:
+            return datetime_str
+        elif "-" in datetime_str.split("T")[-1] if "T" in datetime_str else False:
+            return datetime_str
+        else:
+            # No timezone info, assume UTC
+            return datetime_str + "+00:00"
+
     WINDOWS_TO_IANA_TIMEZONES = {
         "China Standard Time": "Asia/Shanghai",
         "Pacific Standard Time": "America/Los_Angeles",
@@ -89,7 +163,9 @@ class DateHandler:
             return ""
 
         try:
-            dt = datetime.fromisoformat(utc_datetime.replace("Z", "+00:00"))
+            # Normalize the datetime string for Python compatibility (handles 7-digit fractional seconds)
+            normalized = DateHandler.normalize_iso_datetime(utc_datetime)
+            dt = datetime.fromisoformat(normalized)
 
             # If the datetime is naive (no timezone info), assume it's UTC
             if dt.tzinfo is None:
@@ -99,6 +175,7 @@ class DateHandler:
             dt_converted = dt.astimezone(user_tz)
             return dt_converted.strftime(format_str)
         except Exception as e:
+            logger.error(f"Error converting datetime '{utc_datetime}': {e}")
             return utc_datetime
 
     @staticmethod
@@ -121,10 +198,18 @@ class DateHandler:
             return ""
 
         try:
-            dt = datetime.fromisoformat(utc_datetime.replace("Z", "+00:00"))
+            # Normalize the datetime string for Python compatibility (handles 7-digit fractional seconds)
+            normalized = DateHandler.normalize_iso_datetime(utc_datetime)
+            dt = datetime.fromisoformat(normalized)
+
+            # If the datetime is naive (no timezone info), assume it's UTC
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+
             dt_converted = dt.astimezone(timezone_obj)
             return dt_converted.strftime(format_str)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error converting datetime '{utc_datetime}': {e}")
             return utc_datetime
 
     @staticmethod

@@ -272,6 +272,8 @@ class EventBrowsingCache:
             "isOnlineMeeting": event.get("isOnlineMeeting", False),
             "webLink": event.get("webLink", ""),
             "recurrence": event.get("recurrence", False),
+            "status": event.get("status", {}),
+            "isCancelled": event.get("isCancelled", False),
         }
 
         state["metadata"].append(event_metadata)
@@ -303,6 +305,8 @@ class EventBrowsingCache:
                     "isOnlineMeeting": event.get("isOnlineMeeting", cached_event.get("isOnlineMeeting", False)),
                     "webLink": event.get("webLink", cached_event.get("webLink", "")),
                     "recurrence": event.get("recurrence", cached_event.get("recurrence", False)),
+                    "status": event.get("status", cached_event.get("status", {})),
+                    "isCancelled": event.get("isCancelled", cached_event.get("isCancelled", False)),
                 })
                 await self._save_cache()
                 return

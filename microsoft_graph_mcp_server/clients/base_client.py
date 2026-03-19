@@ -26,6 +26,11 @@ class RateLimitError(Exception):
 class BaseGraphClient:
     """Base client for Microsoft Graph API operations."""
 
+    # Class-level cache for user timezone (shared across all instances)
+    _user_timezone_cache: Optional[str] = None
+    _user_timezone_cache_time: Optional[float] = None
+    _TIMEZONE_CACHE_TTL = 3600  # 1 hour cache TTL
+
     def __init__(self):
         self.base_url = settings.graph_api_base_url
         self.timeout = 30.0
@@ -152,13 +157,58 @@ class BaseGraphClient:
         return await self._make_request("DELETE", endpoint)
 
     async def get_user_timezone(self) -> str:
-        """Get user's timezone identifier. Uses server local timezone."""
+        """Get user's timezone identifier from Microsoft Graph mailbox settings.
+
+        First attempts to get timezone from Graph API mailbox settings.
+        Falls back to config setting or system timezone if unavailable.
+        Uses a class-level cache to avoid repeated API calls.
+        """
+        # Check cache first
+        current_time = time.time()
+        if (BaseGraphClient._user_timezone_cache is not None and
+            BaseGraphClient._user_timezone_cache_time is not None and
+            current_time - BaseGraphClient._user_timezone_cache_time < BaseGraphClient._TIMEZONE_CACHE_TTL):
+            return BaseGraphClient._user_timezone_cache
+
+        # Try to get timezone from Graph API mailbox settings
+        try:
+            params = {"$select": "mailboxSettings"}
+            result = await self.get("/me", params=params)
+            mailbox_settings = result.get("mailboxSettings", {})
+            timezone = mailbox_settings.get("timeZone")
+            if timezone:
+                iana_tz = date_handler.convert_to_iana_timezone(timezone)
+                logger.info(f"Retrieved timezone from Graph API: {timezone} -> {iana_tz}")
+                # Update cache
+                BaseGraphClient._user_timezone_cache = iana_tz
+                BaseGraphClient._user_timezone_cache_time = current_time
+                return iana_tz
+        except Exception as e:
+            logger.warning(f"Failed to get timezone from Graph API: {e}")
+
+        # Fall back to config setting
+        user_tz = date_handler.convert_to_iana_timezone(settings.user_timezone)
+        if user_tz != "UTC":
+            logger.info(f"Using USER_TIMEZONE setting: {settings.user_timezone} -> {user_tz}")
+            BaseGraphClient._user_timezone_cache = user_tz
+            BaseGraphClient._user_timezone_cache_time = current_time
+            return user_tz
+
+        # Final fallback to system timezone
         try:
             local_tz = datetime.now().astimezone().tzinfo
             if local_tz:
                 tz_str = str(local_tz)
                 if tz_str and tz_str != "UTC":
-                    return date_handler.convert_to_iana_timezone(tz_str)
+                    system_tz = date_handler.convert_to_iana_timezone(tz_str)
+                    logger.info(f"Using system timezone as fallback: {system_tz}")
+                    BaseGraphClient._user_timezone_cache = system_tz
+                    BaseGraphClient._user_timezone_cache_time = current_time
+                    return system_tz
         except Exception:
             pass
-        return date_handler.convert_to_iana_timezone(settings.user_timezone)
+
+        # Ultimate fallback
+        BaseGraphClient._user_timezone_cache = "UTC"
+        BaseGraphClient._user_timezone_cache_time = current_time
+        return "UTC"

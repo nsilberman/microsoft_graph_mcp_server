@@ -259,6 +259,8 @@ class CalendarHandler(BaseHandler):
                 "attendees": len(attendees_list),
                 "attendees_list": attendees_display,
                 "isAllDay": event.get("isAllDay", False),
+                "isCancelled": event.get("isCancelled", False),
+                "status": event.get("status", {}),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
@@ -399,11 +401,11 @@ class CalendarHandler(BaseHandler):
             )
             # Convert local timezone dates to UTC for API call
             # parse_date_range returns timezone-aware ISO strings, parse and convert to UTC
-            from datetime import datetime
             from zoneinfo import ZoneInfo
 
-            start_dt = datetime.fromisoformat(start_date_local)
-            end_dt = datetime.fromisoformat(end_date_local)
+            # Normalize ISO strings for Python compatibility (handles 7-digit fractional seconds)
+            start_dt = datetime.fromisoformat(DateHandler.normalize_iso_datetime(start_date_local))
+            end_dt = datetime.fromisoformat(DateHandler.normalize_iso_datetime(end_date_local))
             start_date = start_dt.astimezone(ZoneInfo("UTC")).isoformat().replace("+00:00", "Z")
             end_date = end_dt.astimezone(ZoneInfo("UTC")).isoformat().replace("+00:00", "Z")
         else:
@@ -421,9 +423,9 @@ class CalendarHandler(BaseHandler):
                 )
 
             if start_date and end_date and start_date == end_date:
-                from datetime import datetime, timedelta
+                from datetime import timedelta
 
-                end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+                end_dt = datetime.fromisoformat(DateHandler.normalize_iso_datetime(end_date))
                 end_dt = end_dt + timedelta(days=1)
                 end_date = end_dt.isoformat().replace("+00:00", "Z")
 
@@ -1290,7 +1292,7 @@ class CalendarHandler(BaseHandler):
         from datetime import timedelta
 
         proposed_end_time_utc = (
-            datetime.fromisoformat(proposed_time_utc.replace("Z", "+00:00"))
+            datetime.fromisoformat(DateHandler.normalize_iso_datetime(proposed_time_utc))
             + timedelta(hours=1)
         ).strftime("%Y-%m-%dT%H:%M:%S")
 
@@ -1854,14 +1856,18 @@ class CalendarHandler(BaseHandler):
                         item_end = item.get("end", {}).get("dateTime", "")
 
                         try:
-                            item_start_clean = item_start.split(".")[0]
-                            item_end_clean = item_end.split(".")[0]
+                            # Normalize ISO datetime for Python compatibility
                             item_start_dt = datetime.fromisoformat(
-                                item_start_clean
-                            ).replace(tzinfo=ZoneInfo("UTC"))
+                                DateHandler.normalize_iso_datetime(item_start)
+                            )
                             item_end_dt = datetime.fromisoformat(
-                                item_end_clean
-                            ).replace(tzinfo=ZoneInfo("UTC"))
+                                DateHandler.normalize_iso_datetime(item_end)
+                            )
+                            # Ensure UTC timezone
+                            if item_start_dt.tzinfo is None:
+                                item_start_dt = item_start_dt.replace(tzinfo=ZoneInfo("UTC"))
+                            if item_end_dt.tzinfo is None:
+                                item_end_dt = item_end_dt.replace(tzinfo=ZoneInfo("UTC"))
 
                             if attendee_timezone_found and attendee_timezone:
                                 attendee_tz = ZoneInfo(

@@ -29,7 +29,7 @@ class CalendarClient(BaseGraphClient):
         params = {
             "$top": top,
             "$skip": skip,
-            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,onlineMeeting",
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,onlineMeeting,responseStatus,isCancelled",
         }
 
         if start_date and end_date:
@@ -95,6 +95,8 @@ class CalendarClient(BaseGraphClient):
                 },
                 "attendees": len(event.get("attendees", [])),
                 "isAllDay": event.get("isAllDay", False),
+                "isCancelled": event.get("isCancelled", False),
+                "status": self._format_event_status(event),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "meetingType": meeting_type,
@@ -166,18 +168,18 @@ class CalendarClient(BaseGraphClient):
                 # Parse dates for comparison
                 from datetime import datetime
                 try:
-                    # Ensure UTC format
+                    # Ensure UTC format (normalize for 7-digit fractional seconds from Graph API)
                     event_start_dt = datetime.fromisoformat(
-                        event_start.replace("Z", "+00:00") if "Z" in event_start else event_start + "+00:00"
+                        date_handler.normalize_iso_datetime(event_start)
                     )
                     event_end_dt = datetime.fromisoformat(
-                        event_end.replace("Z", "+00:00") if "Z" in event_end else event_end + "+00:00"
+                        date_handler.normalize_iso_datetime(event_end)
                     )
                     check_start_dt = datetime.fromisoformat(
-                        start_date.replace("Z", "+00:00") if "Z" in start_date else start_date + "+00:00"
+                        date_handler.normalize_iso_datetime(start_date)
                     )
                     check_end_dt = datetime.fromisoformat(
-                        end_date.replace("Z", "+00:00") if "Z" in end_date else end_date + "+00:00"
+                        date_handler.normalize_iso_datetime(end_date)
                     )
 
                     # Check for overlap: event starts before check ends AND event ends after check starts
@@ -297,7 +299,7 @@ class CalendarClient(BaseGraphClient):
 
         params = {
             "$top": top,
-            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting,seriesMasterId",
+            "$select": "id,subject,start,end,location,organizer,attendees,isAllDay,showAs,importance,type,recurrence,responseStatus,sensitivity,onlineMeeting,seriesMasterId,isCancelled",
         }
 
         # Always use calendarView with a date range for better performance
@@ -350,11 +352,9 @@ class CalendarClient(BaseGraphClient):
 
             try:
                 # Ensure timezone-aware datetime objects for range
-                start_str = start_date.replace("Z", "+00:00") if "Z" in start_date else start_date + "+00:00"
-                end_str = end_date.replace("Z", "+00:00") if "Z" in end_date else end_date + "+00:00"
-
-                start_dt = datetime.fromisoformat(start_str)
-                end_dt = datetime.fromisoformat(end_str)
+                # Normalize for 7-digit fractional seconds from Graph API
+                start_dt = datetime.fromisoformat(date_handler.normalize_iso_datetime(start_date))
+                end_dt = datetime.fromisoformat(date_handler.normalize_iso_datetime(end_date))
 
                 filtered_events = []
                 # Get user timezone object for local time conversion
@@ -370,11 +370,13 @@ class CalendarClient(BaseGraphClient):
                         if event_start and event_end:
                             try:
                                 # Ensure timezone-aware datetime objects for event dates (in UTC)
-                                event_start_str = event_start.replace("Z", "+00:00") if "Z" in event_start else event_start + "+00:00"
-                                event_end_str = event_end.replace("Z", "+00:00") if "Z" in event_end else event_end + "+00:00"
-
-                                event_start_dt = datetime.fromisoformat(event_start_str)
-                                event_end_dt = datetime.fromisoformat(event_end_str)
+                                # Normalize for 7-digit fractional seconds from Graph API
+                                event_start_dt = datetime.fromisoformat(
+                                    date_handler.normalize_iso_datetime(event_start)
+                                )
+                                event_end_dt = datetime.fromisoformat(
+                                    date_handler.normalize_iso_datetime(event_end)
+                                )
 
                                 # Convert event dates to user timezone for filtering
                                 event_start_local = event_start_dt.astimezone(user_tz)
@@ -514,10 +516,10 @@ class CalendarClient(BaseGraphClient):
                 "end_datetime": end_datetime,
                 "start": date_handler.convert_utc_to_user_timezone(
                     start_datetime, user_timezone_str
-                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(start_datetime.replace('Z', '+00:00')).strftime('%a %m/%d/%Y')} 12:00 AM",
+                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(date_handler.normalize_iso_datetime(start_datetime)).strftime('%a %m/%d/%Y')} 12:00 AM",
                 "end": date_handler.convert_utc_to_user_timezone(
                     end_datetime, user_timezone_str
-                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(end_datetime.replace('Z', '+00:00')).strftime('%a %m/%d/%Y')} 12:00 AM",
+                ) if not event.get("isAllDay", False) else f"{datetime.fromisoformat(date_handler.normalize_iso_datetime(end_datetime)).strftime('%a %m/%d/%Y')} 12:00 AM",
                 "location": event.get("location", {}).get("displayName", ""),
                 "organizer": {
                     "name": event.get("organizer", {})
@@ -530,6 +532,8 @@ class CalendarClient(BaseGraphClient):
                 "attendees": len(event.get("attendees", [])),
                 "attendees_list": event.get("attendees", []),
                 "isAllDay": event.get("isAllDay", False),
+                "isCancelled": event.get("isCancelled", False),
+                "status": self._format_event_status(event),
                 "showAs": event.get("showAs", ""),
                 "importance": event.get("importance", "normal"),
                 "type": event.get("type", "singleInstance"),
@@ -557,6 +561,37 @@ class CalendarClient(BaseGraphClient):
             "count": len(summaries),
             "timezone": user_timezone_str,
         }
+
+    def _format_event_status(self, event: dict) -> dict:
+        """Format event status for display.
+
+        Args:
+            event: Event object from Graph API
+
+        Returns:
+            Dictionary with status code and display text (English only)
+        """
+        # Check if cancelled first
+        if event.get("isCancelled", False):
+            return {
+                "code": "cancelled",
+                "display": "❌ Cancelled",
+            }
+
+        # Get response status for events where user is attendee
+        response = event.get("responseStatus", {}).get("response", "none")
+
+        # Map response status to display text (English only)
+        status_map = {
+            "none": {"code": "none", "display": "Not Responded"},
+            "organizer": {"code": "organizer", "display": "Organizer"},
+            "accepted": {"code": "accepted", "display": "✓ Accepted"},
+            "declined": {"code": "declined", "display": "✗ Declined"},
+            "tentativelyAccepted": {"code": "tentative", "display": "? Tentative"},
+            "notResponded": {"code": "notResponded", "display": "Not Responded"},
+        }
+
+        return status_map.get(response, {"code": "unknown", "display": "Unknown"})
 
     def _format_recurrence_info(self, recurrence: dict, timezone_str: str) -> dict:
         """Format recurrence information for display.
