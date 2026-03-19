@@ -79,7 +79,9 @@ Choose one of the following configuration methods:
 }
 ```
 
-> **Note**: When using `uvx`, you need to reinstall after code changes. Use `uv tool install <path> --force` to update.
+> **Note**: 
+> - First time or after code changes, run: `uv tool install --force <path-to-your-local-repo>`
+> - `uvx` caches the package, so you need to reinstall to pick up code updates
 
 #### Method 3: Using `python -m`
 
