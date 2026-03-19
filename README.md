@@ -2,7 +2,7 @@
 
 A beautifully simple way to give your AI assistant **superpowers inside Microsoft 365**.
 
-This project turns Microsoft Graph into an easy‑to‑use MCP server — so Claude, your custom agents, or any MCP client can instantly work with your **Email, Calendar, Contacts, OneDrive, and Teams**.
+This project turns Microsoft Graph into an easy‑to‑use MCP server — so Claude, your custom agents, or any MCP client can instantly work with your **Email, Calendar, and Contacts**.
 
 No Azure setup. No Graph API knowledge. Just install → sign in → your AI becomes a Microsoft 365 power user.
 
@@ -13,7 +13,7 @@ No Azure setup. No Graph API knowledge. Just install → sign in → your AI bec
 - Your AI can read, search, reply to, and organize email naturally
 - **Batch email operations** — delete or archive multiple emails in ONE call (no more one-by-one!)  
 - It understands and manages your calendar with real availability checks  
-- It handles contacts, Teams, and OneDrive with simple MCP tools  
+- It handles contacts with simple MCP tools  
 - It works securely using Microsoft's device login — no secrets, no risk  
 - It just works on local machines with zero configuration  
 
@@ -240,14 +240,6 @@ Your AI can:
 ```
 
 ---
-
-### 📁 OneDrive & Teams (Growing Fast)
-
-- List OneDrive files and folders  
-- Get Teams you belong to  
-- Get channels inside any Team  
-
-More workflows planned — contributors welcome!
 
 ---
 
@@ -855,17 +847,6 @@ Claude will call:
 
 ---
 
-### OneDrive & Teams (Experimental)
-
-> ⚠️ **Experimental** — This feature is still being tested.
-
-```json
-{
-  "tool": "list_files",
-  "folder_path": "/Documents"
-}
-```
-
 ---
 
 ## 🙌 Want to Support the Project?
@@ -903,10 +884,7 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 ### 👥 People & Contacts
 - **`search_contacts`** - Find people in your organization by name or email
 
-### 📁 Files & Teams (Experimental)
-- **`list_files`** - Browse files and folders in OneDrive
-- **`get_teams`** - Get list of Microsoft Teams you're a member of
-- **`get_team_channels`** - Get channels for a specific Team
+
 
 ### 🔑 Key Workflow Patterns
 

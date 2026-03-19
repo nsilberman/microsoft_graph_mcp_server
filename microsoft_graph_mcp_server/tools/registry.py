@@ -28,9 +28,9 @@ class ToolRegistry:
             ToolRegistry.check_attendee_availability(),
             ToolRegistry.manage_event_as_organizer(),
             ToolRegistry.manage_event_as_attendee(),
-            ToolRegistry.list_files(),
-            ToolRegistry.get_teams(),
-            ToolRegistry.get_team_channels(),
+            # ToolRegistry.list_files(),  # Disabled: OneDrive not needed
+            # ToolRegistry.get_teams(),  # Disabled: Teams not needed
+            # ToolRegistry.get_team_channels(),  # Disabled: Teams not needed
             ToolRegistry.manage_templates(),
         ]
 

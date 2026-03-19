@@ -351,8 +351,6 @@ After successful setup, you can use all Microsoft Graph tools:
 
 - **Email**: Read, send, search, and manage emails
 - **Calendar**: View, create, and manage events
-- **Files**: Access OneDrive files and folders
-- **Teams**: View teams and channels
 - **Contacts**: Search contacts and people
 
 ---

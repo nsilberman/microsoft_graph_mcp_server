@@ -516,9 +516,6 @@ get_email_content(cache_number=5)  # Must be a number from the 'number' field in
 - `user_settings`: Initialize or update user settings
 
 ### Other Tools
-- `list_files`: List OneDrive files and folders
-- `get_teams`: List Microsoft Teams
-- `get_team_channels`: Get channels for a team
 - `manage_templates`: Create, edit, send email templates
 - `auth`: Authentication management
 
