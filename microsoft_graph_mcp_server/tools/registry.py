@@ -31,7 +31,7 @@ class ToolRegistry:
             # ToolRegistry.list_files(),  # Disabled: OneDrive not needed
             # ToolRegistry.get_teams(),  # Disabled: Teams not needed
             # ToolRegistry.get_team_channels(),  # Disabled: Teams not needed
-            ToolRegistry.manage_templates(),
+            # ToolRegistry.manage_templates(),  # Disabled: Templates not needed
         ]
 
     @staticmethod
