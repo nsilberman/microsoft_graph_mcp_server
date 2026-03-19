@@ -39,7 +39,7 @@ class ToolRegistry:
         """User settings tool definition."""
         return types.Tool(
             name="user_settings",
-            description="Manage user settings with two actions: 'init' to initialize settings when configuration is missing or corrupted (requires multimodal_supported parameter to indicate if LLM supports image processing), 'update' to update one or more settings (supports partial updates). Note: Both actions require login - user_info and settings will only be returned when authenticated. MULTIMODAL DETECTION: If you are a multimodal LLM that can process images, please set multimodal_supported=true when calling init or update.",
+            description="Manage user settings with two actions: 'init' to initialize settings when configuration is missing or corrupted (requires multimodal_supported parameter to indicate if LLM supports image processing), 'update' to update one or more settings (supports partial updates). Note: 'init' action attempts to get user timezone from Graph API if authenticated, but works without login. 'update' action is purely local and requires no authentication. MULTIMODAL DETECTION: If you are a multimodal LLM that can process images, please set multimodal_supported=true when calling init or update.",
             inputSchema={
                 "type": "object",
                 "properties": {

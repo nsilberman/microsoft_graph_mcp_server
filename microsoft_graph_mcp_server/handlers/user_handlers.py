@@ -24,7 +24,9 @@ class UserHandler(BaseHandler):
         
         init: Initialize settings when configuration is missing or corrupted.
               Requires multimodal_supported parameter to indicate LLM capability.
+              Calls Graph API to get user timezone if authenticated.
         update: Update one or more settings (partial update supported).
+              Purely local operation, no API calls required.
         """
         action = arguments.get("action")
 
@@ -37,18 +39,22 @@ class UserHandler(BaseHandler):
             return self._format_response(result)
 
         try:
-            status_info = await auth_manager.check_status()
-
-            if not status_info.get("authenticated", False):
-                result = {
-                    "status": "error",
-                    "action": action,
-                    "message": "Not authenticated. Please call the login tool first to access user settings.",
-                }
-                return self._format_response(result)
-
-            user_info = await graph_client.get_me()
-            user_timezone = await graph_client.get_user_timezone()
+            # For 'init', try to get user info and timezone from Graph API
+            # For 'update', this is a purely local operation - no API calls needed
+            user_info = None
+            user_timezone = None
+            
+            if action == "init":
+                status_info = await auth_manager.check_status()
+                if status_info.get("authenticated", False):
+                    try:
+                        user_info = await graph_client.get_me()
+                        user_timezone = await graph_client.get_user_timezone()
+                    except Exception:
+                        # If API fails, use default timezone
+                        user_timezone = "UTC"
+                else:
+                    user_timezone = "UTC"
 
             env_path = Path(__file__).parent.parent.parent / ".env"
 
@@ -70,11 +76,12 @@ class UserHandler(BaseHandler):
 
             for line in lines:
                 if line.startswith("USER_TIMEZONE="):
-                    if action == "init":
+                    if action == "init" and user_timezone:
                         updated_lines.append(f"USER_TIMEZONE={user_timezone}")
                     else:
                         # Keep existing or update if provided
-                        tz = arguments.get("timezone", line.split("=", 1)[1] if "=" in line else user_timezone)
+                        existing_tz = line.split("=", 1)[1] if "=" in line else "UTC"
+                        tz = arguments.get("timezone", existing_tz)
                         updated_lines.append(f"USER_TIMEZONE={tz}")
                     timezone_updated = True
                 elif line.startswith("PAGE_SIZE="):
@@ -112,7 +119,8 @@ class UserHandler(BaseHandler):
 
             # Add missing settings
             if not timezone_updated:
-                updated_lines.append(f"USER_TIMEZONE={user_timezone}")
+                tz = user_timezone if user_timezone else "UTC"
+                updated_lines.append(f"USER_TIMEZONE={tz}")
             if not page_size_updated:
                 default_page_size = arguments.get("page_size", 5) if action == "update" else 5
                 updated_lines.append(f"PAGE_SIZE={default_page_size}")
@@ -161,14 +169,17 @@ class UserHandler(BaseHandler):
                 "status": "success",
                 "message": message,
                 "action": action,
-                "user_info": {
+                "settings": result_settings,
+            }
+            
+            # Only include user_info if we have it (from init action)
+            if user_info:
+                result["user_info"] = {
                     "display_name": user_info.get("displayName"),
                     "email": user_info.get("mail")
                     or user_info.get("userPrincipalName"),
                     "timezone": user_timezone,
-                },
-                "settings": result_settings,
-            }
+                }
 
             return self._format_response(result)
         except Exception as e:
