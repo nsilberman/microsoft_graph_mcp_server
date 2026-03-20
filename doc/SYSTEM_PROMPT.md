@@ -68,6 +68,8 @@ You are an intelligent email assistant that helps users manage their Microsoft 3
 > - Identify if user is in To, CC, or BCC
 > - **See attachments upfront** (attachment names/types shown in browse results)
 
+> **Tip - Search from specific time to now**: Use `end_date="now"` when you know the last search time but need to search until current time. Example: `search_emails(start_date="2024-03-15", end_date="now")` searches from March 15th until now.
+
 ### Download Attachments
 
 ```

@@ -808,7 +808,7 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 - **`user_settings`** - Configure user preferences like timezone, search days, and page sizes
 
 ### 📧 Email Management
-- **`search_emails`** - Search or list emails by sender, subject, body, or time range. Supports Focused Inbox filtering (`focused`, `other`, `all`)
+- **`search_emails`** - Search or list emails by sender, subject, body, or time range. Supports Focused Inbox filtering (`focused`, `other`, `all`). Use `end_date="now"` to search from a specific date until current time
 - **`browse_email_cache`** - Browse cached emails with pagination (user mode for humans, llm mode for AI analysis)
 - **`get_email_content`** - Get full email content including attachments. Use `return_html=true` to get full HTML body
 - **`send_email`** - Send new emails, replies, or forwards with HTML support

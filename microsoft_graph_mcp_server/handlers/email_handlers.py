@@ -1,5 +1,7 @@
 """Email handlers for MCP tools."""
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Optional, List
 import mcp.types as types
 from .base import BaseHandler
@@ -135,10 +137,17 @@ class EmailHandler(BaseHandler):
                     start_date, user_timezone
                 )
             if end_date:
-                end_date = date_handler.parse_local_date_to_utc(end_date, user_timezone)
-                end_date_display = date_handler.format_date_with_weekday(
-                    end_date, user_timezone
-                )
+                # Handle special value "now" - use current time
+                if end_date.lower() == "now":
+                    end_date = datetime.now(ZoneInfo(user_timezone)).strftime("%Y-%m-%dT%H:%M:%S")
+                    end_date_display = date_handler.format_date_with_weekday(
+                        end_date, user_timezone
+                    )
+                else:
+                    end_date = date_handler.parse_local_date_to_utc(end_date, user_timezone)
+                    end_date_display = date_handler.format_date_with_weekday(
+                        end_date, user_timezone
+                    )
 
         success, result, error = await self._handle_auth_error(
             lambda: graph_client.search_emails(

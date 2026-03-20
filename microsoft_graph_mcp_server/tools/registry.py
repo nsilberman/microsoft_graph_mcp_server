@@ -292,7 +292,7 @@ class ToolRegistry:
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59'). Overridden by time_range if both are provided. **NO DATE RANGE LIMIT**: Unlike 'days' parameter, end_date has no restriction - use this to search old emails beyond the default 90-day limit.",
+                        "description": "End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59'). Overridden by time_range if both are provided. **NO DATE RANGE LIMIT**: Unlike 'days' parameter, end_date has no restriction - use this to search old emails beyond the default 90-day limit. **SPECIAL VALUE**: Use 'now' to search from start_date until current time (e.g., start_date='2024-01-01', end_date='now' searches from Jan 1 to now).",
                     },
                     "time_range": {
                         "type": "string",

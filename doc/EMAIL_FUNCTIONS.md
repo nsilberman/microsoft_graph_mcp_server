@@ -62,6 +62,14 @@ The search function uses optimized server-side filtering with Microsoft Graph AP
   - Default: 90 (configurable via `DEFAULT_SEARCH_DAYS` environment variable)
   - Maximum: 90 (configurable via `MAX_SEARCH_DAYS` environment variable)
   - Set to `null` to search all emails (not recommended for large mailboxes)
+- `start_date` (optional, string): Start date in your local timezone (e.g., '2024-01-01' or '2024-01-01T14:30')
+  - No date range limit - use this to search old emails beyond the default 90-day limit
+- `end_date` (optional, string): End date in your local timezone (e.g., '2024-12-31' or '2024-12-31T23:59')
+  - No date range limit - use this to search old emails beyond the default 90-day limit
+  - **Special value**: Use `"now"` to search from start_date until current time (e.g., `start_date='2024-01-01', end_date='now'`)
+- `time_range` (optional, string): Time range type (case-insensitive)
+  - Values: 'today', 'tomorrow', 'this_week', 'next_week', 'this_month', 'next_month'
+  - Highest priority: overrides start_date, end_date, and days
 
 ### Returns
 
@@ -142,6 +150,12 @@ result = await search_emails(search_type="sender", query="john@example.com", day
 # Search "other" emails (less important, shown in Other tab in Outlook)
 result = await search_emails(search_type="subject", query="newsletter", inference_classification="other")
 
+# Search from a specific date to now (useful when LLM knows last search time but not current time)
+result = await search_emails(start_date="2024-03-15", end_date="now")
+
+# Search from January 1st to now
+result = await search_emails(start_date="2024-01-01", end_date="now")
+
 # Search both focused and other emails
 result = await search_emails(search_type="subject", query="meeting", inference_classification="all")
 ```
@@ -164,6 +178,7 @@ MAX_SEARCH_DAYS=90       # Maximum allowed search range
 - When no search_type and query are provided, lists recent emails from Inbox with a maximum of 7 days
 - Subject and body searches use exact substring matching (contains) for precise results, while sender searches use fuzzy matching
 - **Focused Inbox**: By default, searches only "focused" emails (Outlook's Focused Inbox). Use `inference_classification="other"` to search "other" emails, or `inference_classification="all"` to search both. This filter only applies to the Inbox folder.
+- **`end_date="now"`**: Use this special value when you need to search from a specific date to the current time. This is useful when the LLM knows the last search time but doesn't know the current time. Example: `start_date='2024-03-15', end_date='now'` searches from March 15th until now.
 
 ---
 
