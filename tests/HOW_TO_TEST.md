@@ -118,16 +118,17 @@ quick_test.bat
 2. 输入用户代码
 3. 登录 Microsoft 账户
 
-### 步骤 4：再次检查状态
+### 步骤 4：完成认证
 
 运行测试脚本或使用 MCP 工具：
 
 ```json
 {
-  "action": "check_status",
-  "device_code": "从步骤 2 获得的设备代码"
+  "action": "complete"
 }
 ```
+
+注意：device_code 会自动从磁盘加载，无需手动传递。
 
 ## 日志示例
 

@@ -4,7 +4,7 @@ Microsoft Graph MCP Server - Examples Directory
 This directory contains practical usage examples for common workflows.
 
 Examples:
-- auth_workflow.py: Complete authentication flow (login, complete_login, extend_token, logout)
+- auth_workflow.py: Complete authentication flow (start, complete, refresh, logout)
 - email_workflow.py: Email operations (search, browse, read, reply, forward, move, delete)
 - calendar_workflow.py: Calendar operations (availability check, create, search, respond)
 - template_workflow.py: Template management (create, list, view, edit, send)

@@ -1,8 +1,11 @@
 """
 Example: Complete authentication workflow for Microsoft Graph MCP Server.
 
-This example demonstrates the complete authentication flow including
-login, completion, status checking, token extension, and logout.
+This example demonstrates the simplified authentication flow with 4 actions:
+- start: Begin login flow
+- complete: Finish login after browser auth
+- refresh: Manually refresh token
+- logout: Clear tokens
 """
 
 import asyncio
@@ -23,69 +26,56 @@ async def auth_workflow_example():
     print("STEP 1: Starting login process...")
     print("-" * 70)
 
-    login_result = {"tool": "auth", "arguments": {"action": "login"}}
+    start_result = {"tool": "auth", "arguments": {"action": "start"}}
 
-    print(f"Calling: {json.dumps(login_result, indent=2)}")
+    print(f"Calling: {json.dumps(start_result, indent=2)}")
     print()
 
-    # In real MCP client:
-    # result = await mcp_client.call_tool("auth", {"action": "login"})
-
     # Expected response:
-    expected_login_response = {
-        "success": True,
+    expected_start_response = {
         "status": "pending",
         "message": "Visit https://microsoft.com/devicelogin and enter code ABC123",
-        "verification_url": "https://microsoft.com/devicelogin",
+        "verification_uri": "https://microsoft.com/devicelogin",
         "user_code": "ABC123",
         "expires_in": 900,
-        "interval": 5,
     }
 
     print("Expected Response:")
-    print(json.dumps(expected_login_response, indent=2))
+    print(json.dumps(expected_start_response, indent=2))
     print()
 
     # User completes authentication in browser
     print("ACTION REQUIRED: User must now:")
-    print(f"  1. Visit: {expected_login_response['verification_url']}")
-    print(f"  2. Enter code: {expected_login_response['user_code']}")
+    print(f"  1. Visit: {expected_start_response['verification_uri']}")
+    print(f"  2. Enter code: {expected_start_response['user_code']}")
     print()
 
     input("Press Enter after completing authentication in browser...")
 
     # ============================================
-    # STEP 2: Complete login (CRITICAL!)
+    # STEP 2: Complete login
     # ============================================
     print("STEP 2: Completing login process...")
     print("-" * 70)
-    print("⚠️  IMPORTANT: You MUST call complete_login!")
-    print("    Without this, authentication will fail and you can't use other tools.")
+    print("⚠️  IMPORTANT: You MUST call complete after browser auth!")
     print()
 
-    complete_login_result = {
+    complete_result = {
         "tool": "auth",
         "arguments": {
-            "action": "complete_login",
+            "action": "complete",
         },
     }
 
-    print(f"Calling: {json.dumps(complete_login_result, indent=2)}")
+    print(f"Calling: {json.dumps(complete_result, indent=2)}")
     print()
 
     # Expected response:
     expected_complete_response = {
-        "success": True,
-        "status": "authenticated",
-        "message": "Authentication completed successfully",
+        "status": "success",
         "authenticated": True,
-        "token_expiry": "1704777600",
-        "user_info": {
-            "id": "...",
-            "displayName": "John Doe",
-            "mail": "john.doe@example.com",
-            "userPrincipalName": "john.doe@example.com",
-        },
+        "message": "Successfully authenticated with Microsoft Graph. Token expires in 59m.",
+        "time_remaining": {"seconds": 3540, "display": "59m"},
     }
 
     print("Expected Response:")
@@ -93,32 +83,9 @@ async def auth_workflow_example():
     print()
 
     # ============================================
-    # STEP 3: Check authentication status (optional)
+    # STEP 3: Use authenticated tools
     # ============================================
-    print("STEP 3: Checking authentication status (optional)...")
-    print("-" * 70)
-
-    check_status_result = {"tool": "auth", "arguments": {"action": "check_status"}}
-
-    print(f"Calling: {json.dumps(check_status_result, indent=2)}")
-    print()
-
-    # Expected response:
-    expected_status_response = {
-        "success": True,
-        "authenticated": True,
-        "token_expiry": "1704777600",
-        "user_info": {"displayName": "John Doe", "mail": "john.doe@example.com"},
-    }
-
-    print("Expected Response:")
-    print(json.dumps(expected_status_response, indent=2))
-    print()
-
-    # ============================================
-    # STEP 4: Use authenticated tools (example)
-    # ============================================
-    print("STEP 4: Now you can use authenticated tools...")
+    print("STEP 3: Now you can use authenticated tools...")
     print("-" * 70)
 
     search_emails_result = {
@@ -129,37 +96,38 @@ async def auth_workflow_example():
     print(f"Example - Calling: {json.dumps(search_emails_result, indent=2)}")
     print()
     print("✅ Authentication successful! You can now use any tool.")
+    print()
+    print("NOTE: Access tokens auto-refresh when expired. No manual refresh needed!")
 
     # ============================================
-    # STEP 5: Extend token (when expires)
+    # STEP 4: Manual refresh (optional)
     # ============================================
     print()
-    print("STEP 5: Extend token (optional, when token expires)...")
+    print("STEP 4: Manual refresh (optional)...")
     print("-" * 70)
-    print("Access tokens expire after 1 hour.")
-    print("You can extend the token without user login:")
+    print("Access tokens auto-refresh, but you can manually refresh:")
     print()
 
-    extend_token_result = {"tool": "auth", "arguments": {"action": "extend_token"}}
+    refresh_result = {"tool": "auth", "arguments": {"action": "refresh"}}
 
-    print(f"Calling: {json.dumps(extend_token_result, indent=2)}")
+    print(f"Calling: {json.dumps(refresh_result, indent=2)}")
     print()
 
-    # Expected response:
-    expected_extend_response = {
-        "success": True,
-        "message": "Token extended successfully",
-        "token_expiry": "1704781200",  # New expiry (1 hour later)
+    expected_refresh_response = {
+        "status": "refreshed",
+        "authenticated": True,
+        "message": "Token refreshed successfully. Expires in 1h 0m.",
+        "time_remaining": {"seconds": 3600, "display": "1h 0m"},
     }
 
     print("Expected Response:")
-    print(json.dumps(expected_extend_response, indent=2))
+    print(json.dumps(expected_refresh_response, indent=2))
     print()
 
     # ============================================
-    # STEP 6: Logout (when done)
+    # STEP 5: Logout (when done)
     # ============================================
-    print("STEP 6: Logout (when done)...")
+    print("STEP 5: Logout (when done)...")
     print("-" * 70)
 
     logout_result = {"tool": "auth", "arguments": {"action": "logout"}}
@@ -167,11 +135,10 @@ async def auth_workflow_example():
     print(f"Calling: {json.dumps(logout_result, indent=2)}")
     print()
 
-    # Expected response:
     expected_logout_response = {
-        "success": True,
-        "message": "Logged out successfully",
+        "status": "logged_out",
         "authenticated": False,
+        "message": "Successfully logged out.",
     }
 
     print("Expected Response:")
@@ -193,16 +160,16 @@ async def common_mistakes_example():
     print()
 
     # ============================================
-    # MISTAKE 1: Forgetting complete_login
+    # MISTAKE 1: Forgetting complete
     # ============================================
-    print("❌ MISTAKE 1: Forgetting to call complete_login")
+    print("❌ MISTAKE 1: Forgetting to call complete")
     print("-" * 70)
 
     print("Incorrect workflow:")
     print(
         json.dumps(
             {
-                "step 1": "auth(action='login')",
+                "step 1": "auth(action='start')",
                 "step 2": "User completes browser auth",
                 "step 3": "search_emails(days=7)  # ← FAILS! Not authenticated",
             },
@@ -215,9 +182,9 @@ async def common_mistakes_example():
     print(
         json.dumps(
             {
-                "step 1": "auth(action='login')",
+                "step 1": "auth(action='start')",
                 "step 2": "User completes browser auth",
-                "step 3": "auth(action='complete_login')  # ← CRITICAL STEP!",
+                "step 3": "auth(action='complete')  # ← CRITICAL STEP!",
                 "step 4": "search_emails(days=7)  # Now works!",
             },
             indent=2,
@@ -232,16 +199,14 @@ async def common_mistakes_example():
     print("-" * 70)
 
     print("Incorrect:")
-    print("  1. auth(action='login')")
-    print(
-        "  2. auth(action='complete_login')  # ← Too fast! User hasn't completed auth"
-    )
+    print("  1. auth(action='start')")
+    print("  2. auth(action='complete')  # ← Too fast! User hasn't completed auth")
     print()
 
     print("Correct:")
-    print("  1. auth(action='login')")
+    print("  1. auth(action='start')")
     print("  2. Wait for user to visit URL and enter code")
-    print("  3. auth(action='complete_login')  # ← Wait for user!")
+    print("  3. auth(action='complete')  # ← Wait for user!")
     print()
 
     print("=" * 70)

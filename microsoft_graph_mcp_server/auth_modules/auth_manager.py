@@ -1,4 +1,13 @@
-"""Authentication manager for Microsoft Graph API."""
+"""Authentication manager for Microsoft Graph API.
+
+Simplified authentication workflow with 4 actions:
+- start: Initiate device code flow, returns verification URL and code
+- complete: Complete the login process after user authenticates in browser  
+- refresh: Manually refresh the access token using refresh_token
+- logout: Clear all authentication tokens
+
+Auto-refresh: Access tokens are automatically refreshed when expired if a refresh_token exists.
+"""
 
 import asyncio
 import logging
@@ -31,277 +40,227 @@ class GraphAuthManager:
             self.client_app, self.token_manager
         )
 
-    async def get_access_token(self) -> str:
-        """Get a valid access token, refreshing if necessary."""
-        if not self.token_manager.authenticated or not self.token_manager.access_token:
-            raise Exception(
-                "Not authenticated. Please call the login tool first to authenticate with Microsoft Graph."
-            )
+    # =========================================================================
+    # Public API - 4 Main Actions
+    # =========================================================================
 
-        if self.token_manager.is_token_valid():
-            return self.token_manager.access_token
-
-        if self.token_manager.refresh_token:
-            await self._refresh_token()
-        else:
-            raise Exception(
-                "Token expired and no refresh token available. Please call the login tool again."
-            )
-
-        return self.token_manager.access_token
-
-    async def extend_token(self) -> Dict[str, Any]:
-        """Refresh the access token using the refresh token.
-
-        This method explicitly refreshes the access token without requiring user login.
-        It uses the stored refresh token to obtain a new access token from Microsoft.
-        The new token will have a fresh lifetime (typically 1 hour).
-
+    async def start_auth(self) -> Dict[str, Any]:
+        """Start authentication - initiate device code flow.
+        
+        Returns verification URL and user code for browser authentication.
+        After user completes authentication in browser, call complete_auth().
+        
         Returns:
-            Dict with refresh status and token information including:
-            - status: 'refreshed' if successful
-            - authenticated: true
-            - message: success message
-            - token_expires_at: ISO timestamp of new token expiry in user's local timezone
-            - time_remaining: dict with remaining time in seconds/minutes/hours
-            - refresh_available: boolean indicating if refresh token is still available
-
-        Raises:
-            Exception: If not authenticated or no refresh token available
+            Dict with:
+            - status: 'pending'
+            - verification_uri: URL to open in browser
+            - user_code: Code to enter on the verification page
+            - expires_in: Time until the code expires (seconds)
+            - message: Instructions for the user
         """
-        logger.info("AuthManager: extend_token called")
-
-        if not self.token_manager.authenticated or not self.token_manager.access_token:
-            raise Exception(
-                "Not authenticated. Please call the login tool first to authenticate with Microsoft Graph."
-            )
-
-        if not self.token_manager.refresh_token:
-            raise Exception(
-                "No refresh token available. Please call the login tool to authenticate."
-            )
-
-        logger.info("AuthManager: Refreshing token")
-        await self._refresh_token()
-
-        expiry_info = self.token_manager.get_token_expiry_info()
-
-        from ..graph_client import graph_client
-
-        user_timezone = await graph_client.get_user_timezone()
-
-        utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
-        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(
-            ZoneInfo(user_timezone)
-        )
-        token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
-
-        return {
-            "status": "refreshed",
-            "authenticated": True,
-            "message": "Successfully refreshed access token.",
-            "token_expires_at": token_expires_at_local,
-            "time_remaining": expiry_info,
-            "refresh_available": self.token_manager.refresh_token is not None,
-            "timezone": user_timezone,
-        }
-
-    async def logout(self) -> Dict[str, Any]:
-        """Logout and clear authentication state."""
+        logger.info("AuthManager: start_auth called")
+        
+        # Check if already authenticated with valid token
+        self.token_manager.load_tokens_from_disk()
+        if self.token_manager.is_token_valid():
+            expiry_info = self.token_manager.get_token_expiry_info()
+            logger.info(f"Already authenticated, token valid for {expiry_info['display']}")
+            return {
+                "status": "already_authenticated",
+                "authenticated": True,
+                "message": f"Already authenticated. Token expires in {expiry_info['display']}.",
+                "time_remaining": expiry_info,
+            }
+        
+        # Check if we have a refresh_token that can be used
+        if self.token_manager.refresh_token:
+            logger.info("Found refresh_token, attempting auto-refresh instead of new login")
+            try:
+                await self._refresh_token_internal()
+                expiry_info = self.token_manager.get_token_expiry_info()
+                return {
+                    "status": "refreshed",
+                    "authenticated": True,
+                    "message": f"Token refreshed automatically. Token expires in {expiry_info['display']}.",
+                    "time_remaining": expiry_info,
+                }
+            except Exception as e:
+                logger.warning(f"Auto-refresh failed: {e}, proceeding with new login")
+        
+        # Clear previous state and start new device flow
         self.token_manager.clear_tokens()
         self.device_flow_manager.clear_device_flow()
+        
+        logger.info("Initiating new device flow")
+        result = await self.device_flow_manager.initiate_device_flow_only()
+        logger.info(f"Device flow initiated with status: {result.get('status')}")
+        return result
 
-        return {
-            "status": "logged_out",
-            "message": "Successfully logged out from Microsoft Graph. Authentication state has been cleared.",
-        }
-
-    async def check_status(self) -> Dict[str, Any]:
-        """Check current authentication status (read-only).
-
-        Returns information about authentication state and token expiry without
-        triggering any actions. Useful for debugging and monitoring.
-
-        Returns:
-            Dict with status information including:
-            - authenticated: boolean indicating if authenticated
-            - token_expires_at: ISO timestamp of token expiry in user's local timezone (if authenticated)
-            - time_remaining: dict with remaining time in seconds/minutes/hours
-            - refresh_available: boolean indicating if refresh token is available
-            - timezone: user's timezone (if authenticated)
-        """
-        logger.info("AuthManager: check_status called (read-only)")
-
-        if not self.token_manager.authenticated or not self.token_manager.access_token:
-            return {
-                "status": "not_authenticated",
-                "authenticated": False,
-                "message": "Not authenticated with Microsoft Graph. Please call the login tool first.",
-            }
-
-        expiry_info = self.token_manager.get_token_expiry_info()
-
-        if expiry_info["seconds"] <= 0:
-            return {
-                "status": "token_expired",
-                "authenticated": False,
-                "message": "Authentication token has expired. Please call the login tool again.",
-            }
-
-        from ..graph_client import graph_client
-
-        user_timezone = await graph_client.get_user_timezone()
-
-        utc_expiry = datetime.utcfromtimestamp(self.token_manager.token_expiry)
-        local_expiry = utc_expiry.replace(tzinfo=ZoneInfo("UTC")).astimezone(
-            ZoneInfo(user_timezone)
-        )
-        token_expires_at_local = local_expiry.strftime("%Y-%m-%dT%H:%M:%S%z")
-
-        return {
-            "status": "authenticated",
-            "authenticated": True,
-            "message": "Successfully authenticated with Microsoft Graph.",
-            "token_expires_at": token_expires_at_local,
-            "time_remaining": expiry_info,
-            "refresh_available": self.token_manager.refresh_token is not None,
-            "timezone": user_timezone,
-        }
-
-    async def complete_login(self, device_code: Optional[str] = None) -> Dict[str, Any]:
-        """Complete the login process by checking authentication status.
-
-        This method waits for the user to complete browser authentication and
-        finalizes the login process by acquiring the access token.
-
+    async def complete_auth(self, device_code: Optional[str] = None) -> Dict[str, Any]:
+        """Complete authentication - finalize login after browser authentication.
+        
+        Call this after user completes authentication in browser.
+        
         Args:
-            device_code: Optional device_code to load device flow from disk
+            device_code: Optional device_code (will auto-load if not provided)
+            
+        Returns:
+            Dict with authentication status and token info
         """
         logger.info(
-            f"AuthManager: complete_login called with device_code: {device_code[:20] if device_code else 'None'}..."
+            f"AuthManager: complete_auth called with device_code: {device_code[:20] if device_code else 'None'}..."
         )
         return await self.device_flow_manager.check_login_status(device_code)
 
-    async def login(self) -> Dict[str, Any]:
-        """Explicit login method for authentication - creates device flow and returns URL/code."""
-        logger.info("AuthManager: login called")
-        # Clear all previous authentication state (user wants fresh login)
+    async def refresh_token(self) -> Dict[str, Any]:
+        """Check authentication status and refresh token if needed.
+        
+        Logic:
+        1. If token is still valid → return "authenticated" (no refresh needed)
+        2. If token expired → try refresh using refresh_token
+           - Success → return "authenticated" 
+           - Fail → return status indicating user needs to login
+        
+        Returns:
+            Dict with:
+            - status: 'authenticated' | 'no_refresh_token' | 'refresh_expired' | 'refresh_failed'
+            - authenticated: boolean
+            - message: Status message
+        """
+        logger.info("AuthManager: refresh_token called")
+        
+        # Load latest tokens
+        self.token_manager.load_tokens_from_disk()
+        
+        # No refresh_token available → need to login
+        if not self.token_manager.refresh_token:
+            return {
+                "status": "no_refresh_token",
+                "authenticated": False,
+                "message": "Not authenticated. Please call auth with action='start' to login.",
+            }
+        
+        # Token is still valid → already authenticated
+        if self.token_manager.is_token_valid():
+            logger.info(f"Token still valid for {self.token_manager.get_token_expiry_info()['display']}")
+            
+            return {
+                "status": "authenticated",
+                "authenticated": True,
+                "message": "Already authenticated.",
+            }
+        
+        # Token expired → try to refresh
+        logger.info("Token expired, attempting refresh...")
+        try:
+            await self._refresh_token_internal()
+            logger.info("Token refresh successful")
+            
+            return {
+                "status": "authenticated",
+                "authenticated": True,
+                "message": "Token refreshed.",
+            }
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Token refresh failed: {error_msg}")
+            
+            if "invalid_grant" in error_msg.lower() or "expired" in error_msg.lower():
+                self.token_manager.clear_tokens()
+                return {
+                    "status": "refresh_expired",
+                    "authenticated": False,
+                    "message": "Session expired. Please call auth with action='start' to login again.",
+                }
+            
+            return {
+                "status": "refresh_failed",
+                "authenticated": False,
+                "message": "Authentication failed. Please call auth with action='start' to login.",
+            }
+
+    async def logout(self) -> Dict[str, Any]:
+        """Logout - clear all authentication tokens.
+        
+        Returns:
+            Dict with logout confirmation
+        """
+        logger.info("AuthManager: logout called")
         self.token_manager.clear_tokens()
         self.device_flow_manager.clear_device_flow()
+        
+        return {
+            "status": "logged_out",
+            "authenticated": False,
+            "message": "Successfully logged out. Authentication tokens have been cleared.",
+        }
 
-        # Create new device flow
-        logger.info("AuthManager: Initiating device flow")
-        result = await self.device_flow_manager.initiate_device_flow_only()
-        logger.info(
-            f"AuthManager: Device flow initiated with status: {result.get('status')}"
-        )
-        return result
+    # =========================================================================
+    # Internal Methods
+    # =========================================================================
 
-    async def _acquire_token(self) -> None:
-        """Acquire a new access token using device code flow."""
-        try:
-            flow = self.client_app.initiate_device_flow(
-                scopes=["https://graph.microsoft.com/.default"]
-            )
+    async def get_access_token(self) -> str:
+        """Get a valid access token, automatically refreshing if necessary.
 
-            if "error" in flow:
-                raise Exception(f"Failed to initiate device flow: {flow['error']}")
-
-            logger.info("=" * 70)
-            logger.info("MICROSOFT GRAPH AUTHENTICATION")
-            logger.info("=" * 70)
-            logger.info(f"To sign in, use a web browser to open the page: {flow['verification_uri']}")
-            logger.info(f"And enter the code: {flow['user_code']}")
-            logger.info("=" * 70)
-            logger.info("Waiting for authentication...")
-            logger.info("=" * 70)
-
-            result = self.client_app.acquire_token_by_device_flow(flow)
-
-            if "access_token" in result:
-                self.token_manager.update_token(
-                    access_token=result["access_token"],
-                    expires_in=result.get("expires_in", 3600),
-                    refresh_token=result.get("refresh_token"),
-                )
-                logger.info("✓ Authentication successful!")
-            else:
-                raise Exception(
-                    f"Failed to acquire token: {result.get('error_description', 'Unknown error')}"
-                )
-        except Exception as e:
-            raise Exception(f"Authentication failed: {str(e)}")
-
-    async def _refresh_token(self) -> None:
-        """Refresh the access token using the refresh token.
-
-        Raises:
-            Exception: If refresh token is not available or refresh fails
+        This is used internally by other modules. It will automatically use
+        refresh_token to get a new access_token if the current token is expired.
         """
+        # Load tokens from disk
+        self.token_manager.load_tokens_from_disk()
+
+        # If we have a valid token, return it directly
+        if self.token_manager.is_token_valid():
+            return self.token_manager.access_token
+
+        # Token expired but we have refresh_token, try to refresh automatically
+        if self.token_manager.refresh_token:
+            logger.info("Access token expired, attempting auto-refresh using refresh_token...")
+            try:
+                await self._refresh_token_internal()
+                logger.info("Token auto-refresh successful")
+                return self.token_manager.access_token
+            except Exception as e:
+                logger.error(f"Auto-refresh failed: {e}")
+                if "invalid_grant" in str(e).lower() or "expired" in str(e).lower():
+                    self.token_manager.clear_tokens()
+                raise Exception(
+                    f"Token refresh failed: {str(e)}. Please login again with auth action='start'."
+                )
+
+        # No valid token and no refresh_token available
+        raise Exception(
+            "Not authenticated. Please call auth with action='start' to login."
+        )
+
+    async def _refresh_token_internal(self) -> None:
+        """Internal method to refresh the access token using the refresh token."""
         if not self.token_manager.refresh_token:
-            raise Exception(
-                "No refresh token available. Please call the login tool to authenticate."
+            raise Exception("No refresh token available.")
+
+        result = self.client_app.acquire_token_by_refresh_token(
+            self.token_manager.refresh_token,
+            scopes=["https://graph.microsoft.com/.default"],
+        )
+
+        if "access_token" in result:
+            self.token_manager.update_token(
+                access_token=result["access_token"],
+                expires_in=result.get("expires_in", 3600),
+                refresh_token=result.get(
+                    "refresh_token", self.token_manager.refresh_token
+                ),
             )
+            logger.info("Token refreshed successfully")
+        else:
+            error = result.get("error", "unknown")
+            error_description = result.get("error_description", "Unknown error")
 
-        try:
-            result = self.client_app.acquire_token_by_refresh_token(
-                self.token_manager.refresh_token,
-                scopes=["https://graph.microsoft.com/.default"],
-            )
+            if error == "invalid_grant":
+                logger.warning("Refresh token invalid or expired, clearing tokens")
+                self.token_manager.clear_tokens()
+                raise Exception("Refresh token expired or invalid. Please login again.")
 
-            if "access_token" in result:
-                self.token_manager.update_token(
-                    access_token=result["access_token"],
-                    expires_in=result.get("expires_in", 3600),
-                    refresh_token=result.get(
-                        "refresh_token", self.token_manager.refresh_token
-                    ),
-                )
-            else:
-                error_msg = result.get("error_description", "Unknown error")
-                raise Exception(f"Failed to refresh token: {error_msg}")
-        except Exception as e:
-            raise Exception(f"Failed to refresh token: {str(e)}")
-
-    def get_auth_url(self, state: Optional[str] = None) -> str:
-        """Get the authorization URL for interactive authentication."""
-        auth_url = f"{settings.auth_url}/{settings.tenant_id}/oauth2/v2.0/authorize"
-
-        params = {
-            "client_id": settings.client_id,
-            "response_type": "code",
-            "scope": "https://graph.microsoft.com/.default",
-            "state": state or "default_state",
-        }
-
-        return f"{auth_url}?{urlencode(params)}"
-
-    async def exchange_code_for_token(
-        self, auth_code: str, redirect_uri: str
-    ) -> Dict[str, Any]:
-        """Exchange authorization code for access token."""
-        token_url = f"{settings.auth_url}/{settings.tenant_id}/oauth2/v2.0/token"
-
-        data = {
-            "client_id": settings.client_id,
-            "code": auth_code,
-            "grant_type": "authorization_code",
-            "redirect_uri": redirect_uri,
-        }
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(token_url, data=data)
-
-            if response.status_code == 200:
-                result = response.json()
-                self.token_manager.update_token(
-                    access_token=result["access_token"],
-                    expires_in=result.get("expires_in", 3600),
-                    refresh_token=result.get("refresh_token"),
-                )
-                return result
-            else:
-                raise Exception(f"Token exchange failed: {response.text}")
+            raise Exception(f"Failed to refresh token: {error_description}")
 
 
 # Global auth manager instance

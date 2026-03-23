@@ -9,7 +9,7 @@ This directory contains test scripts for validating specific functionality of th
 - Python 3.8 or higher
 - Microsoft Graph API access
 - Valid Microsoft account credentials
-- Authentication completed (run `auth` tool with action="login" first)
+- Authentication completed (run `auth` tool with action="start" then "complete")
 
 ## Running the Tests
 
@@ -22,7 +22,10 @@ Before running tests, authenticate with Microsoft Graph:
 python -m microsoft_graph_mcp_server.main
 ```
 
-Then use the `auth` tool with action="login" to complete device code flow authentication.
+Then use the `auth` tool:
+1. `action="start"` - Get verification URL and code
+2. Complete browser authentication
+3. `action="complete"` - Finish authentication
 
 ### Step 2: Run Individual Tests
 
@@ -243,9 +246,8 @@ All tests are designed to be safe and non-destructive:
 ### Authentication Errors
 
 If tests fail with authentication errors:
-1. Ensure you've completed the `auth` tool with action="login" authentication
-2. Check your token hasn't expired (run `auth` tool with action="check_status")
-3. Re-authenticate if necessary
+1. Ensure you've completed the `auth` tool with action="start" then action="complete"
+2. Tokens auto-refresh, but re-authenticate if needed: auth(action="start")
 
 ### Folder Creation Errors
 

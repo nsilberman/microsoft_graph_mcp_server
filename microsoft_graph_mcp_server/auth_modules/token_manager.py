@@ -60,14 +60,20 @@ class TokenManager:
             self.token_expiry = token_data.get("token_expiry", 0)
             self.authenticated = token_data.get("authenticated", False)
 
+            # Check if access token is expired
+            # IMPORTANT: We keep refresh_token even when access_token expires
+            # This allows automatic token refresh without requiring user to login again
             if self.authenticated and self.access_token:
                 current_time = time.time()
                 if current_time >= self.token_expiry - 60:
+                    # Access token expired, but keep refresh_token for auto-refresh
+                    logger.info("Access token expired on load, but refresh_token is preserved for auto-refresh")
                     self.authenticated = False
                     self.access_token = None
-                    self.delete_tokens_from_disk()
+                    # DO NOT delete tokens from disk - keep refresh_token
         except Exception as e:
             logger.warning(f"Failed to load tokens from disk: {e}")
+            # Only delete on parse errors, not on expired tokens
             self.delete_tokens_from_disk()
 
     def delete_tokens_from_disk(self) -> None:
@@ -99,11 +105,16 @@ class TokenManager:
         self.authenticated = False
         self.delete_tokens_from_disk()
 
-    def is_token_valid(self) -> bool:
-        """Check if the current token is valid and not expired."""
+    def is_token_valid(self, buffer_seconds: int = 60) -> bool:
+        """Check if the current token is valid and not expired.
+        
+        Args:
+            buffer_seconds: Buffer time in seconds before actual expiry (default: 60)
+                           Token is considered invalid if it expires within this buffer.
+        """
         if not self.authenticated or not self.access_token:
             return False
-        return time.time() < self.token_expiry - 60
+        return time.time() < self.token_expiry - buffer_seconds
 
     def get_token_expiry_info(self) -> dict:
         """Get token expiry information."""

@@ -25,59 +25,47 @@ This document describes tool call dependencies and workflow patterns to help LLM
 
 ### How to Authenticate
 
-**Required authentication flow:**
+**When authentication needed, always try `refresh` FIRST:**
+
+```python
+result = auth(action="refresh")
+# Check result["authenticated"]
+```
+
+**If `authenticated: true`:** Already logged in, proceed with your task.
+
+**If `authenticated: false`:** Need to login, follow steps below:
 
 1. **Start login process:**
    ```python
-   auth(action="login")
+   auth(action="start")
    ```
    Returns:
-   - `verification_url`: URL for user to visit
+   - `verification_uri`: URL for user to visit
    - `user_code`: Code for user to enter
-   - `message`: Instructions for user
    - `status`: "pending"
 
 2. **User completes authentication in browser:**
-   - User visits `verification_url`
+   - User visits `verification_uri`
    - User enters `user_code`
    - User signs in to Microsoft 365
 
 3. **Complete login (CRITICAL - REQUIRED!):**
    ```python
-   auth(action="complete_login")
+   auth(action="complete")
    ```
    Returns:
-   - `success`: true if successful
-   - `message`: Confirmation message
-   - `user_info`: User profile information
+   - `status`: "success" if successful
    - `authenticated`: true
+   - `message`: Confirmation message
 
-   **IMPORTANT:** Without calling `complete_login`, authentication fails!
+   **IMPORTANT:** Without calling `complete`, authentication fails!
 
 4. **Use any other tools:**
    Now you're authenticated and can use all other tools.
 
-### Optional Authentication Actions
+### Logout
 
-**Check authentication status (read-only):**
-```python
-auth(action="check_status")
-```
-Returns:
-- `authenticated`: Current authentication state
-- `token_expiry`: When access token expires (Unix timestamp)
-- `user_info`: User profile information
-
-**Extend token (refresh without user interaction):**
-```python
-auth(action="extend_token")
-```
-Returns:
-- `success`: true if successful
-- `message`: Confirmation message
-- `token_expiry`: New token expiry time
-
-**Logout:**
 ```python
 auth(action="logout")
 ```
@@ -228,39 +216,45 @@ manage_templates(action="send", template_number=1, to=["recipient@example.com"])
 
 ### Authentication Workflow
 
-**Complete authentication sequence:**
+**When authentication needed:**
 
 ```python
-# 1. Start login
-result1 = auth(action="login")
-# User completes browser authentication with result1['verification_url'] and result1['user_code']
+# 1. Try refresh FIRST
+result = auth(action="refresh")
 
-# 2. Complete login (REQUIRED!)
-result2 = auth(action="complete_login")
-# Now authenticated
+if result["authenticated"]:
+    # Already logged in, proceed with your task
+    pass
+else:
+    # 2. Need to login
+    result1 = auth(action="start")
+    # User completes browser authentication with result1['verification_uri'] and result1['user_code']
 
-# 3. Check status (optional)
-result3 = auth(action="check_status")
-# Verify authenticated=True and token_expiry is in the future
+    # 3. Complete login (REQUIRED!)
+    result2 = auth(action="complete")
+    # Now authenticated
 
 # 4. Use any tools
-# Now you can use all other tools
+# Note: Tokens auto-refresh when expired, no manual action needed
 ```
 
 **Common mistake:**
 ❌ **Incorrect:**
 ```python
-auth(action="login")
+auth(action="start")
 # User completes in browser
-# MISSING: auth(action="complete_login")
+# MISSING: auth(action="complete")
 search_emails(days=7)  # This will fail!
 ```
 
 ✅ **Correct:**
 ```python
-auth(action="login")
-# User completes in browser
-auth(action="complete_login")  # MUST call this!
+# Try refresh first
+result = auth(action="refresh")
+if not result["authenticated"]:
+    auth(action="start")
+    # User completes in browser
+    auth(action="complete")  # MUST call this!
 search_emails(days=7)  # Now works
 ```
 
@@ -418,17 +412,22 @@ manage_templates(
 
 **Solution:**
 ```python
-# 1. Start login
-auth(action="login")
+# 1. Try refresh first
+result = auth(action="refresh")
 
-# 2. Complete authentication in browser
-# User visits verification_url and enters user_code
+if result["authenticated"]:
+    # Already authenticated, retry the operation
+    search_emails(days=7)
+else:
+    # 2. Need to login
+    auth(action="start")
+    # User completes browser auth
 
-# 3. Complete login (REQUIRED!)
-auth(action="complete_login")
+    # 3. Complete login (REQUIRED!)
+    auth(action="complete")
 
-# 4. Retry the failed operation
-search_emails(days=7)  # Now works
+    # 4. Retry the failed operation
+    search_emails(days=7)  # Now works
 ```
 
 ### Token Expired
@@ -438,15 +437,19 @@ search_emails(days=7)  # Now works
 **Meaning:** Access token expired (default 1 hour lifetime)
 
 **Solution:**
-```python
-# Preferred: Extend token (no user interaction)
-auth(action="extend_token")
+Tokens auto-refresh, so just retry your operation. If that fails:
 
-# Alternative: Full re-login
-auth(action="logout")
-auth(action="login")
-# User completes browser auth
-auth(action="complete_login")
+```python
+# Try refresh
+result = auth(action="refresh")
+if result["authenticated"]:
+    # Retry operation
+    search_emails(days=7)
+else:
+    # Need to re-login
+    auth(action="start")
+    # User completes browser auth
+    auth(action="complete")
 ```
 
 ### Cache Errors
@@ -523,7 +526,7 @@ get_email_content(cache_number=5)  # Must be a number from the 'number' field in
 
 ## Best Practices
 
-1. **Always call `complete_login` after `login`**
+1. **Always call `complete` after `start`**
    - Without this, authentication fails
 
 2. **Load cache before browsing**
@@ -546,11 +549,11 @@ get_email_content(cache_number=5)  # Must be a number from the 'number' field in
    - Wait `retry_after` seconds on HTTP 429
    - Don't immediately retry
 
-7. **Extend tokens before they expire**
-   - Use `auth(action="extend_token")` to refresh
-   - Avoids full re-login
+7. **Always try `refresh` first when auth needed**
+   - `auth(action="refresh")` checks auth status
+   - If authenticated, proceed; if not, use `start` flow
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** 2026-01-21
+**Document Version:** 3.0
+**Last Updated:** 2026-03-23

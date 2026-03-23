@@ -172,16 +172,17 @@ TOKEN FILES
 3. 输入用户代码
 4. 登录您的 Microsoft 账户
 
-### 步骤 3：验证认证
+### 步骤 3：完成认证
 
 运行测试脚本或使用 MCP 工具：
 
 ```json
 {
-  "action": "check_status",
-  "device_code": "从步骤 1 复制的设备代码"
+  "action": "complete"
 }
 ```
+
+注意：device_code 会自动从磁盘加载，无需手动传递。
 
 ---
 

@@ -8,15 +8,15 @@ Quick reference for common errors and their solutions.
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| "Not authenticated" | No login or token expired | Call `login` then `complete_login` |
-| "Token expired" | Access token expired (1hr) | Call `extend_token` to refresh |
+| "Not authenticated" | No login or token expired | Call `start` then `complete` |
+| "Token expired" | Access token expired | Auto-refresh happens automatically, or call `refresh` |
 | "Failed to complete login" | Browser auth not completed | Wait for user to complete browser auth |
 
 **Quick Fix:**
 ```python
-auth(action="login")       # Start login
+auth(action="start")       # Start login, get URL and code
 # User completes browser auth...
-auth(action="complete_login")  # REQUIRED!
+auth(action="complete")    # REQUIRED!
 ```
 
 ---
@@ -113,8 +113,13 @@ check_attendee_availability(attendees=["user@example.com"], date="2024-01-15")
 ### Before calling tools:
 
 1. **Check authentication:**
+   When auth needed, try `refresh` first:
    ```python
-   auth(action="check_status")
+   auth(action="refresh")  # Returns authenticated=true if logged in
+   # If authenticated=false, then:
+   auth(action="start")    # Start new login flow
+   # User completes browser auth
+   auth(action="complete") # Finish login
    ```
 
 2. **Load cache first:**
@@ -130,18 +135,18 @@ check_attendee_availability(attendees=["user@example.com"], date="2024-01-15")
 
 ## Common Mistakes
 
-### ❌ Forgot complete_login
+### ❌ Forgot complete
 ```python
-auth(action="login")
-# MISSING: auth(action="complete_login")
+auth(action="start")
+# MISSING: auth(action="complete")
 search_emails(days=7)  # Will fail!
 ```
 
 ### ✅ Correct
 ```python
-auth(action="login")
+auth(action="start")
 # User completes browser auth
-auth(action="complete_login")
+auth(action="complete")
 search_emails(days=7)  # Works!
 ```
 
@@ -170,5 +175,5 @@ get_email_content(cache_number=21)  # Correct!
 
 ---
 
-**Document Version:** 2.0
-**Last Updated:** 2026-03-09
+**Document Version:** 3.0
+**Last Updated:** 2026-03-23

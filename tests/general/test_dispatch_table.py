@@ -70,9 +70,9 @@ class TestToolDispatchTable:
 
             handler, method_name = server.tool_dispatch["auth"]
             method = getattr(handler, method_name)
-            result = await method({"action": "check_status"})
+            result = await method({"action": "complete"})
 
-            mock_handler.assert_called_once_with({"action": "check_status"})
+            mock_handler.assert_called_once_with({"action": "complete"})
             print("   ✓ Auth tool dispatch works")
 
     @pytest.mark.asyncio

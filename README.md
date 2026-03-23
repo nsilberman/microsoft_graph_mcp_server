@@ -110,7 +110,7 @@ Claude will call:
 ```json
 {
   "tool": "auth",
-  "action": "login"
+  "action": "start"
 }
 ```
 
@@ -122,7 +122,7 @@ Then Claude will finalize:
 ```json
 {
   "tool": "auth",
-  "action": "complete_login"
+  "action": "complete"
 }
 ```
 
@@ -804,7 +804,7 @@ It motivates ongoing development and helps others discover the tool.
 Here's a comprehensive list of all available MCP tools with simple explanations:
 
 ### 🔐 Authentication & Settings
-- **`auth`** - Manage Microsoft Graph authentication (login, logout, check status, extend tokens)
+- **`auth`** - Manage Microsoft Graph authentication (start, complete, refresh, logout)
 - **`user_settings`** - Configure user preferences like timezone, search days, and page sizes
 
 ### 📧 Email Management
@@ -843,10 +843,12 @@ Here's a comprehensive list of all available MCP tools with simple explanations:
 4. `manage_event_as_attendee` or `manage_event_as_organizer` - Take action
 
 **Authentication Workflow:**
-1. `auth` with `login` action
-2. Complete browser authentication
-3. `auth` with `complete_login` action
-4. Optionally `auth` with `check_status` to verify
+1. Try `auth` with `refresh` action FIRST - if authenticated, proceed
+2. If refresh fails (no token or expired): `auth` with `start` → get verification URL and code
+3. Open URL in browser, enter the code, complete Microsoft login
+4. `auth` with `complete` action → authentication finished
+
+**Note:** Refresh tokens are valid for ~90 days. Always try `refresh` first when authentication is needed.
 
 All tools follow the JSON format with `"tool": "tool_name"` as the first parameter, making them easy to use with AI assistants like Claude.
 

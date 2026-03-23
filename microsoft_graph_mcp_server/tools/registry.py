@@ -108,20 +108,30 @@ class ToolRegistry:
         """Auth tool definition."""
         return types.Tool(
             name="auth",
-            description="Manage authentication with Microsoft Graph. Supports five actions: 'login' initiates device code flow and returns verification URL and user code, 'complete_login' waits for browser authentication to complete and finalizes the login process (MUST be called after login), 'check_status' checks current authentication state and token expiry without triggering actions (useful for debugging), 'extend_token' refreshes the access token using the refresh token without requiring user login - this provides a fresh access token with a new 1-hour lifetime starting from the time you call extend_token (does NOT extend the old token's expiry time), 'logout' clears authentication tokens. WORKFLOW: 1) Call login to start, 2) Complete authentication in browser, 3) Call complete_login to finalize. Returns: {success: boolean, message: string, authenticated: boolean, token_expiry: string, user_info: object}. Note: Tokens expire after 1 hour, use extend_token to refresh without re-login.",
+            description="Manage authentication with Microsoft Graph. Four simple actions:\n\n"
+            "• 'start' - Start login flow, returns verification URL and code to enter in browser\n"
+            "• 'complete' - Complete login after browser authentication (auto-loads device code)\n"
+            "• 'refresh' - Check auth status: if valid returns authenticated; if expired tries auto-refresh\n"
+            "• 'logout' - Clear all authentication tokens\n\n"
+            "WHEN AUTHENTICATION NEEDED: Always try 'refresh' FIRST. If it fails (no token or expired), then call 'start'.\n\n"
+            "WORKFLOW:\n"
+            "1. Call auth action='start' → get URL and code\n"
+            "2. Open URL in browser, enter the code, complete Microsoft login\n"
+            "3. Call auth action='complete' → authentication finished\n\n"
+            "AUTO-REFRESH: Access tokens auto-refresh when expired (no user action needed). "
+            "Refresh tokens are valid for ~90 days.\n\n"
+            "Returns:\n"
+            "- refresh: {status: string, authenticated: boolean, message: string}\n"
+            "- start: {status: string, verification_uri: string, user_code: string, message: string}\n"
+            "- complete: {status: string, authenticated: boolean, message: string}\n"
+            "- logout: {status: string, authenticated: false, message: string}",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": [
-                            "login",
-                            "complete_login",
-                            "check_status",
-                            "extend_token",
-                            "logout",
-                        ],
-                        "description": "Action to perform: 'login' to initiate authentication and get verification URL/code, 'complete_login' to complete the login process after browser authentication (MUST call this after login), 'check_status' to check current authentication state and token expiry (read-only, no actions), 'extend_token' to refresh the access token using the refresh token without requiring user login - provides a fresh token with a new 1-hour lifetime from the time you call it (does NOT extend the old token's expiry time), 'logout' to clear authentication",
+                        "enum": ["start", "complete", "refresh", "logout"],
+                        "description": "Action: 'start' to begin login (get URL/code), 'complete' to finish login after browser auth, 'refresh' to manually refresh token, 'logout' to sign out",
                     },
                 },
                 "required": ["action"],
