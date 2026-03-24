@@ -1,7 +1,6 @@
 """Device flow authentication for Microsoft Graph API."""
 
 import asyncio
-import datetime
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -120,12 +119,12 @@ class DeviceFlowManager:
                     await asyncio.sleep(retry_delay)
                 elif is_network_error:
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": f"Authentication failed: Network connection error. Please check your internet connection and try again. Error: {error_msg}",
                     }
                 else:
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": f"Authentication failed: {error_msg}",
                     }
 
@@ -207,22 +206,11 @@ class DeviceFlowManager:
                             )
                             self.device_flow = None
 
-                            expiry_info = self.token_manager.get_token_expiry_info()
-                            expiry_datetime = datetime.datetime.fromtimestamp(
-                                self.token_manager.token_expiry
-                            )
-                            expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                            time_remaining = expiry_info["display"]
-
                             logger.info("✓ Authentication successful!")
 
                             return {
-                                "status": "success",
-                                "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                                "token_expiry": self.token_manager.token_expiry,
-                                "expiry_datetime": expiry_str,
-                                **expiry_info,
+                                "status": "authenticated",
+                                "message": "Successfully authenticated with Microsoft Graph.",
                             }
                         else:
                             error = result.get("error", "")
@@ -237,34 +225,17 @@ class DeviceFlowManager:
                                         self.token_manager.authenticated
                                         and self.token_manager.access_token
                                     ):
-                                        expiry_info = (
-                                            self.token_manager.get_token_expiry_info()
-                                        )
-                                        expiry_datetime = (
-                                            datetime.datetime.fromtimestamp(
-                                                self.token_manager.token_expiry
-                                            )
-                                        )
-                                        expiry_str = expiry_datetime.strftime(
-                                            "%Y-%m-%d %H:%M:%S"
-                                        )
-
-                                        time_remaining = expiry_info["display"]
-
                                         return {
-                                            "status": "success",
-                                            "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                                            "token_expiry": self.token_manager.token_expiry,
-                                            "expiry_datetime": expiry_str,
-                                            **expiry_info,
+                                            "status": "authenticated",
+                                            "message": "Successfully authenticated with Microsoft Graph.",
                                         }
                                     else:
                                         return {
-                                            "status": "failed",
+                                            "status": "not_authenticated",
                                             "message": "Authentication code was already used but no valid token found. Please call login again to start a new authentication.",
                                         }
                                 return {
-                                    "status": "failed",
+                                    "status": "not_authenticated",
                                     "message": f"Authentication failed: {result.get('error_description', 'Unknown error')}",
                                 }
                     except asyncio.TimeoutError:
@@ -330,29 +301,18 @@ class DeviceFlowManager:
                             self.token_manager.authenticated
                             and self.token_manager.access_token
                         ):
-                            expiry_info = self.token_manager.get_token_expiry_info()
-                            expiry_datetime = datetime.datetime.fromtimestamp(
-                                self.token_manager.token_expiry
-                            )
-                            expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                            time_remaining = expiry_info["display"]
-
                             return {
-                                "status": "success",
-                                "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                                "token_expiry": self.token_manager.token_expiry,
-                                "expiry_datetime": expiry_str,
-                                **expiry_info,
+                                "status": "authenticated",
+                                "message": "Successfully authenticated with Microsoft Graph.",
                             }
                         else:
                             return {
-                                "status": "failed",
+                                "status": "not_authenticated",
                                 "message": "Authentication code was already used but no valid token found. Please call login again to start a new authentication.",
                             }
                     else:
                         return {
-                            "status": "failed",
+                            "status": "not_authenticated",
                             "message": f"Authentication failed: {error_msg}",
                         }
 
@@ -405,20 +365,9 @@ class DeviceFlowManager:
                 )
                 self.device_flow = None
 
-                expiry_info = self.token_manager.get_token_expiry_info()
-                expiry_datetime = datetime.datetime.fromtimestamp(
-                    self.token_manager.token_expiry
-                )
-                expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                time_remaining = expiry_info["display"]
-
                 return {
-                    "status": "success",
-                    "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                    "token_expiry": self.token_manager.token_expiry,
-                    "expiry_datetime": expiry_str,
-                    **expiry_info,
+                    "status": "authenticated",
+                    "message": "Successfully authenticated with Microsoft Graph.",
                 }
             else:
                 error = result.get("error", "")
@@ -438,30 +387,19 @@ class DeviceFlowManager:
                         self.token_manager.authenticated
                         and self.token_manager.access_token
                     ):
-                        expiry_info = self.token_manager.get_token_expiry_info()
-                        expiry_datetime = datetime.datetime.fromtimestamp(
-                            self.token_manager.token_expiry
-                        )
-                        expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                        time_remaining = expiry_info["display"]
-
                         return {
-                            "status": "success",
-                            "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                            "token_expiry": self.token_manager.token_expiry,
-                            "expiry_datetime": expiry_str,
-                            **expiry_info,
+                            "status": "authenticated",
+                            "message": "Successfully authenticated with Microsoft Graph.",
                         }
                     else:
                         return {
-                            "status": "failed",
+                            "status": "not_authenticated",
                             "message": "Authentication code was already used but no valid token found. Please call login again to start a new authentication.",
                         }
                 else:
                     self.device_flow = None
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": f"Authentication failed: {result.get('error_description', 'Unknown error')}",
                     }
         except Exception as e:
@@ -470,31 +408,20 @@ class DeviceFlowManager:
                 # Device code was already used, try to load tokens from disk
                 self.token_manager.load_tokens_from_disk()
                 if self.token_manager.authenticated and self.token_manager.access_token:
-                    expiry_info = self.token_manager.get_token_expiry_info()
-                    expiry_datetime = datetime.datetime.fromtimestamp(
-                        self.token_manager.token_expiry
-                    )
-                    expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                    time_remaining = expiry_info["display"]
-
                     return {
-                        "status": "success",
-                        "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                        "token_expiry": self.token_manager.token_expiry,
-                        "expiry_datetime": expiry_str,
-                        **expiry_info,
+                        "status": "authenticated",
+                        "message": "Successfully authenticated with Microsoft Graph.",
                     }
                 else:
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": "Authentication code was already used but no valid token found. Please call login again to start a new authentication.",
                     }
             else:
                 # For other errors, clear the device flow
                 self.device_flow = None
                 return {
-                    "status": "failed",
+                    "status": "not_authenticated",
                     "message": f"Authentication failed: {error_msg}",
                 }
 
@@ -533,20 +460,9 @@ class DeviceFlowManager:
 
             if self.token_manager.authenticated and self.token_manager.access_token:
                 # Already have a valid token, return authentication status
-                expiry_info = self.token_manager.get_token_expiry_info()
-                expiry_datetime = datetime.datetime.fromtimestamp(
-                    self.token_manager.token_expiry
-                )
-                expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                time_remaining = expiry_info["display"]
-
                 return {
                     "status": "authenticated",
-                    "message": f"Authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                    "token_expiry": self.token_manager.token_expiry,
-                    "expiry_datetime": expiry_str,
-                    **expiry_info,
+                    "message": "Already authenticated with Microsoft Graph.",
                 }
 
             # Not authenticated, proceed to load device flow from disk
@@ -561,7 +477,7 @@ class DeviceFlowManager:
                     self.token_manager.delete_device_flow(device_code)
                     self.device_flow = None
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": "The device code has expired. Please call login again to start a new authentication.",
                     }
                 self.device_flow = loaded_flow
@@ -570,25 +486,14 @@ class DeviceFlowManager:
                 # Try loading tokens to see if authentication was already completed
                 self.token_manager.load_tokens_from_disk()
                 if self.token_manager.authenticated and self.token_manager.access_token:
-                    expiry_info = self.token_manager.get_token_expiry_info()
-                    expiry_datetime = datetime.datetime.fromtimestamp(
-                        self.token_manager.token_expiry
-                    )
-                    expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                    time_remaining = expiry_info["display"]
-
                     return {
                         "status": "authenticated",
-                        "message": f"Authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                        "token_expiry": self.token_manager.token_expiry,
-                        "expiry_datetime": expiry_str,
-                        **expiry_info,
+                        "message": "Already authenticated with Microsoft Graph.",
                     }
                 else:
                     self.device_flow = None
                     return {
-                        "status": "failed",
+                        "status": "not_authenticated",
                         "message": "Device flow not found. Please call login again to start a new authentication.",
                     }
 
@@ -616,32 +521,21 @@ class DeviceFlowManager:
                         self.token_manager.authenticated
                         and self.token_manager.access_token
                     ):
-                        expiry_info = self.token_manager.get_token_expiry_info()
-                        expiry_datetime = datetime.datetime.fromtimestamp(
-                            self.token_manager.token_expiry
-                        )
-                        expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                        time_remaining = expiry_info["display"]
-
                         return {
                             "status": "authenticated",
-                            "message": f"Authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                            "token_expiry": self.token_manager.token_expiry,
-                            "expiry_datetime": expiry_str,
-                            **expiry_info,
+                            "message": "Already authenticated with Microsoft Graph.",
                         }
                     else:
                         self.device_flow = None
                         return {
-                            "status": "failed",
+                            "status": "not_authenticated",
                             "message": "Device flow was already used but no valid token found. Please call login again to start a new authentication.",
                         }
 
                 try:
                     result = await self.check_authentication_status()
 
-                    if result.get("status") == "success":
+                    if result.get("status") == "authenticated":
                         # Tokens already saved to disk by check_authentication_status
                         # Delete the device flow from disk since authentication is complete
                         if flow_device_code:
@@ -668,34 +562,23 @@ class DeviceFlowManager:
                             self.token_manager.authenticated
                             and self.token_manager.access_token
                         ):
-                            expiry_info = self.token_manager.get_token_expiry_info()
-                            expiry_datetime = datetime.datetime.fromtimestamp(
-                                self.token_manager.token_expiry
-                            )
-                            expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-                            time_remaining = expiry_info["display"]
-
                             # Delete the device flow from disk since authentication is complete
                             if flow_device_code:
                                 self.token_manager.delete_device_flow(flow_device_code)
 
                             return {
-                                "status": "success",
-                                "message": f"Successfully authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-                                "token_expiry": self.token_manager.token_expiry,
-                                "expiry_datetime": expiry_str,
-                                **expiry_info,
+                                "status": "authenticated",
+                                "message": "Successfully authenticated with Microsoft Graph.",
                             }
                         else:
                             return {
-                                "status": "failed",
+                                "status": "not_authenticated",
                                 "message": "Authentication code was already used but no valid token found. Please call login again to start a new authentication.",
                             }
                     else:
                         # For other errors, return the error message
                         return {
-                            "status": "failed",
+                            "status": "not_authenticated",
                             "message": f"Authentication failed: {error_msg}",
                         }
         else:
@@ -710,26 +593,9 @@ class DeviceFlowManager:
                 "message": "Not authenticated with Microsoft Graph. Please call the login tool first.",
             }
 
-        if time.time() >= self.token_manager.token_expiry - 60:
-            return {
-                "status": "expired",
-                "message": "Authentication token has expired. Please call the login tool to re-authenticate.",
-            }
-
-        expiry_info = self.token_manager.get_token_expiry_info()
-        expiry_datetime = datetime.datetime.fromtimestamp(
-            self.token_manager.token_expiry
-        )
-        expiry_str = expiry_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-        time_remaining = expiry_info["display"]
-
         return {
             "status": "authenticated",
-            "message": f"Authenticated with Microsoft Graph. Token expires in {time_remaining} at {expiry_str}",
-            "token_expiry": self.token_manager.token_expiry,
-            "expiry_datetime": expiry_str,
-            **expiry_info,
+            "message": "Already authenticated with Microsoft Graph.",
         }
 
     def clear_device_flow(self) -> None:

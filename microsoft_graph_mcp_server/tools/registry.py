@@ -111,9 +111,9 @@ class ToolRegistry:
             description="Manage authentication with Microsoft Graph. Four simple actions:\n\n"
             "• 'start' - Start login flow, returns verification URL and code to enter in browser\n"
             "• 'complete' - Complete login after browser authentication (auto-loads device code)\n"
-            "• 'refresh' - Check auth status: if valid returns authenticated; if expired tries auto-refresh\n"
+            "• 'check_status' - Check auth status: returns authenticated or need login\n"
             "• 'logout' - Clear all authentication tokens\n\n"
-            "WHEN AUTHENTICATION NEEDED: Always try 'refresh' FIRST. If it fails (no token or expired), then call 'start'.\n\n"
+            "WHEN AUTHENTICATION NEEDED: Always try 'check_status' FIRST. If it fails (no token or expired), then call 'start'.\n\n"
             "WORKFLOW:\n"
             "1. Call auth action='start' → get URL and code\n"
             "2. Open URL in browser, enter the code, complete Microsoft login\n"
@@ -121,7 +121,7 @@ class ToolRegistry:
             "AUTO-REFRESH: Access tokens auto-refresh when expired (no user action needed). "
             "Refresh tokens are valid for ~90 days.\n\n"
             "Returns:\n"
-            "- refresh: {status: string, authenticated: boolean, message: string}\n"
+            "- check_status: {status: string, authenticated: boolean, message: string}\n"
             "- start: {status: string, verification_uri: string, user_code: string, message: string}\n"
             "- complete: {status: string, authenticated: boolean, message: string}\n"
             "- logout: {status: string, authenticated: false, message: string}",
@@ -130,8 +130,8 @@ class ToolRegistry:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["start", "complete", "refresh", "logout"],
-                        "description": "Action: 'start' to begin login (get URL/code), 'complete' to finish login after browser auth, 'refresh' to manually refresh token, 'logout' to sign out",
+                        "enum": ["start", "complete", "check_status", "logout"],
+                        "description": "Action: 'start' to begin login (get URL/code), 'complete' to finish login after browser auth, 'check_status' to check authentication status, 'logout' to sign out",
                     },
                 },
                 "required": ["action"],
