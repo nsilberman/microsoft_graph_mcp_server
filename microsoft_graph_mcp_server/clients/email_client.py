@@ -1851,6 +1851,53 @@ Subject: {original_subject}
 
         return await self.post("/me/sendMail", data={"message": message_data})
 
+    async def create_draft(
+        self,
+        to_recipients: List[str],
+        subject: str = "",
+        body: str = "",
+        cc_recipients: Optional[List[str]] = None,
+        bcc_recipients: Optional[List[str]] = None,
+        body_content_type: str = "Text",
+        importance: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a draft email message.
+
+        Args:
+            to_recipients: List of recipient email addresses
+            subject: Email subject
+            body: Email body content
+            cc_recipients: Optional list of CC recipient email addresses
+            bcc_recipients: Optional list of BCC recipient email addresses
+            body_content_type: Content type for body ('Text' or 'HTML')
+            importance: Optional importance level ('normal', 'high', 'low')
+
+        Returns:
+            Response from the Graph API containing the created draft message
+        """
+        message_data = {
+            "subject": subject,
+            "body": {"contentType": body_content_type, "content": body},
+            "toRecipients": [
+                {"emailAddress": {"address": email}} for email in to_recipients
+            ],
+        }
+
+        if cc_recipients:
+            message_data["ccRecipients"] = [
+                {"emailAddress": {"address": email}} for email in cc_recipients
+            ]
+
+        if bcc_recipients:
+            message_data["bccRecipients"] = [
+                {"emailAddress": {"address": email}} for email in bcc_recipients
+            ]
+
+        if importance:
+            message_data["importance"] = importance
+
+        return await self.post("/me/messages", data=message_data)
+
     async def batch_forward_emails(
         self,
         to_recipients: Optional[List[str]] = None,

@@ -22,6 +22,7 @@ class ToolRegistry:
             ToolRegistry.search_emails(),
             ToolRegistry.get_email_content(),
             ToolRegistry.send_email(),
+            ToolRegistry.create_draft(),
             ToolRegistry.browse_events(),
             ToolRegistry.get_event_detail(),
             ToolRegistry.search_events(),
@@ -408,6 +409,48 @@ class ToolRegistry:
                     },
                 },
                 "required": ["action", "htmlbody"],
+            },
+        )
+
+    @staticmethod
+    def create_draft() -> types.Tool:
+        """Create draft email tool definition."""
+        return types.Tool(
+            name="create_draft",
+            description="Create a draft email without sending it. The draft is saved to the Drafts folder and can be reviewed and sent later from the email client. Supports multiple recipients, CC, and BCC. The htmlbody parameter accepts HTML format for rich email content. Returns: the created draft message object.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "to": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of recipient email addresses",
+                    },
+                    "subject": {
+                        "type": "string",
+                        "description": "Email subject",
+                    },
+                    "htmlbody": {
+                        "type": "string",
+                        "description": "Email body content in HTML format. IMPORTANT HTML FORMATTING RULES: (1) Do NOT use <br> between <p> tags - use </p><p> directly for paragraph separation. (2) Do NOT add newlines or whitespace between HTML block elements. (3) Use <p> for paragraphs, <strong>/<em> for emphasis, <ul>/<li> for lists. (4) Only use <br> for line breaks WITHIN a paragraph.",
+                    },
+                    "cc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of CC recipient email addresses (optional)",
+                    },
+                    "bcc": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of BCC recipient email addresses (optional)",
+                    },
+                    "importance": {
+                        "type": "string",
+                        "enum": ["normal", "high", "low"],
+                        "description": "Email importance level: 'normal' (default), 'high', or 'low' (optional)",
+                    },
+                },
+                "required": ["to", "subject", "htmlbody"],
             },
         )
 
