@@ -324,6 +324,32 @@ class EmailHandler(BaseHandler):
 
         return self._format_response(f"Email sent successfully: {result}")
 
+    async def handle_create_draft(self, arguments: dict) -> list[types.TextContent]:
+        """Handle create_draft tool."""
+        to_recipients = arguments["to"]
+        subject = arguments["subject"]
+        body = normalize_email_html(arguments["htmlbody"])
+        cc_recipients = arguments.get("cc")
+        bcc_recipients = arguments.get("bcc")
+        importance = arguments.get("importance")
+
+        success, result, error = await self._handle_auth_error(
+            lambda: graph_client.create_draft(
+                to_recipients=to_recipients,
+                subject=subject,
+                body=body,
+                cc_recipients=cc_recipients,
+                bcc_recipients=bcc_recipients,
+                body_content_type="HTML",
+                importance=importance,
+            ),
+            "creating draft email",
+        )
+        if not success:
+            return self._format_error(error)
+
+        return self._format_response(f"Draft email created successfully: {result}")
+
     async def _handle_reply_email(self, arguments: dict) -> list[types.TextContent]:
         """Handle reply email action.
 
